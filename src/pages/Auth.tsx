@@ -130,9 +130,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       onClick={() => navigate("/")}
                     />
                   </div>
-                <CardTitle className="text-xl">Get Started</CardTitle>
+                <CardTitle className="text-xl">Sign in to Notary Doc Builder</CardTitle>
                 <CardDescription>
-                  Enter your email to log in or sign up
+                  Office staff sign in with their work email — we'll send a one-time code.
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleEmailSubmit}>
@@ -187,7 +187,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       disabled={isLoading}
                     >
                       <UserX className="mr-2 h-4 w-4" />
-                      Continue as Guest
+                      Continue as guest
                     </Button>
                   </div>
                 </CardContent>

@@ -1,9 +1,14 @@
-# Nootaayada — Notary Document Assembly (Phase 1 MVP)
+# Notary Doc Builder — Contract Assembly for the Notary Office (Phase 1)
 
-Web application loogu talagalay xafiisyada nootaayada oo u shaqeeya sida
-Docassemble, laakiin si gaar ah loogu habeeyey **samaynta iyo kaydinta
-heshiisyada**. Phase 1 wuxuu taageeraa hal document type: **HESHIIS KIRO**
-(Guri Xaas, Qol Meherad, Jiingad).
+Notary Doc Builder is an internal web application for our office team. It
+works like Docassemble but is purpose-built for **assembling and archiving
+contracts**. Phase 1 supports one document type: **HESHIIS KIRO** (rental
+contract: Guri Xaas, Qol Meherad, Jiingad).
+
+Beyond document assembly, the workspace includes a searchable **archive**, a
+**signing schedule**, a **team board** for office notices, **comments** on
+every document, a **catalog** of ready and planned contract types, and an
+**admin area** with a workspace-wide overview.
 
 Workflow:
 
@@ -138,12 +143,16 @@ bun tsc -b --noEmit
 
 ## Pages
 
-| Route | Waxa ay sameyso |
+| Route | What it does |
 |---|---|
-| `/` | Landing page (Notebook theme) |
-| `/auth` | Sign in / Sign up |
-| `/dashboard` | Nootaayada — cards, recent documents |
-| `/new` | Doorno document type + sub-type |
-| `/documents/:docId` | Interview (10 steps) + Review & Generate |
-| `/archive` | Kaydka Heshiisyada (search/filter) |
-| `/archive/:docId` | Document detail + download |
+| `/` | Landing page (notebook theme) |
+| `/auth` | Sign in / sign up (email code or guest) |
+| `/dashboard` | Workspace overview — stats, areas, recent documents, upcoming signings |
+| `/new` | Choose document type + sub-type |
+| `/documents/:docId` | The guided interview (10 steps) + review & generate |
+| `/archive` | Archive (search / filter / open) |
+| `/archive/:docId` | Document detail: parties, stored answers, DOCX download, comments |
+| `/catalog` | Browse all document types — ready and planned |
+| `/schedule` | Book and manage signing appointments |
+| `/board` | Team board — short internal posts |
+| `/admin` | Workspace-wide overview and cleanup controls |

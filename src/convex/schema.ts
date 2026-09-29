@@ -70,6 +70,44 @@ const schema = defineSchema(
       key: v.string(),
       value: v.number(),
     }).index("by_key", ["key"]),
+
+    // Team scheduling: signing appointments, optionally tied to a document.
+    notary_appointments: defineTable({
+      userId: v.id("users"),
+      documentId: v.optional(v.id("notary_documents")),
+      title: v.string(),
+      /** ISO date "YYYY-MM-DD". */
+      date: v.string(),
+      /** 24h time "HH:MM". */
+      time: v.string(),
+      location: v.optional(v.string()),
+      notes: v.optional(v.string()),
+      status: v.union(
+        v.literal("scheduled"),
+        v.literal("completed"),
+        v.literal("cancelled"),
+      ),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_created", ["userId", "createdAt"]),
+
+    // Team board: short internal posts by team members.
+    notary_posts: defineTable({
+      userId: v.id("users"),
+      title: v.string(),
+      body: v.string(),
+      createdAt: v.number(),
+    }).index("by_created", ["createdAt"]),
+
+    // Comment thread attached to a document.
+    notary_comments: defineTable({
+      documentId: v.id("notary_documents"),
+      userId: v.id("users"),
+      body: v.string(),
+      createdAt: v.number(),
+    }).index("by_document", ["documentId", "createdAt"]),
   },
   {
     schemaValidation: false,

@@ -18,6 +18,10 @@ const NewDocument = lazy(() => import("./pages/NewDocument.tsx"));
 const NewDocumentInterview = lazy(() => import("./pages/NewDocumentInterview.tsx"));
 const Archive = lazy(() => import("./pages/Archive.tsx"));
 const DocumentDetailPage = lazy(() => import("./pages/DocumentDetail.tsx"));
+const Catalog = lazy(() => import("./pages/Catalog.tsx"));
+const Schedule = lazy(() => import("./pages/Schedule.tsx"));
+const TeamBoard = lazy(() => import("./pages/TeamBoard.tsx"));
+const Admin = lazy(() => import("./pages/Admin.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -165,6 +169,38 @@ createRoot(document.getElementById("root")!).render(
                 element={
                   <RequireAuth>
                     <DocumentDetailPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/catalog"
+                element={
+                  <RequireAuth>
+                    <Catalog />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/schedule"
+                element={
+                  <RequireAuth>
+                    <Schedule />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/board"
+                element={
+                  <RequireAuth>
+                    <TeamBoard />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <RequireAuth>
+                    <Admin />
                   </RequireAuth>
                 }
               />

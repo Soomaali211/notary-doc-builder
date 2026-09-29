@@ -45,6 +45,10 @@
   --color-margin: var(--margin);
   --color-ink: var(--ink);
   --color-highlight: var(--highlight);
+  --color-pen-red: var(--margin);
+  --color-pen-green: var(--pen-green);
+  --color-pen-purple: var(--pen-purple);
+  --color-pen-orange: var(--pen-orange);
 }
 
 /* CHANGE VALUES FOR THEME — Notebook: cream paper, blue ink, red margin, highlighter */
@@ -72,6 +76,9 @@
   --margin: oklch(0.63 0.19 25);                /* red margin line */
   --ink: oklch(0.33 0.05 256);                  /* handwriting ink */
   --highlight: oklch(0.93 0.13 99);             /* marker yellow */
+  --pen-green: oklch(0.55 0.13 155);            /* green grading pen */
+  --pen-purple: oklch(0.52 0.17 305);           /* purple felt-tip */
+  --pen-orange: oklch(0.66 0.15 55);            /* orange marker */
   --chart-1: oklch(0.44 0.13 256);
   --chart-2: oklch(0.6 0.12 165);
   --chart-3: oklch(0.55 0.21 27);
@@ -110,6 +117,9 @@
   --margin: oklch(0.62 0.16 25);
   --ink: oklch(0.82 0.05 255);
   --highlight: oklch(0.62 0.1 99);
+  --pen-green: oklch(0.74 0.12 155);
+  --pen-purple: oklch(0.72 0.13 305);
+  --pen-orange: oklch(0.78 0.12 60);
   --chart-1: oklch(0.72 0.11 255);
   --chart-2: oklch(0.7 0.1 165);
   --chart-3: oklch(0.66 0.18 27);
@@ -190,6 +200,38 @@
     transparent 12%,
     color-mix(in oklab, var(--highlight) 75%, transparent) 12%,
     color-mix(in oklab, var(--highlight) 75%, transparent) 88%,
+    transparent 88%
+  );
+  padding: 0 0.15em;
+}
+
+/* Colored highlighter sweeps for accents */
+.hl-blue {
+  background-image: linear-gradient(
+    to bottom,
+    transparent 12%,
+    color-mix(in oklab, var(--primary) 30%, transparent) 12%,
+    color-mix(in oklab, var(--primary) 30%, transparent) 88%,
+    transparent 88%
+  );
+  padding: 0 0.15em;
+}
+.hl-green {
+  background-image: linear-gradient(
+    to bottom,
+    transparent 12%,
+    color-mix(in oklab, var(--pen-green) 32%, transparent) 12%,
+    color-mix(in oklab, var(--pen-green) 32%, transparent) 88%,
+    transparent 88%
+  );
+  padding: 0 0.15em;
+}
+.hl-pink {
+  background-image: linear-gradient(
+    to bottom,
+    transparent 12%,
+    color-mix(in oklab, var(--pen-purple) 28%, transparent) 12%,
+    color-mix(in oklab, var(--pen-purple) 28%, transparent) 88%,
     transparent 88%
   );
   padding: 0 0.15em;

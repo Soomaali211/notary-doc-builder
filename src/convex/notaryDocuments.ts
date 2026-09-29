@@ -165,6 +165,31 @@ export const deleteDraft = mutation({
   },
 });
 
+/** Admin surface (team-trusted internal tool): every document in the workspace. */
+export const listAllDocuments = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return [];
+    return await ctx.db.query("notary_documents").order("desc").collect();
+  },
+});
+
+/** Admin surface: delete any draft (never a generated document). */
+export const adminDeleteDraft = mutation({
+  args: { documentId: v.id("notary_documents") },
+  handler: async (ctx, { documentId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not signed in");
+    const doc = await ctx.db.get(documentId);
+    if (!doc) throw new Error("Document not found");
+    if (doc.status !== "draft") {
+      throw new Error("Kaliya draft-yada ayaa la tirtiri karo.");
+    }
+    await ctx.db.delete(documentId);
+  },
+});
+
 /* ------------------------------------------------------------------ */
 /* Generation (action) — rollback-safe                                 */
 /* ------------------------------------------------------------------ */

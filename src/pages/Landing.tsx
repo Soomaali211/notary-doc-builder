@@ -4,51 +4,58 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import {
   ArrowRight,
-  CheckCircle2,
+  CalendarClock,
   FileSignature,
   FolderOpen,
   Layers,
+  MessagesSquare,
   PenLine,
   ShieldCheck,
 } from "lucide-react";
 
 const steps = [
-  { title: "Dooro", note: "Heshiis Kiro → Guri Xaas / Qol / Jiingad" },
-  { title: "Buuxi", note: "Waraysi 10-tallaabood ah, xisbiyo dynamic" },
-  { title: "Xaqiiji", note: "Dib u eegis + validation Somali" },
-  { title: "Abuur", note: "DOCX ka template-kaada Word" },
+  { title: "Choose", note: "Heshiis Kiro → Guri Xaas, Qol Meherad, or Jiingad" },
+  { title: "Fill", note: "A guided 10-step interview with dynamic parties" },
+  { title: "Verify", note: "Review page with validation in Somali" },
+  { title: "Build", note: "DOCX assembled from your own Word template" },
 ];
 
 const features = [
   {
     icon: PenLine,
-    title: "Waraysi Hagid ah",
-    text: "Sections la kala soocay, Next/Back, progress indicator, iyo conditional questions (Deebaaji, Damiin).",
+    title: "Guided interviews",
+    text: "Ten ordered sections, Next/Back navigation, a live progress bar, and conditional questions that only appear when they matter.",
+    hl: "hl-blue",
   },
   {
     icon: Layers,
-    title: "Xisbiyo Dynamic ah",
-    text: "Ku dar Kireeye, Kirayste, iyo Marag — tiradooda ma noqonayo mid hard-coded ah.",
+    title: "Dynamic parties",
+    text: "Add as many lessors, lessees, and witnesses as the contract needs — nothing is hard-coded, add or remove rows freely.",
+    hl: "hl-green",
   },
   {
     icon: FileSignature,
-    title: "Word Template-kaada",
-    text: "System-ku kaliya wuxuu buuxinayaa {{PLACEHOLDERS}}-ka template-kaaga — design-ka waa midkaaga.",
+    title: "Your Word template",
+    text: "The builder only fills the placeholders in your office's template. The document design stays exactly as you made it.",
+    hl: "hl-pink",
   },
   {
     icon: FolderOpen,
-    title: "Kayd & Raadin",
-    text: "Dukumeenti kasta waa la kaydiyaa: raadi, filter, fur, iyo soo deji markasta.",
+    title: "Archive and search",
+    text: "Every generated contract is stored with its parties and reference number, ready to open, comment on, or download again.",
+    hl: "hl-blue",
   },
   {
-    icon: ShieldCheck,
-    title: "Xaqiijin & Badbaadin",
-    text: "Validation Somali, safe file naming, iyo xogtaada luma ma doorto generation fashilmo.",
+    icon: CalendarClock,
+    title: "Signing schedule",
+    text: "Book signing appointments against a document so the whole team knows when and where each contract gets signed.",
+    hl: "hl-green",
   },
   {
-    icon: CheckCircle2,
-    title: "Heshiis Kiro",
-    text: "Guri Xaas, Qol Meherad, Jiingad — dhammaan shuruudaha Phase 1.",
+    icon: MessagesSquare,
+    title: "Team board and comments",
+    text: "Post office notices on the shared board and keep the discussion on each contract in its own comment thread.",
+    hl: "hl-pink",
   },
 ];
 
@@ -63,65 +70,66 @@ export default function Landing() {
       className="notebook-bg min-h-screen"
     >
       {/* Nav */}
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
-        <span className="flex items-center gap-2 font-bold tracking-tight">
-          <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <PenLine className="size-4" />
+      <header className="border-b border-border/70 bg-card/70 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+          <span className="flex items-center gap-2 font-bold tracking-tight">
+            <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <PenLine className="size-4" />
+            </span>
+            Notary Doc Builder
           </span>
-          Nootaayada
-        </span>
-        <nav className="flex items-center gap-2">
-          {!isLoading && isAuthenticated ? (
-            <Button asChild className="gap-1.5">
-              <Link to="/dashboard">
-                Dashboard <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-          ) : (
-            <>
-              <Button asChild variant="ghost">
-                <Link to="/auth">Soo gal</Link>
-              </Button>
+          <nav className="flex items-center gap-2">
+            {!isLoading && isAuthenticated ? (
               <Button asChild className="gap-1.5">
-                <Link to="/auth">
-                  Bilow <ArrowRight className="size-4" />
+                <Link to="/dashboard">
+                  Open workspace <ArrowRight className="size-4" />
                 </Link>
               </Button>
-            </>
-          )}
-        </nav>
+            ) : (
+              <>
+                <Button asChild variant="ghost">
+                  <Link to="/auth">Log in</Link>
+                </Button>
+                <Button asChild className="gap-1.5">
+                  <Link to="/auth">
+                    Get started <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+              </>
+            )}
+          </nav>
+        </div>
       </header>
 
       {/* Hero */}
-      <section className="mx-auto max-w-6xl px-4 pt-10 pb-16 sm:pt-16">
+      <section className="mx-auto max-w-6xl px-4 pt-12 pb-16 sm:pt-20">
         <div className="grid items-center gap-10 lg:grid-cols-2">
           <div>
-            <p className="notebook-annotation inline-block -rotate-1 rounded bg-highlight/30 px-2 py-0.5 text-sm">
-              phase 1 — heshiis kiro
+            <p className="notebook-annotation inline-block -rotate-1 rounded bg-highlight/40 px-2 py-0.5 text-sm">
+              built for our office team
             </p>
             <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
-              Heshiisyada kiro ee{" "}
-              <span className="highlight-sweep">nuqul la'aan</span> —
-              buuxi, abuur, kaydi.
+              Rental contracts,{" "}
+              <span className="highlight-sweep">assembled</span> — not retyped.
             </h1>
             <p className="mt-4 max-w-lg text-base leading-7 text-muted-foreground">
-              Nootaayada waa system assembly dukumeenti oo u shaqeeya sida
-              Docassemble — laakiin si gaar ah loogu habeeyey samaynta iyo
-              kaydinta heshiisyada xafiiska nootaayada.
+              Notary Doc Builder turns the office's rental contract into a
+              guided interview. Answer the questions once and a finished DOCX
+              comes out of your own Word template, archived and searchable for
+              the whole team.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild size="lg" className="gap-2">
                 <Link to="/auth">
-                  Bilow Heshiis Kiro <ArrowRight className="size-4" />
+                  Open the workspace <ArrowRight className="size-4" />
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline">
-                <Link to="/auth">Xafiiska — soo gal</Link>
+                <Link to="/auth">Log in to your account</Link>
               </Button>
             </div>
             <p className="notebook-annotation mt-4 text-xs text-muted-foreground">
-              * Word template-ka waxaa iska leh xafiiska — system-ku wuxuu kaliya
-              buuxinayaa placeholders-ka.
+              * Internal tool — accounts are for office staff only.
             </p>
           </div>
 
@@ -134,21 +142,21 @@ export default function Landing() {
           >
             <div className="notebook-page paper-grain spiral-edge rounded-md p-6 sm:p-8">
               <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                Heshiis Kiro — tallaabada 2/10
+                Heshiis Kiro — step 2 of 10
               </p>
               <div className="mt-3 h-1.5 w-full overflow-hidden rounded bg-muted">
                 <div className="h-full w-1/5 rounded bg-primary" />
               </div>
-              <p className="mt-6 text-sm font-semibold">Kireeyaha</p>
+              <p className="mt-6 text-sm font-semibold">Kireeyaha (the lessor)</p>
               <div className="mt-3 space-y-3">
                 <div className="rounded border border-border/80 bg-card/70 px-3 py-2 text-sm">
-                  Magaca Buuxa <span className="notebook-annotation text-muted-foreground">— Cabdi Xasan</span>
+                  Full name <span className="notebook-annotation text-muted-foreground">— Cabdi Xasan</span>
                 </div>
                 <div className="rounded border border-border/80 bg-card/70 px-3 py-2 text-sm">
-                  Telefoon <span className="notebook-annotation text-muted-foreground">— +252 61 5551234</span>
+                  Phone <span className="notebook-annotation text-muted-foreground">— +252 61 5551234</span>
                 </div>
                 <div className="rounded border border-border/80 bg-card/70 px-3 py-2 text-sm">
-                  Aqoonsi <span className="notebook-annotation text-muted-foreground">— ID-8842</span>
+                  ID number <span className="notebook-annotation text-muted-foreground">— ID-8842</span>
                 </div>
               </div>
               <div className="mt-4 flex items-center justify-between">
@@ -157,12 +165,12 @@ export default function Landing() {
                   Next →
                 </span>
               </div>
-              <p className="notebook-annotation mt-4 text-xs text-muted-foreground">
-                + Ku dar Kireeye · + Ku dar Marag
+              <p className="notebook-annotation mt-4 text-xs text-primary">
+                + Add another lessor · + Add a witness
               </p>
             </div>
-            <p className="notebook-annotation absolute -bottom-5 right-4 rotate-2 text-sm text-primary">
-              waa mid dhab ah oo buuxa! ✓
+            <p className="notebook-annotation absolute -bottom-5 right-4 rotate-2 text-sm text-pen-green">
+              every placeholder filled ✓
             </p>
           </motion.div>
         </div>
@@ -188,12 +196,12 @@ export default function Landing() {
       {/* Features */}
       <section className="mx-auto max-w-6xl px-4 py-16">
         <h2 className="text-2xl font-bold tracking-tight">
-          Sida <span className="highlight-sweep">nidaamku</span> u shaqeeyo
+          Everything the office needs, <span className="hl-green">in one notebook</span>
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Engine-ku waa configuration-driven: document type kasta (Heshiis Deyn,
-          Wakiilnimo, Kala Iibsi Hanti…) wuxuu noqon karaa config cusub —
-          code-ka engine-ka lama bedelin.
+          Contracts, scheduling, the archive, and the team's notices live in one
+          place. The engine behind it is configuration-driven, so new contract
+          types slot in without rewriting the app.
         </p>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((f) => (
@@ -201,8 +209,8 @@ export default function Landing() {
               key={f.title}
               className="notebook-page paper-grain rounded-md p-5 transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
-              <div className="mb-3 flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <f.icon className="size-4" />
+              <div className={`mb-3 inline-flex items-center justify-center rounded-md px-2 py-1`}>
+                <f.icon className={`size-4 ${f.hl === "hl-blue" ? "text-primary" : f.hl === "hl-green" ? "text-pen-green" : "text-pen-purple"}`} />
               </div>
               <p className="font-semibold">{f.title}</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">{f.text}</p>
@@ -215,15 +223,15 @@ export default function Landing() {
       <section className="border-t border-border/70 bg-card/40">
         <div className="mx-auto max-w-6xl px-4 py-14 text-center">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Diyaar tahay inaad abuurto heshiiska ugu horreeya?
+            Ready to build your first contract?
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-            Ku bilow xafiiska — dooro Heshiis Kiro, buuxi waraysiga, iyo DOCX-ga
-            waa la abuuraa si toos ah.
+            Log in, pick Heshiis Kiro, work through the interview, and the
+            finished DOCX is ready to download and archive in minutes.
           </p>
           <Button asChild size="lg" className="mt-6 gap-2">
             <Link to="/auth">
-              Gal xafiiska <ArrowRight className="size-4" />
+              Get started <ArrowRight className="size-4" />
             </Link>
           </Button>
         </div>
@@ -231,7 +239,7 @@ export default function Landing() {
 
       <footer className="border-t border-border/70 py-6 text-center">
         <p className="notebook-annotation text-xs text-muted-foreground">
-          Nootaayada — Document Assembly for Notaries · Phase 1 MVP
+          Notary Doc Builder · internal contract assembly for the notary office
         </p>
       </footer>
     </motion.div>

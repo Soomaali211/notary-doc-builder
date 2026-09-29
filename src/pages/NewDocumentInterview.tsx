@@ -277,7 +277,14 @@ export default function NewDocumentInterview() {
 
   return (
     <main className="notebook-bg min-h-screen pb-24">
-      <div className="mx-auto max-w-6xl px-4 py-8">
+      <div className="mx-auto max-w-6xl px-4 pt-6">
+        <button
+          type="button"
+          onClick={() => navigate("/new")}
+          className="mb-3 flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+        >
+          ← Notary Doc Builder / New Document
+        </button>
         {/* Header */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
