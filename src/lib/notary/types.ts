@@ -150,7 +150,13 @@ export interface SectionDef {
 }
 
 /** How a value is rendered inside the generated document. */
-export type FormatKind = "text" | "currency" | "date" | "yes_no" | "number";
+export type FormatKind =
+  | "text"
+  | "currency"
+  | "currency_words"
+  | "date"
+  | "yes_no"
+  | "number";
 
 export interface FieldMapping {
   /** Form value key: a scalar path ("heshiiska.reference") or a
@@ -196,7 +202,7 @@ export interface DocumentConfig {
   subTypes: SelectOption[];
   /** Filename prefix, e.g. "Heshiis-Kiro". */
   fileNamePrefix: string;
-  /** Path of the .docx template, relative to /public. */
+  /** Legacy single-template path (Phase 1). Phase 3 uses `templates[]`. */
   templatePath: string;
   /** Reference number prefix, e.g. "DPN-K". */
   referencePrefix: string;
@@ -208,6 +214,69 @@ export interface DocumentConfig {
   /** Placeholder that receives the list of witnesses. */
   witnessPlaceholder?: string;
   witnessSeparator?: string;
+  /**
+   * Phase 3 — Template Registry source: one Word template per sub-type.
+   * Selection is automatic by sub-type and config-driven (never hard-coded).
+   */
+  templates?: TemplateSpec[];
+  /** Phase 3 — repeated blocks: {{#BLOCK_ID}}…{{/BLOCK_ID}} over a party list. */
+  repeatBlocks?: RepeatBlockMapping[];
+  /** Phase 3 — named boolean flags usable as {{IF:FLAG}}…{{ENDIF}}. */
+  conditionFlags?: Record<string, Condition>;
+  /** Phase 3 — configurable document formatting (dates, currency). */
+  format?: DocumentFormatConfig;
+}
+
+/* ------------------------------------------------------------------ */
+/* Phase 3 — template registry, blocks & formatting                    */
+/* ------------------------------------------------------------------ */
+
+export type TemplateStatus = "active" | "draft" | "retired";
+
+/** One registered Word template (per document type + sub-type). */
+export interface TemplateSpec {
+  templateId: string;
+  documentType: string;
+  subtype: string;
+  /** Human label, e.g. "Guri Xaas". */
+  name: string;
+  /** Public path served to the browser, e.g. "/templates/heshiis_kiro/guri_xaas.docx". */
+  filePath: string;
+  version: number;
+  status: TemplateStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * A repeated block in the template:
+ *   {{#MARAGYO}} {{NUMBER}}. {{MAGAC}} … {{/MARAGYO}}
+ * The body repeats once per filled row of the mapped party list; tokens
+ * inside resolve to that row's fields (case-insensitive). `aliases` map
+ * template token names to party field ids (e.g. PHONE → telefoon).
+ */
+export interface RepeatBlockMapping {
+  blockId: string;
+  partyId: string;
+  /** Placeholder receiving the 1-based item number (default NUMBER). */
+  numberPlaceholder?: string;
+  /** Token name → party field id, e.g. { PHONE: "telefoon" }. */
+  aliases?: Record<string, string>;
+}
+
+export interface CurrencyFormatConfig {
+  /** "symbol" → $500 · "code" → 500 USD · "words" → Shan Boqol Dollar. */
+  mode: "symbol" | "code" | "words";
+  symbol?: string;
+  code?: string;
+  /** Somali word for the currency in words-mode, e.g. "Dollar". */
+  wordsUnit?: string;
+}
+
+export interface DocumentFormatConfig {
+  /** "DD/MM/YYYY" (29/09/2026) · "D MMMM YYYY" (29 Sebtembar 2026) · ISO. */
+  dateFormat?: "DD/MM/YYYY" | "D MMMM YYYY" | "YYYY-MM-DD";
+  currency?: CurrencyFormatConfig;
 }
 
 /* ------------------------------------------------------------------ */
@@ -236,6 +305,14 @@ export interface FormValues {
 export type DocumentStatus = "draft" | "completed" | "generated" | "archived";
 
 /** Payload persisted with every draft / archive record. */
+export interface GeneratedDocumentMetadata {
+  templateId: string;
+  templateVersion: number;
+  outputDocxPath: string;
+  outputPdfPath?: string;
+  fileName: string;
+}
+
 export interface StoredDocumentPayload {
   documentType: string;
   documentTypeTitle: string;
