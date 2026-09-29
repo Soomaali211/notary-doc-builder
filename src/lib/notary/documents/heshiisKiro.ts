@@ -1,4 +1,23 @@
-import type { DocumentConfig } from "../types";
+import type { DocumentConfig, SelectOption } from "../types";
+
+const KIRO_SUBTYPES: SelectOption[] = [
+  { value: "guri_xaas", label: "Guri Xaas" },
+  { value: "qol_meherad", label: "Qol Meherad" },
+  { value: "jiingad", label: "Jiingad" },
+];
+
+const PAYMENT_METHODS: SelectOption[] = [
+  { value: "cash", label: "Cash (Lacag Cuskan)" },
+  { value: "bank", label: "Bank Transfer (Wareejin Bangi)" },
+  { value: "mobile", label: "Mobile Money (EVC / Sahal)" },
+];
+
+const PAYMENT_TIMING: SelectOption[] = [
+  { value: "muqadin", label: "MUQADIN — horay (bil kasta bilowga)" },
+  { value: "muakhir", label: "MU'AKHIR — dambe (dhamaadka bisha)" },
+];
+
+const PROPERTY_TYPES: SelectOption[] = KIRO_SUBTYPES;
 
 /**
  * Sample configuration: HESHIIS KIRO (rental contract).
@@ -18,11 +37,7 @@ export const heshiisKiroConfig: DocumentConfig = {
   requiresWitness: true,
   witnessPlaceholder: "{{MARAGYO_LIST}}",
   witnessSeparator: "\n",
-  subTypes: [
-    { value: "guri_xaas", label: "Guri Xaas" },
-    { value: "qol_meherad", label: "Qol Meherad" },
-    { value: "jiingad", label: "Jiingad" },
-  ],
+  subTypes: KIRO_SUBTYPES,
 
   sections: [
     {
@@ -32,13 +47,9 @@ export const heshiisKiroConfig: DocumentConfig = {
       fields: [
         { id: "reference", type: "text", label: "Nambarka Tixraaca (Reference Number)", placeholder: "Si toos ah ayaa la abuurayaa", optional: true, colSpan: 1 },
         { id: "taariikhda_heshiiska", type: "date", label: "Taariikhda Heshiiska", validation: { required: true } },
-        { id: "sub_type", type: "select", label: "Nooca Kiro (Sub-Type)", options: [
-          { value: "guri_xaas", label: "Guri Xaas" },
-          { value: "qol_meherad", label: "Qol Meherad" },
-          { value: "jiingad", label: "Jiingad" },
-        ], validation: { required: true }, hint: "Guri Xaas, Qol Meherad ama Jiingad" },
+        { id: "sub_type", type: "select", label: "Nooca Kiro (Sub-Type)", options: KIRO_SUBTYPES, validation: { required: true }, hint: "Guri Xaas, Qol Meherad ama Jiingad" },
         { id: "taariikhda_bilowga", type: "date", label: "Taariikhda Bilowga", validation: { required: true } },
-        { id: "taariikhda_dhammaadka", type: "date", label: "Taariikhda Dhammaadka / Mudada", validation: { required: true }, hint: "Waa inay ka dambeysaa taariikhda bilowga" },
+        { id: "taariikhda_dhammaadka", type: "date", label: "Taariikhda Dhammaadka / Mudada", validation: { required: true, notBefore: "taariikhda_bilowga" }, hint: "Waa inay ka dambeysaa taariikhda bilowga" },
         { id: "shuruudaha_gaarka_ah", type: "textarea", label: "Shuruudaha Gaarka ah (Special Terms)", optional: true, colSpan: 2, placeholder: "Shuruudaha gaarka ah ee heshiiskan…" },
       ],
     },
@@ -53,7 +64,6 @@ export const heshiisKiroConfig: DocumentConfig = {
           singular: "Kireeye",
           description: "Ku dar hal ama dhowr kireeye.",
           min: 1,
-          max: 10,
           fields: [
             { id: "magac", type: "text", label: "Magaca Buuxa", validation: { required: true }, placeholder: "Magaca kireeyaha" },
             { id: "telefoon", type: "phone", label: "Telefoon", validation: { required: true }, placeholder: "+252 61 5551234" },
@@ -76,7 +86,6 @@ export const heshiisKiroConfig: DocumentConfig = {
           singular: "Kirayste",
           description: "Ku dar hal ama dhowr kirayste.",
           min: 1,
-          max: 10,
           fields: [
             { id: "magac", type: "text", label: "Magaca Buuxa", validation: { required: true }, placeholder: "Magaca kiraystaha" },
             { id: "telefoon", type: "phone", label: "Telefoon", validation: { required: true }, placeholder: "+252 61 5551234" },
@@ -93,11 +102,7 @@ export const heshiisKiroConfig: DocumentConfig = {
       title: "Faahfaahinta Guriga",
       description: "Guriga la kiraynayo.",
       fields: [
-        { id: "nooca_guriga", type: "select", label: "Nooca Guriga", options: [
-          { value: "guri_xaas", label: "Guri Xaas" },
-          { value: "qol_meherad", label: "Qol Meherad" },
-          { value: "jiingad", label: "Jiingad" },
-        ], validation: { required: true } },
+        { id: "nooca_guriga", type: "select", label: "Nooca Guriga", options: PROPERTY_TYPES, validation: { required: true } },
         { id: "goobta", type: "text", label: "Goobta / Location", validation: { required: true }, placeholder: "Degmada, magaalada" },
         { id: "cinwaanka_guriga", type: "text", label: "Cinwaanka Guriga", validation: { required: true }, colSpan: 2 },
         { id: "sharraxaad", type: "textarea", label: "Sharraxaadda Guriga", optional: true, colSpan: 2, placeholder: "Tusaale: guri 3-qol ah, koronto, biyo…" },
@@ -110,17 +115,14 @@ export const heshiisKiroConfig: DocumentConfig = {
       description: "Qiimaha kirada iyo habka lacagta loo bixiyo.",
       fields: [
         { id: "qiimaha_bil_ka", type: "currency", label: "Qiimaha Kirada Bishii", validation: { required: true, min: 0 }, placeholder: "350" },
-        { id: "habka_bixinta", type: "select", label: "Habka Bixinta", options: [
-          { value: "cash", label: "Cash" },
-          { value: "bank", label: "Bank Transfer" },
-          { value: "mobile", label: "Mobile Money" },
-        ], validation: { required: true } },
+        { id: "habka_bixinta", type: "select", label: "Habka Bixinta", options: PAYMENT_METHODS, validation: { required: true }, order: 2 },
+        { id: "bangiga_magaca", type: "text", label: "Magaca Bangiga", visibleWhen: { op: "equals", field: "lacagta.habka_bixinta", value: "bank" }, optional: true, order: 3 },
+        { id: "bangiga_hisaabka", type: "text", label: "Nambarka Xisaabta", visibleWhen: { op: "equals", field: "lacagta.habka_bixinta", value: "bank" }, optional: true, order: 4 },
+        { id: "lacagta_hadhsan", type: "currency", label: "Lacagta Hadhsan (Hadhyay)", visibleWhen: { op: "contains", field: "lacagta.habka_bixinta", value: "partial" }, optional: true, order: 5, description: "Waa in lagu buuxiyaa haddii bixintu ay tahay mid qayb ah" },
         { id: "taariikhda_bixinta", type: "text", label: "Maalinta Bixinta (Bishii)", validation: { required: true }, placeholder: "Tusaale: 1aad ee bil kasta" },
-        { id: "bixinta_hore", type: "select", label: "Bixintu ma horay u tahay (MUQADIN) mise dambe (MU'AKHIR)?", options: [
-          { value: "muqadin", label: "MUQADIN — horay (bil kasta bilowga)" },
-          { value: "muakhir", label: "MU'AKHIR — dambe (dhamaadka bisha)" },
-        ], validation: { required: true }, hint: "Waxaa lagu qori doonaa heshiiska" },
-        { id: "faahfaahin_lacagta", type: "textarea", label: "Faahfaahin Lacagta Dheeraad ah", optional: true, colSpan: 2 },
+        { id: "bixinta_hore", type: "select", label: "Bixintu ma horay u tahay (MUQADIN) mise dambe (MU'AKHIR)?", options: PAYMENT_TIMING, validation: { required: true }, hint: "Waxaa lagu qori doonaa heshiiska", order: 6 },
+        { id: "damiin_jira", type: "yes_no", label: "Damiin ma jiraa?", order: 7, description: "Haddii aad doorato 'Haa', qaybta Damiinka ayaa muuqan doonta tallaabada xigta" },
+        { id: "faahfaahin_lacagta", type: "textarea", label: "Faahfaahin Lacagta Dheeraad ah", optional: true, colSpan: 2, order: 8 },
       ],
     },
     {
@@ -128,21 +130,23 @@ export const heshiisKiroConfig: DocumentConfig = {
       title: "Deebaaji",
       description: "Utility bills — koronto, biyo iyo wm.",
       fields: [
-        { id: "deebaaji_jira", type: "yesno", label: "Deebaaji ma jiraa?", validation: { required: true } },
-        { id: "lacagta_deebaajiga", type: "currency", label: "Lacagta Deebaajiga (bil kasta)", visibleWhen: { op: "equals", field: "deebaaji.deebaaji_jira", value: "yes" }, validation: { required: true, min: 0 } },
-        { id: "shuruudaha_deebaajiga", type: "textarea", label: "Shuruudaha Deebaajiga", visibleWhen: { op: "equals", field: "deebaaji.deebaaji_jira", value: "yes" }, optional: true, colSpan: 2, placeholder: "Cinwaanka meter-ka, mas'uuliyadda bixinta…" },
+        { id: "deebaaji_jira", type: "yes_no", label: "Deebaaji ma jiraa?", validation: { required: true } },
+        { id: "lacagta_deebaajiga", type: "currency", label: "Lacagta Deebaajiga (bil kasta)", visibleWhen: { op: "is_true", field: "deebaaji.deebaaji_jira" }, optional: true, requiredWhen: { op: "is_true", field: "deebaaji.deebaaji_jira" }, validation: { min: 0 } },
+        { id: "shuruudaha_deebaajiga", type: "textarea", label: "Shuruudaha Deebaajiga", visibleWhen: { op: "is_true", field: "deebaaji.deebaaji_jira" }, optional: true, colSpan: 2, placeholder: "Cinwaanka meter-ka, mas'uuliyadda bixinta…" },
       ],
     },
     {
       id: "damiinka",
       title: "Damiinka",
       description: "Guarantor — damiin optional ah.",
+      // Conditional SECTION: hidden entirely unless the Lacagta section's
+      // "Damiin ma jiraa?" toggle is answered Haa (Phase 2 requirement #7).
+      visibleWhen: { op: "is_true", field: "lacagta.damiin_jira" },
       fields: [
-        { id: "damiin_jira", type: "yesno", label: "Damiin ma jiraa?", validation: { required: true } },
-        { id: "damiin_magac", type: "text", label: "Magaca Damiinka", visibleWhen: { op: "equals", field: "damiinka.damiin_jira", value: "yes" }, validation: { required: true } },
-        { id: "damiin_telefoon", type: "phone", label: "Telefoonka Damiinka", visibleWhen: { op: "equals", field: "damiinka.damiin_jira", value: "yes" }, validation: { required: true } },
-        { id: "damiin_aqoonsi", type: "text", label: "Aqoonsiga Damiinka", visibleWhen: { op: "equals", field: "damiinka.damiin_jira", value: "yes" }, validation: { required: true } },
-        { id: "damiin_cinwaan", type: "text", label: "Cinwaanka Damiinka", visibleWhen: { op: "equals", field: "damiinka.damiin_jira", value: "yes" }, optional: true },
+        { id: "damiin_magac", type: "text", label: "Magaca Damiinka", validation: { required: true } },
+        { id: "damiin_telefoon", type: "phone", label: "Telefoonka Damiinka", validation: { required: true } },
+        { id: "damiin_aqoonsi", type: "text", label: "Aqoonsiga Damiinka", validation: { required: true } },
+        { id: "damiin_cinwaan", type: "text", label: "Cinwaanka Damiinka", optional: true },
       ],
     },
     {
@@ -166,7 +170,6 @@ export const heshiisKiroConfig: DocumentConfig = {
           singular: "Marag",
           description: "Ku dar hal ama dhowr marag.",
           min: 1,
-          max: 10,
           fields: [
             { id: "magac", type: "text", label: "Magaca Maraga", validation: { required: true } },
             { id: "telefoon", type: "phone", label: "Telefoon", optional: true },
@@ -247,13 +250,13 @@ export const heshiisKiroConfig: DocumentConfig = {
     },
     {
       placeholder: "{{CLAUSE_MUQADIN}}",
-      when: { op: "notEmpty", field: "lacagta.bixinta_hore" },
+      when: { op: "is_not_empty", field: "lacagta.bixinta_hore" },
       dynamic: { kind: "advance" },
       fallbackLines: [],
     },
     {
       placeholder: "{{CLAUSE_DHEERAAD}}",
-      when: { op: "notEmpty", field: "dheeraad.shuruudo_dheeraad" },
+      when: { op: "is_not_empty", field: "dheeraad.shuruudo_dheeraad" },
       dynamic: { kind: "custom" },
       fallbackLines: [],
     },

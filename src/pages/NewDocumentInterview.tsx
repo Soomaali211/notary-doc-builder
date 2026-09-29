@@ -10,20 +10,27 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FieldRenderer } from "@/components/notary/FieldRenderer";
 import { PartyListEditor } from "@/components/notary/PartyListEditor";
 import { getConfig, getSubTypeLabel } from "@/lib/notary/documents";
-import { evaluateCondition, makeGetter } from "@/lib/notary/conditions";
 import {
-  addPartyRow,
-  buildPartySummary,
-  createInitialValues,
-  getPartyRows,
-  getSectionValues,
-  removePartyRow,
-  updatePartyField,
-  updateSectionField,
-} from "@/lib/notary/formValues";
-import { collectFilledValues, validateDocument } from "@/lib/notary/validation";
+  addRepeatableItem,
+  canAddRepeatableItem,
+  createInterviewState,
+  deserializeDraft,
+  getAnswer,
+  getSections,
+  getVisibleFields,
+  getVisibleParties,
+  isInterviewComplete,
+  removeRepeatableItem,
+  setRepeatableAnswer,
+  setAnswer,
+  serializeDraft,
+  getPartySummary,
+  getReviewData,
+  validateSectionById,
+} from "@/lib/notary/engine";
+import { validateDocument } from "@/lib/notary/validation";
 import { buildFileBaseName, fillTemplate } from "@/lib/notary/template";
-import type { FormValues, SectionDef } from "@/lib/notary/types";
+import type { FormValues, PartyDef, SectionDef } from "@/lib/notary/types";
 import {
   ArrowLeft,
   ArrowRight,
@@ -31,6 +38,7 @@ import {
   ClipboardList,
   FileText,
   Loader2,
+  Save,
   PenLine,
 } from "lucide-react";
 
@@ -48,58 +56,49 @@ export default function NewDocumentInterview() {
   const [step, setStep] = useState(0);
   const [stepErrors, setStepErrors] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
   const hydratedRef = useRef(false);
   const savedRef = useRef(false);
+  const lastSavedJsonRef = useRef("");
 
   const config = useMemo(
     () => (document ? getConfig(document.documentType) : undefined),
     [document],
   );
 
-  // Hydrate once from the draft (or initialize fresh values). Stored
-  // drafts are merged over a fresh template so every section/party key
-  // always exists even if the config grew since the draft was saved.
+  // load_draft: hydrate once from the stored draft, merged over a fresh
+  // template via the engine so every section/party key always exists.
   useEffect(() => {
     if (!config || !document || hydratedRef.current) return;
     hydratedRef.current = true;
-    const fresh = createInitialValues(config);
-    if (document.valuesJson && document.valuesJson !== "{}") {
-      try {
-        const parsed = JSON.parse(document.valuesJson) as FormValues;
-        if (parsed && typeof parsed === "object") {
-          setValues({ ...fresh, ...parsed });
-          return;
-        }
-      } catch {
-        // fall through to fresh values
-      }
+    setValues(deserializeDraft(config, document.valuesJson));
+    if (document.status !== "draft") {
+      savedRef.current = true;
     }
-    setValues(fresh);
   }, [config, document]);
 
   const saveDraft = useMutation(api.notaryDocuments.saveDraft);
-  const lastSavedJsonRef = useRef<string>("");
 
-  // Autosave (debounced) — user data is never lost. Skips saves when the
-  // serialized values are unchanged so the reactive query refetch that
-  // follows a save cannot re-trigger another save (no loops).
-  useEffect(() => {
-    if (!values || !config || !document || !savedRef.current) return;
-    const json = JSON.stringify(values);
-    if (json === lastSavedJsonRef.current) return;
-    const handle = setTimeout(() => {
+  const persist = useCallback(
+    (next: FormValues) => {
+      if (!config || !document) return;
+      const json = serializeDraft(next);
+      if (json === lastSavedJsonRef.current) return;
       saveDraft({
         documentId: document._id,
         payload: {
           documentType: config.id,
           documentTypeTitle: config.title,
-          subType: getSectionValues(values, "heshiiska").sub_type || document.subType,
-          subTypeLabel:
-            getSubTypeLabel(config, getSectionValues(values, "heshiiska").sub_type || document.subType),
+          subType: getAnswer(next, "heshiiska", "sub_type") || document.subType,
+          subTypeLabel: getSubTypeLabel(
+            config,
+            getAnswer(next, "heshiiska", "sub_type") || document.subType,
+          ),
           referenceNumber: document.referenceNumber,
           fileBaseName:
-            document.fileBaseName || buildFileBaseName(config, document.referenceNumber || "DPN-K-000"),
-          parties: buildPartySummary(config, values),
+            document.fileBaseName ||
+            buildFileBaseName(config, document.referenceNumber || "DPN-K-000"),
+          parties: getPartySummary(config, next),
           valuesJson: json,
         },
       })
@@ -107,44 +106,18 @@ export default function NewDocumentInterview() {
           lastSavedJsonRef.current = json;
         })
         .catch(() => undefined);
-    }, 800);
-    return () => clearTimeout(handle);
-  }, [values, config, document, saveDraft]);
-
-  const nextReference = useMutation(api.notaryDocuments.nextReference);
-  const generateUploadUrl = useMutation(api.notaryDocuments.generateUploadUrl);
-  const commitGenerated = useMutation(api.notaryDocuments.commitGenerated);
-
-  const steps: SectionDef[] = config?.sections ?? [];
-  const totalSteps = steps.length + 1; // + review step
-  const isReview = step === steps.length;
-
-  const get = useMemo(
-    () => (values ? makeGetter(values) : () => undefined),
-    [values],
-  );
-
-  const visibleFields = useCallback(
-    (section: SectionDef) => {
-      if (!section.fields) return [];
-      return section.fields.filter(
-        (f) => !("visibleWhen" in f) || evaluateCondition(f.visibleWhen, get),
-      );
     },
-    [get],
+    [config, document, saveDraft],
   );
 
-  const validation = useMemo(
-    () => (values && config ? validateDocument(config, values) : {}),
-    [values, config],
-  );
+  // Autosave (debounced) — skips unchanged payloads to avoid loops.
+  useEffect(() => {
+    if (!values || !savedRef.current) return;
+    const handle = setTimeout(() => persist(values), 800);
+    return () => clearTimeout(handle);
+  }, [values, persist]);
 
-  const sectionHasErrors = useCallback(
-    (sectionId: string) => validation[sectionId] !== undefined,
-    [validation],
-  );
-
-  // Enable autosave only after the user has interacted (avoid empty overwrites).
+  // Mark interacted so autosave begins only after real user input.
   useEffect(() => {
     if (values && !savedRef.current) {
       const handle = setTimeout(() => (savedRef.current = true), 1200);
@@ -152,59 +125,69 @@ export default function NewDocumentInterview() {
     }
   }, [values]);
 
-  if (!document || !config || !values) {
-    return (
-      <main className="notebook-bg min-h-screen p-6">
-        <div className="mx-auto max-w-3xl space-y-4">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      </main>
-    );
-  }
+  const nextReference = useMutation(api.notaryDocuments.nextReference);
+  const generateUploadUrl = useMutation(api.notaryDocuments.generateUploadUrl);
+  const commitGenerated = useMutation(api.notaryDocuments.commitGenerated);
 
-  if (document.status === "generated") {
-    return (
-      <main className="min-h-screen p-6">
-        <div className="notebook-page paper-grain mx-auto max-w-xl rounded-md p-8 text-center">
-          <Check className="mx-auto size-8 text-primary" />
-          <h1 className="mt-3 text-xl font-semibold">Dukumeentigan horey loo sameeyay</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Waxaa lagu kaydiyay kaydka heshiisyada.
-          </p>
-          <Button className="mt-5" onClick={() => navigate(`/archive/${document._id}`)}>
-            Fur Kaydka
-          </Button>
-        </div>
-      </main>
-    );
-  }
+  const allSections: SectionDef[] = config?.sections ?? [];
+  const visibleSections = useMemo(
+    () => (values && config ? getSections(config, values) : []),
+    [config, values],
+  );
+  const totalSteps = visibleSections.length + 1; // + review step
+  const isReview = step >= visibleSections.length;
+  const currentSection = isReview ? null : visibleSections[step];
 
-  const currentSection = isReview ? null : steps[step];
+  const validation = useMemo(
+    () => (values && config ? validateDocument(config, values) : {}),
+    [values, config],
+  );
+
+  const completedSections = useMemo(
+    () =>
+      new Set(
+        visibleSections.filter((s) => !validation[s.id]).map((s) => s.id),
+      ),
+    [visibleSections, validation],
+  );
+
+  const handleSaveDraft = () => {
+    if (!values) return;
+    savedRef.current = true;
+    setSaving(true);
+    persist(values);
+    setTimeout(() => {
+      setSaving(false);
+      toast.success("Draft-ka waa la kaydiyay. Waqti kasta waad sii wadan kartaa.");
+    }, 400);
+  };
 
   const tryContinue = () => {
+    if (!values || !config) return;
     if (!currentSection) {
       setStepErrors(false);
       handleGenerate();
       return;
     }
-    const errs = validateDocument(config, values)[currentSection.id];
+    const errs = validateSectionById(config, values, currentSection.id);
     if (errs && (Object.keys(errs.fieldErrors).length || errs.general.length || Object.keys(errs.partyErrors).length)) {
       setStepErrors(true);
-      toast.error("Fadlan sax qaladaha ka hor intaadan sii wadin.");
+      toast.error("Waxaa jira xog aan dhammaystirnayn. Fadlan sax meelaha lagu calaamadeeyay.");
       return;
     }
     setStepErrors(false);
+    persist(values);
     setStep((s) => Math.min(s + 1, totalSteps - 1));
   };
 
   const handleGenerate = async () => {
+    if (!values || !config || !document) return;
     setGenerating(true);
     try {
       const allErrors = validateDocument(config, values);
       const errorSections = Object.keys(allErrors);
       if (errorSections.length > 0) {
-        const idx = steps.findIndex((s) => s.id === errorSections[0]);
+        const idx = visibleSections.findIndex((s) => s.id === errorSections[0]);
         if (idx >= 0) setStep(idx);
         setStepErrors(true);
         toast.error("Weli waxaa jira qalado — fadlan sax.");
@@ -212,17 +195,14 @@ export default function NewDocumentInterview() {
         return;
       }
 
-      // 1. Reference number (sequential per user).
       const referenceNumber =
         document.referenceNumber || (await nextReference({ prefix: config.referencePrefix }));
 
-      // 2. Fill the user's Word template.
       const templateRes = await fetch(config.templatePath);
       if (!templateRes.ok) throw new Error("Template lama helin");
       const templateBytes = await templateRes.arrayBuffer();
       const blob = await fillTemplate(templateBytes, config, values);
 
-      // 3. Immediate browser download (output/Kiro/ is mirrored by browser).
       const baseName = buildFileBaseName(config, referenceNumber);
       const a = window.document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -232,7 +212,6 @@ export default function NewDocumentInterview() {
       a.remove();
       URL.revokeObjectURL(a.href);
 
-      // 4. Upload + commit (rollback-safe: draft survives any failure below).
       const uploadUrl = await generateUploadUrl({});
       const uploadRes = await fetch(uploadUrl, {
         method: "POST",
@@ -248,15 +227,15 @@ export default function NewDocumentInterview() {
         payload: {
           documentType: config.id,
           documentTypeTitle: config.title,
-          subType: getSectionValues(values, "heshiiska").sub_type || document.subType,
+          subType: getAnswer(values, "heshiiska", "sub_type") || document.subType,
           subTypeLabel: getSubTypeLabel(
             config,
-            getSectionValues(values, "heshiiska").sub_type || document.subType,
+            getAnswer(values, "heshiiska", "sub_type") || document.subType,
           ),
           referenceNumber,
           fileBaseName: baseName,
-          parties: buildPartySummary(config, values),
-          valuesJson: JSON.stringify(values),
+          parties: getPartySummary(config, values),
+          valuesJson: serializeDraft(values),
         },
       });
 
@@ -272,8 +251,36 @@ export default function NewDocumentInterview() {
     }
   };
 
-  const filledSummary = isReview ? collectFilledValues(config, values) : [];
+  const reviewBlocks = isReview && values && config ? getReviewData(config, values) : [];
   const progressPct = Math.round(((step + 1) / totalSteps) * 100);
+
+  if (!document || !config || !values) {
+    return (
+      <main className="notebook-bg min-h-screen p-6">
+        <div className="mx-auto max-w-3xl space-y-4">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </main>
+    );
+  }
+
+  if (document.status === "generated") {
+    return (
+      <main className="notebook-bg min-h-screen p-6">
+        <div className="notebook-page paper-grain mx-auto max-w-xl rounded-md p-8 text-center">
+          <Check className="mx-auto size-8 text-pen-green" />
+          <h1 className="mt-3 text-xl font-semibold">Dukumeentigan horey loo sameeyay</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Waxaa lagu kaydiyay kaydka heshiisyada.
+          </p>
+          <Button className="mt-5" onClick={() => navigate(`/archive/${document._id}`)}>
+            Fur Kaydka
+          </Button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="notebook-bg min-h-screen pb-24">
@@ -285,21 +292,35 @@ export default function NewDocumentInterview() {
         >
           ← Notary Doc Builder / New Document
         </button>
+
         {/* Header */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="notebook-annotation text-sm text-muted-foreground">
-              {config.title} · {getSubTypeLabel(config, getSectionValues(values, "heshiiska").sub_type || document.subType)}
+              {config.title} · {getSubTypeLabel(config, getAnswer(values, "heshiiska", "sub_type") || document.subType)}
             </p>
             <h1 className="text-2xl font-bold tracking-tight">
               {isReview ? "Dib u Eegis & Abuur" : (currentSection?.title ?? "")}
             </h1>
           </div>
-          <div className="text-right">
-            <span className="highlight-sweep text-sm font-semibold">
-              Tallaabada {Math.min(step + 1, totalSteps)}/{totalSteps}
-            </span>
-            <Progress value={progressPct} className="mt-1 h-1.5 w-40" />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleSaveDraft}
+              disabled={generating}
+            >
+              {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+              Save Draft
+            </Button>
+            <div className="text-right">
+              <span className="highlight-sweep text-sm font-semibold">
+                Tallaabada {Math.min(step + 1, totalSteps)}/{totalSteps}
+              </span>
+              <Progress value={progressPct} className="mt-1 h-1.5 w-40" />
+            </div>
           </div>
         </div>
 
@@ -311,7 +332,7 @@ export default function NewDocumentInterview() {
                 <ClipboardList className="size-3.5" /> Tusmada
               </p>
               <ol className="space-y-0.5">
-                {steps.map((s, i) => (
+                {visibleSections.map((s, i) => (
                   <li key={s.id}>
                     <button
                       type="button"
@@ -326,14 +347,14 @@ export default function NewDocumentInterview() {
                     >
                       <span
                         className={`flex size-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
-                          i < step
-                            ? "border-primary bg-primary text-primary-foreground"
+                          completedSections.has(s.id)
+                            ? "border-pen-green bg-pen-green/10 text-pen-green"
                             : i === step
                               ? "border-primary text-primary"
                               : "border-border text-muted-foreground"
                         }`}
                       >
-                        {i < step ? <Check className="size-2.5" /> : i + 1}
+                        {completedSections.has(s.id) ? <Check className="size-2.5" /> : i + 1}
                       </span>
                       {s.title}
                     </button>
@@ -342,7 +363,7 @@ export default function NewDocumentInterview() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => step >= steps.length && setStep(steps.length)}
+                    onClick={() => step >= visibleSections.length && setStep(visibleSections.length)}
                     className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] ${
                       isReview
                         ? "bg-primary/10 font-semibold text-primary"
@@ -372,7 +393,7 @@ export default function NewDocumentInterview() {
                 </header>
 
                 <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
-                  {visibleFields(currentSection).map((field) => {
+                  {getVisibleFields(currentSection, values).map((field) => {
                     const err = stepErrors
                       ? validation[currentSection.id]?.fieldErrors[field.id]
                       : undefined;
@@ -380,11 +401,11 @@ export default function NewDocumentInterview() {
                       <FieldRenderer
                         key={field.id}
                         field={field}
-                        value={getSectionValues(values, currentSection.id)[field.id] ?? ""}
+                        value={getAnswer(values, currentSection.id, field.id)}
                         error={err}
                         onChange={(value) =>
                           setValues((v) =>
-                            updateSectionField(v!, currentSection.id, field.id, value),
+                            setAnswer(v!, currentSection.id, field.id, value),
                           )
                         }
                       />
@@ -392,8 +413,7 @@ export default function NewDocumentInterview() {
                   })}
                 </div>
 
-                {(currentSection.parties ?? []).map((partyDef) => {
-                  const rows = getPartyRows(values, partyDef.id);
+                {getVisibleParties(currentSection, values).map((partyDef) => {
                   const rowErrMap = Object.fromEntries(
                     (validation[currentSection.id]?.partyErrors[partyDef.id] ?? []).map(
                       (e) => [e.index, e.errors],
@@ -403,16 +423,17 @@ export default function NewDocumentInterview() {
                     <div key={partyDef.id} className="mt-6 border-t border-dashed border-border pt-5">
                       <PartyListEditor
                         partyDef={partyDef}
-                        rows={rows}
+                        rows={values[partyDef.id] as never}
                         errors={stepErrors ? rowErrMap : undefined}
+                        canAdd={canAddRepeatableItem(partyDef, values)}
                         onFieldChange={(rowIndex, fieldId, value) =>
                           setValues((v) =>
-                            updatePartyField(v!, partyDef.id, rowIndex, fieldId, value),
+                            setRepeatableAnswer(v!, partyDef.id, rowIndex, fieldId, value),
                           )
                         }
-                        onAdd={() => setValues((v) => addPartyRow(v!, partyDef))}
+                        onAdd={() => setValues((v) => addRepeatableItem(v!, partyDef))}
                         onRemove={(rowIndex) =>
-                          setValues((v) => removePartyRow(v!, partyDef, rowIndex))
+                          setValues((v) => removeRepeatableItem(v!, partyDef, rowIndex))
                         }
                       />
                     </div>
@@ -430,25 +451,47 @@ export default function NewDocumentInterview() {
             {isReview && (
               <>
                 <header className="mb-5">
-                  <h2 className="highlight-sweep inline-block text-lg font-bold">
-                    Dib u Eegis
-                  </h2>
+                  <h2 className="highlight-sweep inline-block text-lg font-bold">Dib u Eegis</h2>
                   <p className="notebook-annotation mt-1 text-sm text-muted-foreground">
-                    Hubi xogta oo dhan ka hor intaadan abuurto dukumeentiga.
+                    Hubi xogta oo dhan — guji "Wax ka beddel" si aad ugu noqoto qayb kasta.
                   </p>
                 </header>
-                <div className="rounded-md border border-border/70 bg-card/60 p-4">
-                  {filledSummary.length === 0 && (
-                    <p className="text-sm text-muted-foreground">Weli wax xog ah lama buuxin.</p>
-                  )}
-                  <ul className="divide-y divide-dashed divide-border/70">
-                    {filledSummary.map((row, i) => (
-                      <li key={i} className="grid grid-cols-[minmax(120px,180px)_1fr] gap-2 py-1.5 text-sm">
-                        <span className="font-medium text-muted-foreground">{row.label}</span>
-                        <span className="text-foreground">{row.value}</span>
-                      </li>
-                    ))}
-                  </ul>
+                {reviewBlocks.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Weli wax xog ah lama buuxin.</p>
+                )}
+                <div className="space-y-4">
+                  {reviewBlocks.map((block) => {
+                    const idx = visibleSections.findIndex((s) => s.id === block.sectionId);
+                    return (
+                      <div key={block.sectionId} className="rounded-md border border-border/70 bg-card/60 p-4">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <h3 className="text-sm font-semibold">{block.sectionTitle}</h3>
+                          {idx >= 0 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1 px-2 text-xs"
+                              onClick={() => {
+                                setStep(idx);
+                                setStepErrors(false);
+                              }}
+                            >
+                              Wax ka beddel
+                            </Button>
+                          )}
+                        </div>
+                        <ul className="divide-y divide-dashed divide-border/70">
+                          {block.rows.map((row, i) => (
+                            <li key={i} className="grid grid-cols-[minmax(120px,180px)_1fr] gap-2 py-1.5 text-sm">
+                              <span className="font-medium text-muted-foreground">{row.label}</span>
+                              <span className="text-foreground">{row.value}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
                 </div>
                 <p className="notebook-annotation mt-3 text-xs text-muted-foreground">
                   Markaad gujiso "Abuur Dukumeenti" waxaa la abuurayaa DOCX ka template-kaaga
@@ -466,7 +509,7 @@ export default function NewDocumentInterview() {
                 disabled={step === 0 || generating}
                 className="gap-2"
               >
-                <ArrowLeft className="size-4" /> Back
+                <ArrowLeft className="size-4" /> Dib
               </Button>
               <span className="notebook-annotation text-xs text-muted-foreground">
                 {step + 1}/{totalSteps}
@@ -485,7 +528,7 @@ export default function NewDocumentInterview() {
                 </Button>
               ) : (
                 <Button type="button" onClick={tryContinue} className="gap-2">
-                  Next <ArrowRight className="size-4" />
+                  Sii wad <ArrowRight className="size-4" />
                 </Button>
               )}
             </div>

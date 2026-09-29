@@ -1,11 +1,11 @@
 /**
- * Notary Document Engine — Core Types
+ * Notary Form/Interview Engine — Core Types (Phase 2)
  *
  * The engine is configuration-driven: a document type is a `DocumentConfig`
- * (sections + fields + conditional rules + template mapping). The form UI,
- * validation, and generation all read from the config, so adding a future
- * document type (Heshiis Deyn, Wakiilnimo, …) means adding a new config —
- * not new UI code.
+ * (sections + fields + conditional rules + repeaters + template mapping).
+ * The interview UI, validation, review, and generation all read from the
+ * config, so adding a future document type (Heshiis Deyn, Wakiilnimo, …)
+ * means adding a new config — not new engine code.
  */
 
 export type FieldType =
@@ -15,59 +15,79 @@ export type FieldType =
   | "currency"
   | "date"
   | "phone"
+  | "email"
   | "select"
-  | "yesno";
+  | "radio"
+  | "checkbox"
+  | "multiselect"
+  | "yes_no";
 
 export interface SelectOption {
   value: string;
   label: string;
 }
 
-/** Validation is declarative — the engine builds Somali error messages. */
+/**
+ * Validation is declarative — the engine builds Somali error messages.
+ * All rules are optional; `required`/`optional` on the field control the
+ * default requiredness, and `requiredWhen` can make a field conditionally
+ * required (see conditional validation).
+ */
 export interface FieldValidation {
   required?: boolean;
-  /** Minimum numeric value (numbers/currency). */
-  min?: number;
-  /** Maximum numeric value (numbers/currency). */
-  max?: number;
-  /** Maximum character length (text). */
+  minLength?: number;
   maxLength?: number;
+  min?: number;
+  max?: number;
+  /** ECMAScript regex source; matched against the trimmed value. */
+  pattern?: string;
+  /** Somali message used when `pattern` fails (falls back to a generic one). */
+  patternMessage?: string;
+  /** This field's value must be >= the value of the referenced sibling field. */
+  notBefore?: string;
 }
 
 export interface BaseField {
+  /** Stable technical id, e.g. "monthly_rent". */
   id: string;
   type: FieldType;
+  /** Somali label shown in the UI (never the technical field name). */
   label: string;
-  /** Helper text shown under the field. */
+  /** Optional machine name; defaults to `id`. */
+  name?: string;
+  /** Longer helper text shown under the label. */
+  description?: string;
+  /** Short hint shown at the end of the label row. */
   hint?: string;
-  /** Somali placeholder text for empty inputs. */
+  /** Somali placeholder for empty inputs. */
   placeholder?: string;
+  /** Field is never required. */
   optional?: boolean;
+  /** For select/radio/multiselect. */
   options?: SelectOption[];
+  /** Applied when creating a fresh interview (checkbox: "yes"/"no"). */
+  default?: string;
   validation?: FieldValidation;
+  /**
+   * Conditional requiredness: when this condition holds, the field becomes
+   * required even if `optional` is set (e.g. IF payment_method = bank
+   * THEN account_number is required).
+   */
+  requiredWhen?: Condition;
+  /** Visibility rule — hidden fields are not rendered or validated. */
+  visibleWhen?: Condition;
   /** Layout width in the two-column grid (default 1). */
   colSpan?: 1 | 2;
+  /** Display order; falls back to array position. */
+  order?: number;
 }
 
 export type FieldDef = BaseField;
 
 /**
- * A field whose visibility depends on a condition evaluated against the
- * form values (see conditions.ts). Unknown conditions render hidden.
+ * A repeatable party/group (e.g. Kireeyayaal, Kiraystayaal, Maragyo).
+ * Rows are stored as arrays — never as fixed seller_1/seller_2 fields.
  */
-export interface ConditionalFieldDef extends FieldDef {
-  visibleWhen: Condition;
-}
-
-export type AnyFieldDef = FieldDef | ConditionalFieldDef;
-
-export function isConditionalField(
-  field: AnyFieldDef,
-): field is ConditionalFieldDef {
-  return "visibleWhen" in field;
-}
-
-/** A party list (repeatable group), e.g. Kireeyayaal, Kiraystayaal, Maragyo. */
 export interface PartyDef {
   /** Key inside form values, e.g. "kireeyayaal". */
   id: string;
@@ -75,25 +95,38 @@ export interface PartyDef {
   /** One-word Somali label used in UI, e.g. "Kireeye". */
   singular: string;
   description?: string;
+  /** Minimum number of filled rows. */
   min: number;
-  max: number;
+  /**
+   * Maximum rows the user may add. Omit (or 0) for unlimited.
+   */
+  max?: number;
+  /** Rows are optional beyond `min` (empty rows are ignored). */
   optionalList?: boolean;
+  /** Custom Somali error for the minimum rule, e.g. "Ugu yaraan hal marag ayaa loo baahan yahay." */
+  minMessage?: string;
+  /** Visibility rule for the whole repeater block. */
+  visibleWhen?: Condition;
   fields: FieldDef[];
 }
 
 /* ------------------------------------------------------------------ */
-/* Condition rules (simple, extensible rules engine)                   */
+/* Condition rules (reusable rules engine — see conditions.ts)         */
 /* ------------------------------------------------------------------ */
 
 export type Condition =
   | { op: "equals"; field: string; value: unknown }
-  | { op: "notEquals"; field: string; value: unknown }
-  | { op: "isTrue"; field: string }
-  | { op: "isFalse"; field: string }
-  | { op: "notEmpty"; field: string }
-  | { op: "gt"; field: string; value: number }
+  | { op: "not_equals"; field: string; value: unknown }
+  | { op: "greater_than"; field: string; value: number }
+  | { op: "less_than"; field: string; value: number }
+  | { op: "contains"; field: string; value: string }
+  | { op: "is_empty"; field: string }
+  | { op: "is_not_empty"; field: string }
+  | { op: "is_true"; field: string }   // value === "yes"
+  | { op: "is_false"; field: string }  // value !== "yes"
   | { op: "and"; conditions: Condition[] }
-  | { op: "or"; conditions: Condition[] };
+  | { op: "or"; conditions: Condition[] }
+  | { op: "not"; condition: Condition };
 
 /* ------------------------------------------------------------------ */
 /* Sections & document config                                          */
@@ -104,20 +137,23 @@ export interface SectionDef {
   title: string;
   /** Short subtitle shown under the section title. */
   description?: string;
-  fields: AnyFieldDef[];
+  /** Display order; falls back to array position. */
+  order?: number;
+  fields: FieldDef[];
   parties?: PartyDef[];
+  /**
+   * Conditional section: when this rule evaluates false the whole section
+   * (fields + repeaters) disappears from the interview, review, and
+   * validation.
+   */
+  visibleWhen?: Condition;
 }
 
 /** How a value is rendered inside the generated document. */
-export type FormatKind =
-  | "text"
-  | "currency"
-  | "date"
-  | "yesno"
-  | "number";
+export type FormatKind = "text" | "currency" | "date" | "yes_no" | "number";
 
 export interface FieldMapping {
-  /** Form value key: either a scalar path ("heshiiska.reference") or a
+  /** Form value key: a scalar path ("heshiiska.reference") or a
    *  party-derived key ("kireeyayaal.names", "maragyo.joined"). */
   key: string;
   format?: FormatKind;
@@ -132,7 +168,6 @@ export interface FieldMapping {
 export interface PlaceholderMapping {
   placeholder: string;
   mapping: FieldMapping;
-  /** For joined party placeholders. */
   separator?: string;
 }
 
@@ -143,27 +178,23 @@ export interface PlaceholderMapping {
 export interface ClauseMapping {
   placeholder: string;
   when: Condition;
-  /** Literal text lines inserted when the condition holds. */
   lines?: string[];
-  /** Dynamic lines built from values, e.g. deebaaji details. */
   dynamic?:
     | { kind: "deebaaji" }
     | { kind: "damiin" }
     | { kind: "advance" }
     | { kind: "custom" };
-  /** Fallback text when the condition does not hold. */
   fallbackLines?: string[];
 }
 
 export interface DocumentConfig {
   /** Stable id, e.g. "heshiis_kiro". */
   id: string;
-  /** Somali title shown in the UI. */
   title: string;
   description: string;
   /** Sub-types the user chooses from. */
   subTypes: SelectOption[];
-  /** Filename prefix, e.g. "Kiro". */
+  /** Filename prefix, e.g. "Heshiis-Kiro". */
   fileNamePrefix: string;
   /** Path of the .docx template, relative to /public. */
   templatePath: string;
@@ -183,25 +214,26 @@ export interface DocumentConfig {
 /* Form values                                                         */
 /* ------------------------------------------------------------------ */
 
-/** Repeated party row values, keyed by party list id. */
+/** One row of a repeatable group. */
 export interface PartyRow {
   id: string;
   values: Record<string, string>;
 }
 
+/**
+ * Section scalar fields → Record<string, string>.
+ * Repeatable groups → PartyRow[].
+ * checkbox values are "yes"/"no"; multiselect is a comma-joined string.
+ */
 export interface FormValues {
-  [sectionId: string]:
-    | Record<string, string>
-    | PartyRow[]
-    | string
-    | undefined;
+  [key: string]: Record<string, string> | PartyRow[] | undefined;
 }
 
 /* ------------------------------------------------------------------ */
 /* Archive record                                                      */
 /* ------------------------------------------------------------------ */
 
-export type DocumentStatus = "draft" | "generated";
+export type DocumentStatus = "draft" | "completed" | "generated" | "archived";
 
 /** Payload persisted with every draft / archive record. */
 export interface StoredDocumentPayload {

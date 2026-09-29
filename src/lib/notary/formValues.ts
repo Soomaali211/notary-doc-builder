@@ -9,7 +9,7 @@ import type {
 export function emptySectionValues(section: SectionDef): Record<string, string> {
   const record: Record<string, string> = {};
   for (const field of section.fields) {
-    record[field.id] = "";
+    record[field.id] = field.default ?? "";
   }
   return record;
 }
@@ -17,7 +17,7 @@ export function emptySectionValues(section: SectionDef): Record<string, string> 
 export function emptyPartyRows(partyDef: PartyDef): PartyRow[] {
   return Array.from({ length: Math.max(1, partyDef.min) }, (_, i) => ({
     id: `${partyDef.id}-${i + 1}-${Math.random().toString(36).slice(2, 8)}`,
-    values: Object.fromEntries(partyDef.fields.map((f) => [f.id, ""])),
+    values: Object.fromEntries(partyDef.fields.map((f) => [f.id, f.default ?? ""])),
   }));
 }
 
@@ -45,10 +45,7 @@ export function getSectionValues(
     : {};
 }
 
-export function getPartyRows(
-  values: FormValues,
-  partyId: string,
-): PartyRow[] {
+export function getPartyRows(values: FormValues, partyId: string): PartyRow[] {
   const v = values[partyId];
   return Array.isArray(v) ? (v as PartyRow[]) : [];
 }
@@ -77,15 +74,13 @@ export function updatePartyField(
   return { ...values, [partyId]: rows };
 }
 
-export function addPartyRow(
-  values: FormValues,
-  partyDef: PartyDef,
-): FormValues {
+export function addPartyRow(values: FormValues, partyDef: PartyDef): FormValues {
   const rows = getPartyRows(values, partyDef.id);
-  if (rows.length >= partyDef.max) return values;
+  // max 0 or undefined = unlimited
+  if (partyDef.max && partyDef.max > 0 && rows.length >= partyDef.max) return values;
   const newRow: PartyRow = {
     id: `${partyDef.id}-${rows.length + 1}-${Math.random().toString(36).slice(2, 8)}`,
-    values: Object.fromEntries(partyDef.fields.map((f) => [f.id, ""])),
+    values: Object.fromEntries(partyDef.fields.map((f) => [f.id, f.default ?? ""])),
   };
   return { ...values, [partyDef.id]: [...rows, newRow] };
 }
@@ -103,7 +98,7 @@ export function removePartyRow(
   };
 }
 
-/** Build the party summary saved into the archive record. */
+/** Build the party summary saved into drafts/archive records. */
 export function buildPartySummary(
   config: DocumentConfig,
   values: FormValues,

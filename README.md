@@ -1,14 +1,60 @@
-# Notary Doc Builder — Contract Assembly for the Notary Office (Phase 1)
+# Notary Doc Builder — Contract Assembly for the Notary Office
 
 Notary Doc Builder is an internal web application for our office team. It
 works like Docassemble but is purpose-built for **assembling and archiving
-contracts**. Phase 1 supports one document type: **HESHIIS KIRO** (rental
-contract: Guri Xaas, Qol Meherad, Jiingad).
+contracts**. Phase 1 shipped the foundation (Heshiis Kiro end-to-end, DOCX
+generation, archive). Phase 2 rebuilt the core as a **reusable, generic
+Form / Interview Engine** — Heshiis Kiro is now just its first configuration.
 
 Beyond document assembly, the workspace includes a searchable **archive**, a
 **signing schedule**, a **team board** for office notices, **comments** on
 every document, a **catalog** of ready and planned contract types, and an
 **admin area** with a workspace-wide overview.
+
+## Phase 2 — Dynamic Form & Interview Engine
+
+```
+Document Type → Sub-Type → Form Definition → Sections → Fields
+→ Field Types → Validation Rules → Conditional Rules → Dynamic Repeaters
+→ Interview State → Review
+```
+
+- **Field engine** (`types.ts`): text, textarea, number, currency, date,
+  phone, email, select, radio, checkbox, multiselect, yes_no — each with
+  label (Somali), description, default, placeholder, options, validation,
+  order, and visibility rule. Technical ids never appear in the UI.
+- **Validation engine** (`validation.ts`): required, min/max length,
+  min/max value, pattern (+ custom Somali message), date, phone, email,
+  date-range (`notBefore`), repeater minimum/maximum — errors appear next to
+  their field, in Somali.
+- **Conditional logic** (`conditions.ts`): equals, not_equals, greater_than,
+  less_than, contains, is_empty, is_not_empty, is_true/is_false, and
+  AND / OR / NOT composition. Evaluation is defensive — a malformed rule
+  degrades to "hidden", never a crash.
+- **Conditional sections AND fields**: a whole section (e.g. Damiinka)
+  disappears from the interview, validation, and review when its rule is
+  false. `requiredWhen` makes a visible field conditionally required.
+- **Dynamic repeaters** (`formValues.ts`, `engine.ts`): arrays of row objects
+  (never fixed seller_1/seller_2), each with `min` and optional `max`
+  (omitted or 0 = unlimited), custom Somali minimum messages, and a delete
+  confirmation dialog.
+- **Interview state & drafts** (`engine.ts`): a plain-data state object
+  (document type, subtype, current section, answers, errors, completed
+  sections). Drafts serialize to JSON, merge over a fresh template on resume
+  (config-safe), and corrupt payloads degrade gracefully. Statuses: draft,
+  completed, generated, archived. Explicit "Save Draft" button plus autosave.
+- **Review page**: per-section blocks with "Wax ka beddel" edit buttons that
+  jump back to that section — no full restart.
+- **Form engine API** (`engine.ts`): load_form, get_sections,
+  get_visible_fields, evaluate_rules, validate_field/section/form,
+  add/remove_repeatable_item, serialize/deserialize_draft, get_review_data —
+  the UI talks only to this interface.
+- **No hard-coding**: no `if document_type == "kiro"` anywhere. The engine is
+  generic; Heshiis Kiro is pure configuration in `documents/heshiisKiro.ts`.
+- **Tests** (`tests/engine.test.ts`): 37 automated tests covering fields,
+  validation, conditional logic (AND/OR/NOT/nested), repeaters
+  (add/remove/min/max/unlimited), draft round-trips, navigation state, and
+  review data. Run with `bun test`.
 
 Workflow:
 

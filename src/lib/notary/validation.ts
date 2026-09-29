@@ -1,8 +1,17 @@
-import type { AnyFieldDef, DocumentConfig, FormValues, PartyDef, PartyRow } from "./types";
+import type {
+  DocumentConfig,
+  FieldDef,
+  FormValues,
+  PartyDef,
+  PartyRow,
+  SectionDef,
+} from "./types";
 import { evaluateCondition, makeGetter } from "./conditions";
 import { formatValueByKind, resolveKey } from "./format";
 
-const SOMALI_DIGITS_ONLY = /^[0-9()+\-\s]{6,20}$/;
+const PHONE_RE = /^[0-9()+\-\s]{6,20}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const MONTHS_30 = new Set([4, 6, 9, 11]);
 
 export interface FieldError {
   fieldId: string;
@@ -16,13 +25,11 @@ export interface PartyError {
 
 export interface SectionErrors {
   fieldErrors: Record<string, string>;
-  partyErrors: Record<string, PartyError[]>; // keyed by party def id
+  partyErrors: Record<string, PartyError[]>;
   general: string[];
 }
 
-const MONTHS_30 = new Set([4, 6, 9, 11]);
-
-/** Validate a date string "YYYY-MM-DD"; returns Somali error or null. */
+/** Validate a date string "YYYY-MM-DD"; returns a Somali error or null. */
 export function validateDateString(value: string): string | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return "Taariikhda waa mid aan sax ahayn (YYYY-MM-DD).";
@@ -34,51 +41,90 @@ export function validateDateString(value: string): string | null {
   if (MONTHS_30.has(m) && d > 30) return "Bishaas ma laha maalin 31aad.";
   if (m === 2) {
     const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
-    const maxDay = leap ? 29 : 28;
-    if (d > maxDay) return "Febraayo ma laha maalintaas.";
+    if (d > (leap ? 29 : 28)) return "Febraayo ma laha maalintaas.";
   }
   if (y < 1900 || y > 2100) return "Sanadka waa mid aan macquul ahayn.";
   return null;
 }
 
-/** Validate one field value; returns Somali error message or null. */
-export function validateField(field: AnyFieldDef, value: string): string | null {
-  const text = (value ?? "").trim();
-  const required = !field.optional && field.validation?.required !== false;
+/** Numeric amount: digits with optional 2-decimal fraction. */
+function isAmount(text: string): boolean {
+  return /^\d+(\.\d{1,2})?$/.test(text);
+}
 
-  if (required && text === "") {
-    return `Fadlan buuxi: ${field.label}`;
+/**
+ * Validate one field value against its declarative rules.
+ * Returns a Somali error message or null when valid.
+ */
+export function validateField(field: FieldDef, value: string): string | null {
+  const text = (value ?? "").trim();
+  const rules = field.validation ?? {};
+  const required = !field.optional && rules.required !== false;
+
+  if (text === "") {
+    if (required) return `Fadlan buuxi: ${field.label}`;
+    return null;
   }
-  if (text === "") return null; // nothing else to check
+
+  if (rules.minLength !== undefined && text.length < rules.minLength) {
+    return `${field.label}: waa inay ka dhaafsan tahay ${rules.minLength} xaraf.`;
+  }
+  if (rules.maxLength !== undefined && text.length > rules.maxLength) {
+    return `${field.label}: waa inay ka gaaban tahay ${rules.maxLength} xaraf.`;
+  }
+  if (rules.pattern !== undefined) {
+    try {
+      if (!new RegExp(rules.pattern).test(text)) {
+        return rules.patternMessage ?? `${field.label}: fadlan geli qoraal sax ah.`;
+      }
+    } catch {
+      // Invalid pattern in config: treat as pass rather than crash.
+      return null;
+    }
+  }
 
   switch (field.type) {
     case "number":
     case "currency": {
-      if (!/^\d+(\.\d{1,2})?$/.test(text)) {
+      if (!isAmount(text)) {
         return `${field.label}: fadlan geli tiro sax ah (tusaale: 350).`;
       }
       const n = Number(text);
-      if (field.validation?.min !== undefined && n < field.validation.min) {
-        return `${field.label}: waa inay ka weyn tahay ${field.validation.min}.`;
+      if (rules.min !== undefined && n < rules.min) {
+        return `${field.label}: waa inay ka weyn tahay ${rules.min}.`;
       }
-      if (field.validation?.max !== undefined && n > field.validation.max) {
-        return `${field.label}: waa inay ka yar tahay ${field.validation.max}.`;
-      }
-      return null;
-    }
-    case "phone": {
-      if (!SOMALI_DIGITS_ONLY.test(text)) {
-        return `${field.label}: geli nambar telefoon sax ah (tusaale: +252 61 5551234).`;
+      if (rules.max !== undefined && n > rules.max) {
+        return `${field.label}: waa inay ka yar tahay ${rules.max}.`;
       }
       return null;
     }
-    case "date": {
+    case "phone":
+      return PHONE_RE.test(text)
+        ? null
+        : `${field.label}: geli nambar telefoon sax ah (tusaale: +252 61 5551234).`;
+    case "email":
+      return EMAIL_RE.test(text)
+        ? null
+        : `${field.label}: geli email sax ah (tusaale: name@example.com).`;
+    case "date":
       return validateDateString(text);
+    case "select":
+    case "radio": {
+      const options = field.options ?? [];
+      if (options.length > 0 && !options.some((o) => o.value === text)) {
+        return `${field.label}: dooro mid ka mid ah ikhtiyaarada.`;
+      }
+      return null;
     }
-    case "text":
-    case "textarea": {
-      if (field.validation?.maxLength && text.length > field.validation.maxLength) {
-        return `${field.label}: waa inay ka gaaban tahay ${field.validation.maxLength} xaraf.`;
+    case "checkbox":
+      return text === "yes" || text === "no" ? null : null;
+    case "multiselect": {
+      const options = field.options ?? [];
+      if (options.length === 0) return null;
+      const chosen = text.split(",").map((s) => s.trim()).filter(Boolean);
+      const invalid = chosen.filter((c) => !options.some((o) => o.value === c));
+      if (invalid.length > 0) {
+        return `${field.label}: dooro ikhtiyaarada la oggol yahay oo keliya.`;
       }
       return null;
     }
@@ -87,27 +133,30 @@ export function validateField(field: AnyFieldDef, value: string): string | null 
   }
 }
 
-/** Cross-field checks that need two values (e.g. end date after start date). */
+/** Cross-field date-range check: end >= start (end_date >= start_date). */
 export function validateSectionCross(
-  fields: AnyFieldDef[],
+  fields: FieldDef[],
   values: Record<string, string>,
 ): string[] {
   const errors: string[] = [];
-  const start = values["taariikhda_bilowga"];
-  const end = values["taariikhda_dhammaadka"];
-  const hasStart = fields.some((f) => f.id === "taariikhda_bilowga");
-  if (hasStart && start && end) {
-    const startErr = validateDateString(start);
+  for (const field of fields) {
+    if (!field.validation?.notBefore) continue;
+    const end = (values[field.id] ?? "").trim();
+    const start = (values[field.validation.notBefore] ?? "").trim();
+    if (!end || !start) continue;
     const endErr = validateDateString(end);
-    if (!startErr && !endErr && new Date(end) <= new Date(start)) {
+    const startErr = validateDateString(start);
+    if (endErr || startErr) continue; // individual date errors already reported
+    if (new Date(end) < new Date(start)) {
       errors.push(
-        "Taariikhda dhammaadka waa inay ka horreysaa taariikhda bilowga — fadlan sax.",
+        `${field.label} waa inay ka horreysaa ama la eg tahay taariikhda bilowga.`,
       );
     }
   }
   return errors;
 }
 
+/** Validate one repeater (min/max count + per-row field rules). */
 function validatePartyList(
   partyDef: PartyDef,
   rows: PartyRow[],
@@ -120,7 +169,14 @@ function validatePartyList(
 
   if (filledRows.length < partyDef.min) {
     general.push(
-      `${partyDef.label}: ugu yaraan ${partyDef.min} ${partyDef.singular} waa loo baahan yahay.`,
+      partyDef.minMessage ??
+        `${partyDef.label}: ugu yaraan ${partyDef.min} ${partyDef.singular} ayaa loo baahan yahay.`,
+    );
+    return perRow;
+  }
+  if (partyDef.max && partyDef.max > 0 && filledRows.length > partyDef.max) {
+    general.push(
+      `${partyDef.label}: ugu badnaan ${partyDef.max} ${partyDef.singular}.`,
     );
     return perRow;
   }
@@ -129,8 +185,9 @@ function validatePartyList(
     const rowHasAny = Object.values(row.values ?? {}).some(
       (v) => (v ?? "").trim() !== "",
     );
+    // Ignore trailing empty rows on optional lists.
     if (!rowHasAny && partyDef.optionalList) return;
-    if (!rowHasAny && partyDef.min > 0 && index >= partyDef.min) return;
+    if (!rowHasAny && index >= partyDef.min) return;
 
     const rowErrors: FieldError[] = [];
     for (const field of partyDef.fields) {
@@ -142,7 +199,11 @@ function validatePartyList(
   return perRow;
 }
 
-/** Validate an entire document against its config. Returns per-section errors. */
+/**
+ * Validate the whole interview against its config.
+ * Hidden conditional sections/fields are skipped; `requiredWhen` can make a
+ * visible field conditionally required. Returns per-section errors.
+ */
 export function validateDocument(
   config: DocumentConfig,
   values: FormValues,
@@ -150,7 +211,11 @@ export function validateDocument(
   const get = makeGetter(values);
   const result: Record<string, SectionErrors> = {};
 
-  for (const section of config.sections) {
+  for (const section of orderedSections(config)) {
+    if (section.visibleWhen && !evaluateCondition(section.visibleWhen, get)) {
+      continue; // conditional section hidden → not validated
+    }
+
     const sectionValues = values[section.id];
     const fieldErrors: Record<string, string> = {};
     const partyErrors: Record<string, PartyError[]> = {};
@@ -159,18 +224,29 @@ export function validateDocument(
     if (sectionValues && !Array.isArray(sectionValues)) {
       const record = sectionValues as Record<string, string>;
 
-      for (const field of section.fields) {
-        if ("visibleWhen" in field && !evaluateCondition(field.visibleWhen, get)) {
-          continue; // hidden conditional fields are not validated
+      for (const field of orderedFields(section)) {
+        if (field.visibleWhen && !evaluateCondition(field.visibleWhen, get)) {
+          continue; // hidden conditional field → not validated
+        }
+        if (
+          field.requiredWhen &&
+          evaluateCondition(field.requiredWhen, get) &&
+          (record[field.id] ?? "").trim() === ""
+        ) {
+          fieldErrors[field.id] = `Fadlan buuxi: ${field.label}`;
+          continue;
         }
         const err = validateField(field, record[field.id] ?? "");
         if (err) fieldErrors[field.id] = err;
       }
 
-      general.push(...validateSectionCross(section.fields, record));
+      general.push(...validateSectionCross(orderedFields(section), record));
     }
 
     for (const partyDef of section.parties ?? []) {
+      if (partyDef.visibleWhen && !evaluateCondition(partyDef.visibleWhen, get)) {
+        continue;
+      }
       const rows = (Array.isArray(values[partyDef.id]) ? values[partyDef.id] : []) as PartyRow[];
       const perRow = validatePartyList(partyDef, rows, general);
       if (Object.keys(perRow).length > 0) {
@@ -186,7 +262,7 @@ export function validateDocument(
     }
   }
 
-  // Witness requirement from document configuration
+  // Witness requirement from document configuration.
   if (config.requiresWitness && config.witnessPlaceholder) {
     const witnessSection = config.sections.find((s) =>
       (s.parties ?? []).some((p) => p.id === "maragyo"),
@@ -199,7 +275,7 @@ export function validateDocument(
           partyErrors: {},
           general: [],
         };
-        existing.general.push("Ugu yaraan hal marag waa loo baahan yahay.");
+        existing.general.push("Ugu yaraan hal marag ayaa loo baahan yahay.");
         result[witnessSection.id] = existing;
       }
     }
@@ -208,27 +284,63 @@ export function validateDocument(
   return result;
 }
 
-/** Build the plain-text review summary data for a config (used by review page). */
+/* ------------------------------------------------------------------ */
+/* Ordering helpers                                                    */
+/* ------------------------------------------------------------------ */
+
+export function orderedSections(config: DocumentConfig): SectionDef[] {
+  return [...config.sections].sort(
+    (a, b) => (a.order ?? config.sections.indexOf(a)) - (b.order ?? config.sections.indexOf(b)),
+  );
+}
+
+export function orderedFields(section: SectionDef): FieldDef[] {
+  return [...section.fields].sort(
+    (a, b) => (a.order ?? section.fields.indexOf(a)) - (b.order ?? section.fields.indexOf(b)),
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Review data                                                         */
+/* ------------------------------------------------------------------ */
+
+/** Build the review summary rows for a config (only visible, filled values). */
 export function collectFilledValues(
   config: DocumentConfig,
   values: FormValues,
-): { label: string; value: string }[] {
+): { sectionId: string; sectionTitle: string; rows: { label: string; value: string }[] }[] {
   const get = makeGetter(values);
-  const rows: { label: string; value: string }[] = [];
+  const out: { sectionId: string; sectionTitle: string; rows: { label: string; value: string }[] }[] = [];
 
-  for (const section of config.sections) {
+  for (const section of orderedSections(config)) {
+    if (section.visibleWhen && !evaluateCondition(section.visibleWhen, get)) continue;
+    const rows: { label: string; value: string }[] = [];
+
     const sectionValues = values[section.id];
-    for (const field of section.fields) {
-      if ("visibleWhen" in field && !evaluateCondition(field.visibleWhen, get)) continue;
-      const raw = resolveKey(values, `${section.id}.${field.id}`);
-      const formatted = formatValueByKind(raw, field.type === "date" ? "date" : field.type === "currency" ? "currency" : field.type === "yesno" ? "yesno" : undefined);
-      if (formatted) rows.push({ label: field.label, value: formatted });
+    if (sectionValues && !Array.isArray(sectionValues)) {
+      for (const field of orderedFields(section)) {
+        if (field.visibleWhen && !evaluateCondition(field.visibleWhen, get)) continue;
+        const raw = resolveKey(values, `${section.id}.${field.id}`);
+        const kind =
+          field.type === "date"
+            ? "date"
+            : field.type === "currency"
+              ? "currency"
+              : field.type === "yes_no"
+                ? "yes_no"
+                : field.type === "number"
+                  ? "number"
+                  : undefined;
+        const formatted = formatValueByKind(raw, kind);
+        if (formatted) rows.push({ label: field.label, value: formatted });
+      }
     }
+
     for (const partyDef of section.parties ?? []) {
       const partyRows = (Array.isArray(values[partyDef.id]) ? values[partyDef.id] : []) as PartyRow[];
       partyRows.forEach((row, i) => {
-        const name = row.values?.[partyDef.fields[0]?.id ?? ""] ?? "";
-        if (!name.trim()) return;
+        const name = (row.values?.[partyDef.fields[0]?.id ?? ""] ?? "").trim();
+        if (!name) return;
         const details = partyDef.fields
           .slice(1)
           .map((f) => row.values?.[f.id] ?? "")
@@ -240,6 +352,10 @@ export function collectFilledValues(
         });
       });
     }
+
+    if (rows.length > 0) {
+      out.push({ sectionId: section.id, sectionTitle: section.title, rows });
+    }
   }
-  return rows;
+  return out;
 }

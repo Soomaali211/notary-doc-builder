@@ -1,6 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FieldRenderer } from "./FieldRenderer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import type { PartyDef, PartyRow } from "@/lib/notary/types";
 import { Plus, Trash2, Users } from "lucide-react";
 
@@ -9,6 +20,8 @@ interface PartyListEditorProps {
   rows: PartyRow[];
   errors?: Record<number, { fieldId: string; message: string }[]>;
   disabled?: boolean;
+  /** Whether the repeater can accept another row (max/unlimited aware). */
+  canAdd: boolean;
   onFieldChange: (rowIndex: number, fieldId: string, value: string) => void;
   onAdd: () => void;
   onRemove: (rowIndex: number) => void;
@@ -19,6 +32,7 @@ export function PartyListEditor({
   rows,
   errors,
   disabled,
+  canAdd,
   onFieldChange,
   onAdd,
   onRemove,
@@ -43,7 +57,7 @@ export function PartyListEditor({
           variant="outline"
           size="sm"
           onClick={onAdd}
-          disabled={disabled || rows.length >= partyDef.max}
+          disabled={disabled || !canAdd}
           className="gap-1.5"
         >
           <Plus className="size-4" />
@@ -69,17 +83,39 @@ export function PartyListEditor({
                 {name || `${partyDef.singular} ${index + 1}`}
               </span>
               {canRemove && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemove(index)}
-                  disabled={disabled}
-                  className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="size-3.5" />
-                  Remove
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={disabled}
+                      className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="size-3.5" />
+                      Remove
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Xaqiiji tirtirida</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Ma tirtirayn doontaa{" "}
+                        <strong>{name || `${partyDef.singular} ${index + 1}`}</strong>?
+                        Xogta la geliyay qaybtan waa la baabi'inayaa.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Jooji</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-white hover:bg-destructive/90"
+                        onClick={() => onRemove(index)}
+                      >
+                        Haa, tirtir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
             </div>
             <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">

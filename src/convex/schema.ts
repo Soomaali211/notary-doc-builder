@@ -53,7 +53,12 @@ const schema = defineSchema(
       referenceNumber: v.string(),
       parties: v.array(partySummary),
       fileBaseName: v.string(),
-      status: v.union(v.literal("draft"), v.literal("generated")),
+      status: v.union(
+        v.literal("draft"),
+        v.literal("completed"),
+        v.literal("generated"),
+        v.literal("archived"),
+      ),
       /** DOCX bytes of the generated document (null for drafts). */
       fileDocx: v.optional(v.union(v.id("_storage"), v.null())),
       valuesJson: v.string(),

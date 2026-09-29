@@ -41,7 +41,7 @@ export function FieldRenderer({
         )}
       </Label>
 
-      {field.type === "yesno" ? (
+      {field.type === "yes_no" ? (
         <RadioGroup
           value={value || undefined}
           onValueChange={onChange}
@@ -61,6 +61,74 @@ export function FieldRenderer({
             </Label>
           </div>
         </RadioGroup>
+      ) : field.type === "radio" ? (
+        <RadioGroup
+          value={value || undefined}
+          onValueChange={onChange}
+          disabled={disabled}
+          className="flex flex-wrap gap-4 pt-1"
+        >
+          {field.options?.map((opt) => (
+            <div key={opt.value} className="flex items-center gap-2">
+              <RadioGroupItem value={opt.value} id={`${field.id}-${opt.value}`} />
+              <Label htmlFor={`${field.id}-${opt.value}`} className="font-normal">
+                {opt.label}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      ) : field.type === "checkbox" ? (
+        <label className="flex cursor-pointer items-center gap-2 pt-1 text-sm">
+          <input
+            type="checkbox"
+            checked={value === "yes"}
+            onChange={(e) => onChange(e.target.checked ? "yes" : "no")}
+            disabled={disabled}
+            className="size-4 accent-[var(--primary)]"
+          />
+          {field.placeholder ?? "Haa"}
+        </label>
+      ) : field.type === "multiselect" ? (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {field.options?.map((opt) => {
+            const chosen = value.split(",").map((s) => s.trim()).filter(Boolean);
+            const checked = chosen.includes(opt.value);
+            return (
+              <label
+                key={opt.value}
+                className={cn(
+                  "flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors",
+                  checked
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-card/80 text-muted-foreground hover:bg-muted",
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={(e) => {
+                    const next = checked
+                      ? chosen.filter((c) => c !== opt.value)
+                      : [...chosen, opt.value];
+                    onChange(next.join(","));
+                  }}
+                  className="size-3.5 accent-[var(--primary)]"
+                />
+                {opt.label}
+              </label>
+            );
+          })}
+        </div>
+      ) : field.type === "email" ? (
+        <Input
+          type="email"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder}
+          disabled={disabled}
+          className={cn("bg-card/80", error && "border-destructive")}
+        />
       ) : field.type === "textarea" ? (
         <Textarea
           value={value}

@@ -149,6 +149,36 @@ export const saveDraft = mutation({
   },
 });
 
+/** Mark an interview as completed (all sections validated, pre-generation). */
+export const markCompleted = mutation({
+  args: { documentId: v.id("notary_documents") },
+  handler: async (ctx, { documentId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not signed in");
+    const doc = await ctx.db.get(documentId);
+    if (!doc) throw new Error("Document not found");
+    if (doc.userId !== userId) throw new Error("Not allowed");
+    if (doc.status !== "draft") throw new Error("Kaliya draft-yada ayaa la dhammaystiri karo.");
+    await ctx.db.patch(documentId, { status: "completed", updatedAt: Date.now() });
+  },
+});
+
+/** Archive a generated document (hide from the active list, keep the record). */
+export const archiveDocument = mutation({
+  args: { documentId: v.id("notary_documents") },
+  handler: async (ctx, { documentId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not signed in");
+    const doc = await ctx.db.get(documentId);
+    if (!doc) throw new Error("Document not found");
+    if (doc.userId !== userId) throw new Error("Not allowed");
+    if (doc.status !== "generated") {
+      throw new Error("Kaliya dukumeentiyadii la sameeyay ayaa la kaydi karo.");
+    }
+    await ctx.db.patch(documentId, { status: "archived", updatedAt: Date.now() });
+  },
+});
+
 /** Delete a draft (only drafts, not archived documents). */
 export const deleteDraft = mutation({
   args: { documentId: v.id("notary_documents") },
