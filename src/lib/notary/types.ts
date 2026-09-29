@@ -202,6 +202,8 @@ export interface DocumentConfig {
   subTypes: SelectOption[];
   /** Filename prefix, e.g. "Heshiis-Kiro". */
   fileNamePrefix: string;
+  /** Output archive folder, e.g. "Kiro" (falls back to a title-derived name). */
+  outputFolder?: string;
   /** Legacy single-template path (Phase 1). Phase 3 uses `templates[]`. */
   templatePath: string;
   /** Reference number prefix, e.g. "DPN-K". */

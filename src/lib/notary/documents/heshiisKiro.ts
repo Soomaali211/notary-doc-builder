@@ -1,4 +1,4 @@
-import type { DocumentConfig, SelectOption } from "../types";
+import type { DocumentConfig, SelectOption, TemplateSpec } from "../types";
 
 const KIRO_SUBTYPES: SelectOption[] = [
   { value: "guri_xaas", label: "Guri Xaas" },
@@ -20,6 +20,48 @@ const PAYMENT_TIMING: SelectOption[] = [
 const PROPERTY_TYPES: SelectOption[] = KIRO_SUBTYPES;
 
 /**
+ * Phase 3 — per-subtype Word templates. The office designs each .docx; the
+ * app only fills placeholders. Selection is automatic by sub-type through
+ * the Template Registry (config-driven, never hard-coded).
+ */
+const NOW = 0;
+const KIRO_TEMPLATES: TemplateSpec[] = [
+  {
+    templateId: "KIRO_GURI_XAAS_V1",
+    documentType: "heshiis_kiro",
+    subtype: "guri_xaas",
+    name: "Guri Xaas",
+    filePath: "/templates/heshiis_kiro/guri_xaas.docx",
+    version: 1,
+    status: "active",
+    createdAt: NOW,
+    updatedAt: NOW,
+  },
+  {
+    templateId: "KIRO_QOL_MEHERAD_V1",
+    documentType: "heshiis_kiro",
+    subtype: "qol_meherad",
+    name: "Qol Meherad",
+    filePath: "/templates/heshiis_kiro/qol_meherad.docx",
+    version: 1,
+    status: "active",
+    createdAt: NOW,
+    updatedAt: NOW,
+  },
+  {
+    templateId: "KIRO_JIINGAD_V1",
+    documentType: "heshiis_kiro",
+    subtype: "jiingad",
+    name: "Jiingad",
+    filePath: "/templates/heshiis_kiro/jiingad.docx",
+    version: 1,
+    status: "active",
+    createdAt: NOW,
+    updatedAt: NOW,
+  },
+];
+
+/**
  * Sample configuration: HESHIIS KIRO (rental contract).
  *
  * This is pure data — the form engine, validation, review and generation all
@@ -32,12 +74,36 @@ export const heshiisKiroConfig: DocumentConfig = {
   description:
     "Heshiis kiro oo u dhaxeeya kireeye iyo kirayste — guri xaas, qol meherad ama jiingad.",
   fileNamePrefix: "Heshiis-Kiro",
+  // Archive output folder (output/Kiro/…) — independent of the title.
+  outputFolder: "Kiro",
   templatePath: "/templates/heshiis_kiro_template.docx",
   referencePrefix: "DPN-K",
   requiresWitness: true,
   witnessPlaceholder: "{{MARAGYO_LIST}}",
   witnessSeparator: "\n",
   subTypes: KIRO_SUBTYPES,
+  templates: KIRO_TEMPLATES,
+
+  // Phase 3 — repeated blocks over dynamic party lists.
+  repeatBlocks: [
+    { blockId: "MARAGYO", partyId: "maragyo", numberPlaceholder: "NUMBER", aliases: { PHONE: "telefoon", ID: "aqoonsi" } },
+    { blockId: "KIREYEYAYAAL", partyId: "kireeyayaal" },
+    { blockId: "KIRAYSTAYAAL", partyId: "kiraystayaal" },
+  ],
+
+  // Phase 3 — named boolean flags for {{IF:FLAG}}…{{ENDIF}} blocks.
+  conditionFlags: {
+    DEEBAAJI_HAA: { op: "is_true", field: "deebaaji.deebaaji_jira" },
+    DAMIIN_HAA: { op: "is_true", field: "lacagta.damiin_jira" },
+    MUQADIN: { op: "equals", field: "lacagta.bixinta_hore", value: "muqadin" },
+    MUAKHIR: { op: "equals", field: "lacagta.bixinta_hore", value: "muakhir" },
+  },
+
+  // Phase 3 — configurable document formatting (29/09/2026, $500 …).
+  format: {
+    dateFormat: "DD/MM/YYYY",
+    currency: { mode: "symbol", symbol: "$", code: "USD", wordsUnit: "Dollar" },
+  },
 
   sections: [
     {
@@ -244,7 +310,7 @@ export const heshiisKiroConfig: DocumentConfig = {
     },
     {
       placeholder: "{{CLAUSE_DAMIIN}}",
-      when: { op: "equals", field: "damiinka.damiin_jira", value: "yes" },
+      when: { op: "is_true", field: "lacagta.damiin_jira" },
       dynamic: { kind: "damiin" },
       fallbackLines: ["Heshiiskan lama hayo damiin."],
     },

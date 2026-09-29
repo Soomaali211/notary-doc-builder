@@ -63,6 +63,66 @@ Document Type → Sub-Type → Dynamic Form → Validation → Word Template
 → Generated Document → Archive
 ```
 
+## Phase 3 — Template Engine & Document Generation
+
+The generation core was rebuilt into a modular, block-aware template
+engine. Word templates stay **designed by the office** — the system only
+fills them, never redesigns them.
+
+```
+validate answers → Template Registry → validate template → data context
+→ conditions → clauses → repeaters → placeholders → DOCX
+→ output validation → (best-effort) PDF → archive metadata (immutable)
+```
+
+- **Template Registry & Loader** (`registry.ts`): one registered Word
+  template per (document type, sub-type) — `KIRO_GURI_XAAS_V1`,
+  `KIRO_QOL_MEHERAD_V1`, `KIRO_JIINGAD_V1`. Auto-selection by sub-type,
+  config-driven, highest active version wins. Paths must come from the
+  registry (`/templates/…`) — no arbitrary paths.
+- **Template syntax** the office can use inside its Word templates:
+  - `{{PLACEHOLDER}}` — plain replacement (case-insensitive)
+  - `{{IF:FLAG}} … {{ENDIF}}` — conditional section; false removes the
+    whole block **including headings**
+  - `{{#BLOCK}} … {{/BLOCK}}` — repeated once per party row (multiline,
+    paragraph-per-marker) or inline in one line (rows joined with " · ")
+  - `{{CLAUSE_*}}` — conditional clause markers resolved by the engine
+- **Condition flags & repeat blocks** are pure config:
+  `conditionFlags` (DEEBAAJI_HAA, DAMIIN_HAA, MUQADIN, MUAKHIR) and
+  `repeatBlocks` (MARAGYO with PHONE/ID aliases, KIREYEYAYAAL,
+  KIRAYSTAYAAL). Formatting (date `DD/MM/YYYY`, currency `$`) lives in
+  `config.format`.
+- **Formatting-preserving renderer** (`docxRenderer.ts`): paragraphs,
+  table cells, headers and footers are processed while keeping the first
+  run's formatting (bold/italic/font/size). Somali words-numbers support
+  (`somaliNumbers.ts`) for `currency_words` format.
+- **Template Validator** (`templateValidator.ts`): exists/readable,
+  placeholder syntax, unknown mappings, IF + repeat balance — a broken
+  template throws *before* any document is produced. The same validator
+  powers the Admin → Template validation screen (checklist ✓/✗).
+- **Archive immutability**: a GENERATED document is never overwritten.
+  Regeneration = `cloneAsDraft` → fresh draft carrying the answers → the
+  user edits and generates a **new version**. Metadata (template id +
+  version + output paths) is stored with every generation
+  (`generatedMetadata`, `supersededBy`).
+- **PDF abstraction** (`pdfRenderer.ts`): `convertToPdf` is a stub that
+  returns `null`; the pipeline is best-effort — the DOCX is always
+  produced and a warning explains PDF is not yet wired. Ready for
+  LibreOffice/cloud API wiring (Phase 4).
+- **Reference numbers**: the user-entered reference is the source of
+  truth — no auto-increment. Filenames sanitize to
+  `Ref-DPN-K-001_Heshiis-Kiro_Guri-Xaas.docx` under
+  `output/Kiro/Guri_Xaas/`.
+
+Verify / regenerate commands:
+
+```bash
+bun scripts/generate-templates.ts   # recreate the 3 sample .docx templates
+bun scripts/verify-template.ts      # 22-check pipeline verification (2 scenarios)
+bun test tests/engine.test.ts       # Phase 2 engine (37 tests)
+bun test tests/generation.test.ts   # Phase 3 generation matrix (32 tests)
+```
+
 ## Waxa Phase 1 uu qabto
 
 - ✅ Document selection: Heshiis Kiro + sub-types (Guri Xaas / Qol Meherad / Jiingad)
@@ -201,4 +261,4 @@ bun tsc -b --noEmit
 | `/catalog` | Browse all document types — ready and planned |
 | `/schedule` | Book and manage signing appointments |
 | `/board` | Team board — short internal posts |
-| `/admin` | Workspace-wide overview and cleanup controls |
+| `/admin` | Workspace-wide overview, template validation checklist, cleanup controls |

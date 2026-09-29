@@ -234,25 +234,40 @@ export const generateUploadUrl = mutation({
   },
 });
 
+/** Metadata of one generation (template version + output paths). */
+const generatedMetadataPayload = v.object({
+  templateId: v.string(),
+  templateVersion: v.number(),
+  outputDocxPath: v.string(),
+  outputPdfPath: v.optional(v.string()),
+  fileName: v.string(),
+});
+
 /**
- * Commits a generated DOCX: stores bytes in file storage and flips the
- * document to "generated". Called by the client AFTER the DOCX was built
- * successfully in the browser. If the client fails before calling this,
- * the draft remains intact — user data is never lost.
+ * Phase 3 — commits a generated DOCX with metadata. IMMUTABLE: an already
+ * generated document is never overwritten; regeneration must start from a
+ * fresh draft (see cloneAsDraft) and creates a new version bound to the
+ * same template version it was produced with.
  */
 export const commitGenerated = mutation({
   args: {
     documentId: v.id("notary_documents"),
     storageId: v.id("_storage"),
     payload: savePayload,
+    metadata: generatedMetadataPayload,
   },
-  handler: async (ctx, { documentId, storageId, payload }) => {
+  handler: async (ctx, { documentId, storageId, payload, metadata }) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Not signed in");
 
     const doc = await ctx.db.get(documentId);
     if (!doc) throw new Error("Document not found");
     if (doc.userId !== userId) throw new Error("Not allowed");
+    if (doc.status === "generated" || doc.status === "archived") {
+      throw new Error(
+        "Dukumeentiga la sameeyay lama beddelo — regenerate wuxuu abuuraa version cusub.",
+      );
+    }
 
     if (!jsonSizeOk(payload.valuesJson)) {
       throw new Error("Xogta aad gelisay waa mid aad u weyn.");
@@ -261,7 +276,7 @@ export const commitGenerated = mutation({
       throw new Error("Magaca faylka waa mid aan sax ahayn.");
     }
 
-    // If a previous generation left a file behind, replace it.
+    // A failed earlier attempt may have left a stale file behind.
     if (doc.fileDocx) {
       await ctx.storage.delete(doc.fileDocx);
     }
@@ -269,6 +284,7 @@ export const commitGenerated = mutation({
     await ctx.db.patch(documentId, {
       status: "generated",
       fileDocx: storageId,
+      generatedMetadata: metadata,
       referenceNumber: payload.referenceNumber,
       fileBaseName: payload.fileBaseName,
       parties: payload.parties,
@@ -280,6 +296,44 @@ export const commitGenerated = mutation({
       updatedAt: Date.now(),
     });
     return documentId;
+  },
+});
+
+/**
+ * Phase 3 — regenerate: clone a generated document into a fresh draft
+ * carrying the same answers. The original (and its template-version
+ * binding) stays untouched; the user edits the draft and generates a new
+ * version. The user-entered reference stays the source of truth.
+ */
+export const cloneAsDraft = mutation({
+  args: { documentId: v.id("notary_documents") },
+  handler: async (ctx, { documentId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not signed in");
+    const doc = await ctx.db.get(documentId);
+    if (!doc) throw new Error("Document not found");
+    if (doc.userId !== userId) throw new Error("Not allowed");
+    if (doc.status !== "generated" && doc.status !== "archived") {
+      throw new Error("Kaliya dukumeentiyadii la sameeyay ayaa la nuquli karo.");
+    }
+    const now = Date.now();
+    const newId = await ctx.db.insert("notary_documents", {
+      userId,
+      documentType: doc.documentType,
+      documentTypeTitle: doc.documentTypeTitle,
+      subType: doc.subType,
+      subTypeLabel: doc.subTypeLabel,
+      referenceNumber: doc.referenceNumber,
+      parties: doc.parties,
+      fileBaseName: doc.fileBaseName,
+      status: "draft",
+      fileDocx: null,
+      valuesJson: doc.valuesJson,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.db.patch(documentId, { supersededBy: newId, updatedAt: now });
+    return newId;
   },
 });
 

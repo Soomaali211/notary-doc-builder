@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useParams } from "react-router";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { AppShell } from "@/components/notary/AppShell";
@@ -9,10 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getConfig, getSubTypeLabel } from "@/lib/notary/documents";
+import { getTemplateById } from "@/lib/notary/registry";
 import { formatSomaliDate } from "@/lib/notary/format";
 import {
+  Archive,
   ArrowLeft,
+  CopyPlus,
   Download,
+  FileDown,
   FileText,
   MessagesSquare,
   Send,
@@ -32,6 +37,8 @@ function DocumentDetailView({ docId }: { docId: string }) {
   });
   const addComment = useMutation(api.notaryComments.add);
   const removeComment = useMutation(api.notaryComments.remove);
+  const archiveDoc = useMutation(api.notaryDocuments.archiveDocument);
+  const cloneAsDraft = useMutation(api.notaryDocuments.cloneAsDraft);
   const navigate = useNavigate();
 
   const [commentBody, setCommentBody] = useState("");
@@ -56,6 +63,31 @@ function DocumentDetailView({ docId }: { docId: string }) {
       return {};
     }
   })();
+
+  // Phase 3H — template version binding (immutable generation metadata).
+  const templateInfo = document.generatedMetadata
+    ? getTemplateById(document.generatedMetadata.templateId)
+    : undefined;
+
+  const regenerate = async () => {
+    try {
+      // Regeneration never overwrites: clone → fresh draft → new version.
+      const newId = await cloneAsDraft({ documentId: document._id });
+      toast.success("Waa la nuquliyay — version cusub oo draft ah ayaa diyaar.");
+      navigate(`/documents/${newId}`);
+    } catch (e) {
+      toast.error((e as Error).message || "Nuqulidda waa fashilantay.");
+    }
+  };
+
+  const archiveNow = async () => {
+    try {
+      await archiveDoc({ documentId: document._id });
+      toast.success("Dukumeentiga waa la kaydiyay kaydka.");
+    } catch (e) {
+      toast.error((e as Error).message || "Kaydinta waa fashilantay.");
+    }
+  };
 
   const postComment = async () => {
     if (!commentBody.trim()) return;
@@ -96,20 +128,53 @@ function DocumentDetailView({ docId }: { docId: string }) {
               </div>
               <div className="flex flex-col items-end gap-2">
                 <Badge variant={document.status === "generated" ? "default" : "secondary"}>
-                  {document.status === "generated" ? "Generated" : "Draft"}
+                  {document.status === "generated"
+                    ? "Generated"
+                    : document.status === "archived"
+                      ? "Archived"
+                      : "Draft"}
                 </Badge>
+                {document.generatedMetadata && (
+                  <p className="text-right text-[11px] text-muted-foreground">
+                    Template:{" "}
+                    <span className="font-medium text-foreground">
+                      {templateInfo?.name ?? document.generatedMetadata.templateId} V
+                      {document.generatedMetadata.templateVersion}
+                    </span>
+                  </p>
+                )}
                 {document.status === "generated" && docxUrl && (
                   <a
                     href={docxUrl}
                     download={`${document.fileBaseName}.docx`}
                     className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                   >
-                    <Download className="size-4" /> Download DOCX
+                    <Download className="size-4" /> Open / Download DOCX
                   </a>
+                )}
+                {document.status === "generated" && document.generatedMetadata?.outputPdfPath && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled
+                    title="PDF conversion waa Phase 4 — DOCX-ga ayaa diyaar."
+                  >
+                    <FileDown className="size-4" /> Open PDF
+                  </Button>
                 )}
                 {document.status === "draft" && (
                   <Button size="sm" onClick={() => navigate(`/documents/${document._id}`)}>
                     Resume interview
+                  </Button>
+                )}
+                {(document.status === "generated" || document.status === "archived") && (
+                  <Button size="sm" variant="outline" onClick={regenerate}>
+                    <CopyPlus className="size-4" /> Regenerate as draft
+                  </Button>
+                )}
+                {document.status === "generated" && (
+                  <Button size="sm" variant="ghost" onClick={archiveNow}>
+                    <Archive className="size-4" /> Save to archive
                   </Button>
                 )}
               </div>

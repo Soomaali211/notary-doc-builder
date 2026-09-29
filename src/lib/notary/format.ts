@@ -1,11 +1,14 @@
 import type {
+  CurrencyFormatConfig,
   DocumentConfig,
+  DocumentFormatConfig,
   FormValues,
   PartyDef,
   PartyRow,
   SectionDef,
 } from "./types";
 import { isPartyList } from "./conditions";
+import { formatCurrencyWordsSomali } from "./somaliNumbers";
 
 const SOMALI_MONTHS = [
   "Janaayo",
@@ -22,15 +25,30 @@ const SOMALI_MONTHS = [
   "Diseembar",
 ];
 
-/** "2026-01-15" → "15 Janaayo 2026" (Somali date formatting). */
-export function formatSomaliDate(value: string | undefined): string {
+export type SomaliDateFormat = "D MMMM YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD";
+
+/**
+ * "2026-01-15" → "15 Janaayo 2026" by default; the format is configurable
+ * per document type (e.g. "29/09/2026" with "DD/MM/YYYY").
+ */
+export function formatSomaliDate(
+  value: string | undefined,
+  format: SomaliDateFormat = "D MMMM YYYY",
+): string {
   if (!value) return "";
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
   if (!match) return value;
   const [, y, m, d] = match;
   const monthIndex = Number(m) - 1;
   if (monthIndex < 0 || monthIndex > 11) return value;
-  return `${Number(d)} ${SOMALI_MONTHS[monthIndex]} ${y}`;
+  switch (format) {
+    case "DD/MM/YYYY":
+      return `${d}/${m}/${y}`;
+    case "YYYY-MM-DD":
+      return `${y}-${m}-${d}`;
+    default:
+      return `${Number(d)} ${SOMALI_MONTHS[monthIndex]} ${y}`;
+  }
 }
 
 /** 35000 → "35,000 USD" (Somali currency formatting, USD/M). */
@@ -47,6 +65,26 @@ export function formatSomaliNumber(value: string | number | undefined): string {
   const n = Number(value);
   if (!Number.isFinite(n)) return String(value);
   return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
+/**
+ * Currency rendering driven by the document's format config:
+ *   mode "symbol" → $500 · mode "code" → 500 USD · mode "words" → Shan Boqol oo Dollar.
+ */
+export function formatCurrencyValue(
+  value: string | number | undefined,
+  cfg?: CurrencyFormatConfig,
+): string {
+  if (value === undefined || value === "" || value === null) return "";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return String(value);
+  const mode = cfg?.mode ?? "code";
+  if (mode === "words") {
+    return formatCurrencyWordsSomali(n, cfg?.wordsUnit ?? "Dollar");
+  }
+  const formatted = n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  if (mode === "symbol") return `${cfg?.symbol ?? "$"}${formatted}`;
+  return `${formatted} ${cfg?.code ?? "USD"}`;
 }
 
 /** yes / no / "" → "Haa" / "Maya" / "". */
@@ -74,14 +112,20 @@ export function describePartyRow(
 export function formatValueByKind(
   raw: unknown,
   kind: string | undefined,
+  formatConfig?: DocumentFormatConfig,
 ): string {
   const value = typeof raw === "string" ? raw : raw == null ? "" : String(raw);
   if (!value) return "";
   switch (kind) {
     case "date":
-      return formatSomaliDate(value);
+      return formatSomaliDate(value, formatConfig?.dateFormat);
     case "currency":
-      return formatSomaliCurrency(value);
+      return formatCurrencyValue(value, formatConfig?.currency);
+    case "currency_words":
+      return formatCurrencyValue(value, {
+        mode: "words",
+        wordsUnit: formatConfig?.currency?.wordsUnit,
+      });
     case "number":
       return formatSomaliNumber(value);
     case "yesno":

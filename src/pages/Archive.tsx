@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { documentConfigs, getConfig, getSubTypeLabel } from "@/lib/notary/documents";
-import { Search, FileText, FolderOpen } from "lucide-react";
+import { Search, FileText, FolderOpen, CalendarRange } from "lucide-react";
 
 /**
  * Kaydka Heshiisyada (the archive): every document the office has built —
@@ -27,13 +27,20 @@ export default function Archive() {
   const [q, setQ] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  // Phase 3H — date-range filter (inclusive on both ends).
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const filtered = useMemo(() => {
     if (!documents) return [];
     const query = q.trim().toLowerCase();
+    const fromTs = fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : null;
+    const toTs = toDate ? new Date(`${toDate}T23:59:59.999`).getTime() : null;
     return documents.filter((d) => {
       if (typeFilter !== "all" && d.documentType !== typeFilter) return false;
       if (statusFilter !== "all" && d.status !== statusFilter) return false;
+      if (fromTs !== null && d.createdAt < fromTs) return false;
+      if (toTs !== null && d.createdAt > toTs) return false;
       if (!query) return true;
       const haystack = [
         d.referenceNumber,
@@ -46,7 +53,7 @@ export default function Archive() {
         .toLowerCase();
       return haystack.includes(query);
     });
-  }, [documents, q, typeFilter, statusFilter]);
+  }, [documents, q, typeFilter, statusFilter, fromDate, toDate]);
 
   return (
     <AppShell
@@ -88,6 +95,40 @@ export default function Archive() {
               <SelectItem value="draft">Draft</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        {/* Date range (created between … and …) */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-border pt-3">
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <CalendarRange className="size-3.5" /> La abuuray u dhexeeya:
+          </span>
+          <Input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="w-40 bg-card/80"
+            aria-label="Taariikhda bilowga"
+          />
+          <span className="text-xs text-muted-foreground">—</span>
+          <Input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="w-40 bg-card/80"
+            aria-label="Taariikhda dhammaadka"
+          />
+          {(fromDate || toDate) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                setFromDate("");
+                setToDate("");
+              }}
+            >
+              Clear
+            </Button>
+          )}
         </div>
       </div>
 

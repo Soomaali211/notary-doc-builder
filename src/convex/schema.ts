@@ -23,6 +23,14 @@ const partySummary = v.object({
   idNumber: v.optional(v.string()),
 });
 
+const generatedMetadata = v.object({
+  templateId: v.string(),
+  templateVersion: v.number(),
+  outputDocxPath: v.string(),
+  outputPdfPath: v.optional(v.string()),
+  fileName: v.string(),
+});
+
 const schema = defineSchema(
   {
     // default auth tables using convex auth.
@@ -62,6 +70,10 @@ const schema = defineSchema(
       /** DOCX bytes of the generated document (null for drafts). */
       fileDocx: v.optional(v.union(v.id("_storage"), v.null())),
       valuesJson: v.string(),
+      /** Phase 3 — generation metadata (template version, output paths). */
+      generatedMetadata: v.optional(generatedMetadata),
+      /** Phase 3 — new document id when this one was superseded. */
+      supersededBy: v.optional(v.id("notary_documents")),
       createdAt: v.number(),
       updatedAt: v.number(),
     })

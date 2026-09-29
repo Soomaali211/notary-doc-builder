@@ -29,7 +29,8 @@ import {
   validateSectionById,
 } from "@/lib/notary/engine";
 import { validateDocument } from "@/lib/notary/validation";
-import { buildFileBaseName, fillTemplate } from "@/lib/notary/template";
+import { buildFileBaseName } from "@/lib/notary/archiver";
+import { generateDocument } from "@/lib/notary/pipeline";
 import type { FormValues, PartyDef, SectionDef } from "@/lib/notary/types";
 import {
   ArrowLeft,
@@ -125,7 +126,6 @@ export default function NewDocumentInterview() {
     }
   }, [values]);
 
-  const nextReference = useMutation(api.notaryDocuments.nextReference);
   const generateUploadUrl = useMutation(api.notaryDocuments.generateUploadUrl);
   const commitGenerated = useMutation(api.notaryDocuments.commitGenerated);
 
@@ -195,18 +195,38 @@ export default function NewDocumentInterview() {
         return;
       }
 
-      const referenceNumber =
-        document.referenceNumber || (await nextReference({ prefix: config.referencePrefix }));
+      // Phase 3: the user-entered reference is the source of truth —
+      // it is never auto-incremented.
+      const referenceNumber = (
+        getAnswer(values, "heshiiska", "reference") ||
+        document.referenceNumber ||
+        ""
+      ).trim();
+      if (!referenceNumber) {
+        setStep(0);
+        setStepErrors(true);
+        toast.error("Fadlan geli nambarka tixraaca (Reference Number).");
+        setGenerating(false);
+        return;
+      }
 
-      const templateRes = await fetch(config.templatePath);
-      if (!templateRes.ok) throw new Error("Template lama helin");
-      const templateBytes = await templateRes.arrayBuffer();
-      const blob = await fillTemplate(templateBytes, config, values);
+      const subType = getAnswer(values, "heshiiska", "sub_type") || document.subType;
+      const subTypeLabel = getSubTypeLabel(config, subType);
 
-      const baseName = buildFileBaseName(config, referenceNumber);
+      // Full Phase 3 pipeline: validate answers → registry template →
+      // validate template → data context → conditions → clauses →
+      // repeaters → placeholders → DOCX → validate output → PDF (best effort).
+      const out = await generateDocument({
+        config,
+        values,
+        referenceNumber,
+        subTypeLabel,
+      });
+
+      // Hand the generated DOCX to the user immediately.
       const a = window.document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${baseName}.docx`;
+      a.href = URL.createObjectURL(out.result.blob);
+      a.download = out.result.fileName;
       window.document.body.appendChild(a);
       a.click();
       a.remove();
@@ -216,7 +236,7 @@ export default function NewDocumentInterview() {
       const uploadRes = await fetch(uploadUrl, {
         method: "POST",
         headers: { "Content-Type": DOCX_MIME },
-        body: blob,
+        body: out.result.blob,
       });
       if (!uploadRes.ok) throw new Error("Upload failed");
       const { storageId } = (await uploadRes.json()) as { storageId: Id<"_storage"> };
@@ -227,24 +247,37 @@ export default function NewDocumentInterview() {
         payload: {
           documentType: config.id,
           documentTypeTitle: config.title,
-          subType: getAnswer(values, "heshiiska", "sub_type") || document.subType,
-          subTypeLabel: getSubTypeLabel(
-            config,
-            getAnswer(values, "heshiiska", "sub_type") || document.subType,
-          ),
+          subType,
+          subTypeLabel,
           referenceNumber,
-          fileBaseName: baseName,
+          fileBaseName: out.result.fileName.replace(/\.docx$/, ""),
           parties: getPartySummary(config, values),
           valuesJson: serializeDraft(values),
         },
+        metadata: {
+          templateId: out.result.templateId,
+          templateVersion: out.result.templateVersion,
+          outputDocxPath: out.result.outputDocxPath,
+          outputPdfPath: out.result.outputPdfPath,
+          fileName: out.result.fileName,
+        },
       });
 
-      toast.success("Dukumeentiga waa la sameeyay oo la kaydiyay!");
+      if (out.warnings.length > 0) {
+        toast.message("Dukumeentiga DOCX waa la sameeyay", {
+          description: out.warnings.join(" "),
+        });
+      } else {
+        toast.success("Dukumeentiga waa la sameeyay oo la kaydiyay!");
+      }
       navigate(`/archive/${document._id}`);
     } catch (err) {
       console.error(err);
+      const msg = err instanceof Error ? err.message : "";
       toast.error(
-        "Abuuritaanku wuu fashilmay — xogtaada weli way kaydsan tahay. Fadlan isku day mar kale.",
+        msg.startsWith("Template Error") || msg.startsWith("Output Error")
+          ? msg
+          : "Abuuritaanku wuu fashilmay — xogtaada weli way kaydsan tahay. Fadlan isku day mar kale.",
       );
     } finally {
       setGenerating(false);
