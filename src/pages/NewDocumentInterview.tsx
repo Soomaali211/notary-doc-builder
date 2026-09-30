@@ -48,6 +48,7 @@ import {
   validateSectionById,
 } from "@/lib/notary/engine";
 import { validateDocument } from "@/lib/notary/validation";
+import { getVisibleFields } from "@/lib/notary/engine";
 import { getAnswer } from "@/lib/notary/engine";
 import { buildFileBaseName } from "@/lib/notary/archiver";
 import { generateDocument } from "@/lib/notary/pipeline";
@@ -112,8 +113,9 @@ function stepDescription(step: InterviewStep): string {
   }
 }
 
-/** One config section: scalar fields + classic (non-attendance) repeaters. */
-function SectionStep({
+/** One config section: scalar fields + classic (non-attendance) repeaters.
+ *  Exported so tests can render the real Step 1 UI through SSR. */
+export function SectionStep({
   step,
   values,
   validation,
@@ -151,7 +153,11 @@ function SectionStep({
     <>
       {isSetup ? (
         <div className="space-y-6">
-          {section.fields
+          {/* Conditional fields on Step 1 (start/end dates) update IMMEDIATELY
+              with the muddada choice: getVisibleFields re-evaluates on every
+              values change — Kiro Furan hides End Date, Xidhan shows it, no
+              page refresh or re-entry needed. */}
+          {getVisibleFields(section, values)
             .filter((f) => setupFields.includes(f.id) || f.visibleWhen)
             .map((field) => {
               // visibleWhen fields on Step 1 (e.g. open/closed dates) use the
@@ -185,6 +191,7 @@ function SectionStep({
           {/* reference/dates/textarea-style remaining fields */}
           {section.fields
             .filter((f) => !setupFields.includes(f.id) && !f.visibleWhen)
+            .filter((f) => getVisibleFields(section, values).some((vf) => vf.id === f.id))
             .map((field) => (
               <FieldRenderer
                 key={field.id}

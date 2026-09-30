@@ -139,16 +139,19 @@ export const heshiisKiroConfig: DocumentConfig = {
       title: "Dejinta Heshiiska",
       description: "Aasaaska heshiiska — nambarka, nooca, dadka, muddada iyo go'aannada conditional.",
       fields: [
-        { id: "reference", type: "text", label: "Nambarka Tixraaca (Reference Number)", placeholder: "Si toos ah ayaa la abuurayaa", optional: true, colSpan: 1 },
-        { id: "taariikhda_heshiiska", type: "date", label: "Taariikhda Heshiiska", validation: { required: true } },
+        // Req #8 — Step 1 UI order: Nooca → Kireeye → Kirayste → Muddada →
+        // Deebaaji → Damiin → Bilowga (always) → Dhammaadka (Xidhan only) →
+        // Reference → Taariikhda Heshiiska → Shuruudo gaar ah.
         { id: "sub_type", type: "select", label: "Nooca Kirada", options: KIRO_SUBTYPES, validation: { required: true }, hint: "Guri Xaas, Qol Meherad ama Jiingad" },
         { id: "kireeye_mode", type: "radio", label: "Kireeye", options: LANDLORD_MODES, validation: { required: true }, description: "Hal kireeye ama laba iyo wixii ka badan", colSpan: 2 },
         { id: "kirayste_mode", type: "radio", label: "Kirayste", options: TENANT_MODES, validation: { required: true }, description: "Hal kirayste ama laba iyo wixii ka badan", colSpan: 2 },
         { id: "muddada_nooca", type: "radio", label: "Nooca Muddada Kirada", options: DURATION_KINDS, validation: { required: true }, description: "Kiro Furan = muddo aan end date go'an lahayn · Kiro Xidhan = muddo iyo end date cad", colSpan: 2 },
-        { id: "deebaaji_haa", type: "yes_no", label: "Deebaaji ma jiraa?", validation: { required: true }, description: "Haddii Haa, tallaabada Deebaajiga ayaa muuqan doonta" },
-        { id: "damiin_haa", type: "yes_no", label: "Damiin ma jiraa?", validation: { required: true }, description: "Haddii Haa, tallaabada Damiinka ayaa muuqan doonta" },
-        { id: "taariikhda_bilowga", type: "date", label: "Taariikhda Bilowga", visibleWhen: { op: "equals", field: "heshiiska.muddada_nooca", value: "xidhan" }, validation: { required: true } },
+        { id: "deebaaji_haa", type: "yes_no", label: "Deebaaji ma jiraa?", options: YES_NO, validation: { required: true }, description: "Haddii Haa, tallaabada Deebaajiga ayaa muuqan doonta" },
+        { id: "damiin_haa", type: "yes_no", label: "Damiin ma jiraa?", options: YES_NO, validation: { required: true }, description: "Haddii Haa, tallaabada Damiinka ayaa muuqan doonta" },
+        { id: "taariikhda_bilowga", type: "date", label: "Taariikhda Bilowga", validation: { required: true } },
         { id: "taariikhda_dhammaadka", type: "date", label: "Taariikhda Dhammaadka / Mudada", visibleWhen: { op: "equals", field: "heshiiska.muddada_nooca", value: "xidhan" }, validation: { required: true, notBefore: "taariikhda_bilowga" }, hint: "Waa inay ka dambeysaa taariikhda bilowga" },
+        { id: "reference", type: "text", label: "Nambarka Tixraaca (Reference Number)", placeholder: "Si toos ah ayaa la abuurayaa", optional: true, colSpan: 1 },
+        { id: "taariikhda_heshiiska", type: "date", label: "Taariikhda Heshiiska", validation: { required: true } },
         { id: "shuruudaha_gaarka_ah", type: "textarea", label: "Shuruudaha Gaarka ah (Special Terms)", optional: true, colSpan: 2, placeholder: "Shuruudaha gaarka ah ee heshiiskan…" },
       ],
     },

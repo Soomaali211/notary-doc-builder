@@ -100,13 +100,13 @@ describe("Example B", () => {
     expect(ids).toContain("damiinka");
   });
 
-  test("open duration → no end-date fields at all", () => {
+  test("open duration → End Date hidden; Start Date always shown (req #8)", () => {
     // Use the interview's own conditional logic (visible fields only).
     const { getVisibleFields } = require("../src/lib/notary/engine");
     const heshiiska = getSections(config, values).find((s) => s.id === "heshiiska")!;
     const visible = getVisibleFields(heshiiska, values).map((f) => f.id);
-    expect(visible).not.toContain("taariikhda_bilowga");
-    expect(visible).not.toContain("taariikhda_dhammaadka");
+    expect(visible).toContain("taariikhda_bilowga"); // always visible
+    expect(visible).not.toContain("taariikhda_dhammaadka"); // End Date hidden
   });
 
   test("single landlord → no count step; multiple tenants → count step", () => {
@@ -281,7 +281,7 @@ describe("Test matrix A–G", () => {
   test("A — Furan + Deebaaji Haa + Damiin Haa: no End Date, both steps visible", () => {
     const values = setupValues({ muddada_nooca: "furan", deebaaji_haa: "yes", damiin_haa: "yes" });
     const visible = visibleHeshiiskaFields(values);
-    expect(visible).not.toContain("taariikhda_bilowga");
+    expect(visible).toContain("taariikhda_bilowga"); // always visible (req #8)
     expect(visible).not.toContain("taariikhda_dhammaadka");
     const ids = stepIds(values);
     expect(ids).toContain("deebaaji");
@@ -333,9 +333,9 @@ describe("Test matrix A–G", () => {
     // Stale dates remain in the draft ("Hay draft-ka" choice) after the switch.
     const values = setupValues({ muddada_nooca: "furan" });
     expect((values.heshiiska as Record<string, string>).taariikhda_dhammaadka).toBe("2027-09-30");
-    // 1) End Date disappears from the interview.
+    // 1) End Date disappears from the interview; Start Date stays.
     const visible = visibleHeshiiskaFields(values);
-    expect(visible).not.toContain("taariikhda_bilowga");
+    expect(visible).toContain("taariikhda_bilowga");
     expect(visible).not.toContain("taariikhda_dhammaadka");
     // 2) No validation error even though a stale date sits in the draft.
     const { validateDocument } = require("../src/lib/notary/validation");
@@ -376,5 +376,124 @@ describe("Test matrix A–G", () => {
     const { validateDocument } = require("../src/lib/notary/validation");
     expect(validateDocument(config, values)["damiinka"]).toBeUndefined();
     expect((values.damiinka as Record<string, string>).damiin_magac).toBe("Maxamed Nuur");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* STEP 1 UI CORRECTION — exact screenshot cases (#10/#11)             */
+/* ------------------------------------------------------------------ */
+
+describe("Step 1 UI correction (req #10/#11)", () => {
+  test("#10 Guri Xaas + Kireeye + Kirayste + Furan + Deebaaji Maya + Damiin Maya", () => {
+    const values = setupValues({
+      kireeye_mode: "single",
+      kirayste_mode: "single",
+      muddada_nooca: "furan",
+      deebaaji_haa: "no",
+      damiin_haa: "no",
+    });
+    const { validateDocument } = require("../src/lib/notary/validation");
+
+    // Kiro Furan = selected; Deebaaji Maya + Damiin Maya selected.
+    const s = readAgreementSetup(values);
+    expect(s.subType).toBe("guri_xaas");
+    expect(s.landlordMode).toBe("single");
+    expect(s.tenantMode).toBe("single");
+    expect(s.durationKind).toBe("furan");
+    expect(s.deposit).toBe(false);
+    expect(s.guarantor).toBe(false);
+
+    // Haa/Maya choice cards are CONFIGURED (options present → UI renders them).
+    const yesNoFields = config.sections
+      .find((sec) => sec.id === "heshiiska")!
+      .fields.filter((f) => f.type === "yes_no");
+    expect(yesNoFields.map((f) => f.id)).toEqual(["deebaaji_haa", "damiin_haa"]);
+    for (const f of yesNoFields) {
+      expect(f.options?.map((o) => o.label)).toEqual(["Haa", "Maya"]);
+    }
+
+    // Step 1 order matches req #8 exactly.
+    const { getVisibleFields } = require("../src/lib/notary/engine");
+    const heshiiska = getSections(config, values).find((sec) => sec.id === "heshiiska")!;
+    const visible = getVisibleFields(heshiiska, values).map((f) => f.id);
+    expect(visible).toEqual([
+      "sub_type",
+      "kireeye_mode",
+      "kirayste_mode",
+      "muddada_nooca",
+      "deebaaji_haa",
+      "damiin_haa",
+      "taariikhda_bilowga", // always visible (req #8 item 7)
+      "reference",
+      "taariikhda_heshiiska",
+      "shuruudaha_gaarka_ah",
+    ]);
+    expect(visible).not.toContain("taariikhda_dhammaadka"); // End Date HIDDEN
+
+    // No required error for End Date; Taariikhda Bilowga stays required.
+    const errors = validateDocument(config, values);
+    expect(errors["heshiiska"]?.fieldErrors["taariikhda_dhammaadka"]).toBeUndefined();
+    expect(errors["heshiiska"]?.fieldErrors["taariikhda_bilowga"]).toBeUndefined();
+
+    // Deposit Step + Guarantor Step hidden later in the workflow.
+    const ids = stepIds(values);
+    expect(ids).not.toContain("deebaaji");
+    expect(ids).not.toContain("damiinka");
+  });
+
+  test("#11 Furan→Xidhan: End Date immediately appears (required); Xidhan→Furan: disappears", () => {
+    const { getVisibleFields } = require("../src/lib/notary/engine");
+    const { validateDocument } = require("../src/lib/notary/validation");
+    const visibleOf = (v: FormValues) => {
+      const sec = getSections(config, v).find((s2) => s2.id === "heshiiska")!;
+      return getVisibleFields(sec, v).map((f) => f.id);
+    };
+
+    const furan = setupValues({
+      kireeye_mode: "single",
+      kirayste_mode: "single",
+      muddada_nooca: "furan",
+      deebaaji_haa: "no",
+      damiin_haa: "no",
+      taariikhda_bilowga: "2026-10-01",
+    });
+    // Furan → End Date absent.
+    expect(visibleOf(furan)).not.toContain("taariikhda_dhammaadka");
+
+    // Switch to Xidhan (same state object, only the answer changes — the
+    // same re-render path the UI uses): End Date appears immediately.
+    const xidhan = setupValues({
+      ...furan.heshiiska,
+      muddada_nooca: "xidhan",
+    });
+    const xidhanVisible = visibleOf(xidhan);
+    expect(xidhanVisible).toContain("taariikhda_dhammaadka");
+    // Required indicator comes from validation.required in the config.
+    const endField = config.sections
+      .find((s2) => s2.id === "heshiiska")!
+      .fields.find((f) => f.id === "taariikhda_dhammaadka")!;
+    expect(endField.validation?.required).toBe(true);
+    // Validation active: empty End Date errors when Xidhan.
+    const xidhanEmptyEnd = setupValues({
+      ...xidhan.heshiiska,
+      muddada_nooca: "xidhan",
+      taariikhda_dhammaadka: "",
+    });
+    expect(
+      validateDocument(config, xidhanEmptyEnd)["heshiiska"]?.fieldErrors["taariikhda_dhammaadka"],
+    ).toBeDefined();
+
+    // Switch back to Furan → End Date disappears, validation inactive.
+    const backToFuran = setupValues({
+      ...xidhan.heshiiska,
+      muddada_nooca: "furan",
+      taariikhda_dhammaadka: "2027-09-30", // stale kept by "Hay draft-ka"
+    });
+    expect(visibleOf(backToFuran)).not.toContain("taariikhda_dhammaadka");
+    const backErrors = validateDocument(config, backToFuran);
+    expect(backErrors["heshiiska"]).toBeUndefined(); // no End Date error
+    // And the stale date never reaches the document output.
+    const out = renderLine(p("Dhammaadka: {{TAARIIKHDA_DHAMMAADKA}}"), backToFuran);
+    expect(out).not.toContain("30/09/2027");
   });
 });
