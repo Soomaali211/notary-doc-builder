@@ -7,11 +7,28 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { FieldRenderer } from "@/components/notary/FieldRenderer";
 import { PartyListEditor } from "@/components/notary/PartyListEditor";
 import { NumberSelector } from "@/components/notary/NumberSelector";
 import { AttendanceEditor } from "@/components/notary/AttendanceEditor";
 import { StepperProgress } from "@/components/notary/StepperProgress";
+import { SetupField } from "@/components/notary/SetupField";
+import { SetupSummaryCard } from "@/components/notary/SetupSummaryCard";
+import {
+  buildConditionalWorkflow,
+  isSetupComplete,
+  readAgreementSetup,
+} from "@/lib/notary/agreementSetup";
 import { getConfig, getSubTypeLabel } from "@/lib/notary/documents";
 import {
   addRepeatableItem,
@@ -74,27 +91,12 @@ interface InterviewStep {
 }
 
 /**
- * Smart Guided Interview: the section list expands into count-first →
- * data → attendance steps for every attendance-enabled party group.
- * Each answer determines what comes next; non-attendance groups (maragyo)
- * keep their classic single-section repeater step.
+ * Smart Guided Interview — CONDITIONAL workflow (config-driven).
+ * Step 1 "Dejinta Heshiiska" answers drive which steps exist: the
+ * Deebaaji/Damiinka sections carry visibleWhen rules in the config, and
+ * single/multiple party modes expand into one person or a dynamic list.
+ * No fixed step list is ever rendered (#14/#16).
  */
-function buildSteps(sections: SectionDef[]): InterviewStep[] {
-  const steps: InterviewStep[] = [];
-  for (const section of sections) {
-    steps.push({ key: `sec-${section.id}`, short: section.title, detail: { kind: "section", section } });
-    for (const partyDef of section.parties ?? []) {
-      if (partyDef.attendance) {
-        steps.push({ key: `count-${partyDef.id}`, short: `Tirada ${partyDef.label}`, detail: { kind: "count", partyDef } });
-        steps.push({ key: `data-${partyDef.id}`, short: partyDef.label, detail: { kind: "party-data", partyDef } });
-        steps.push({ key: `att-${partyDef.id}`, short: `Joogitaanka ${partyDef.label}`, detail: { kind: "attendance", partyDef } });
-      } else {
-        steps.push({ key: `party-${partyDef.id}`, short: partyDef.label, detail: { kind: "party-data", partyDef } });
-      }
-    }
-  }
-  return steps;
-}
 
 /** Somali description shown under a step title. */
 function stepDescription(step: InterviewStep): string {
@@ -117,32 +119,101 @@ function SectionStep({
   validation,
   stepErrors,
   setValues,
+  config,
+  setupSummarySlot,
+  onSetupValues,
 }: {
   step: Extract<InterviewStep["detail"], { kind: "section" }>;
   values: FormValues;
   validation: Record<string, import("@/lib/notary/validation").SectionErrors>;
   stepErrors: boolean;
   setValues: (updater: (v: FormValues) => FormValues) => void;
+  config: NonNullable<ReturnType<typeof getConfig>>;
+  /** Only set for Step 1: renders the live summary card once complete. */
+  setupSummarySlot?: React.ReactNode;
+  /** Only set for Step 1: guarded setter for setup-driven answers. */
+  onSetupValues?: (next: FormValues) => void;
 }) {
   const section = step.section;
+  // Step 1 (Dejinta Heshiiska): setup controls drive the whole workflow.
+  const isSetup = section.id === "heshiiska";
+  const setupFields = isSetup
+    ? ["sub_type", "kireeye_mode", "kirayste_mode", "muddada_nooca", "deebaaji_haa", "damiin_haa"]
+    : [];
+  const landlordDef = config.sections
+    .flatMap((s) => s.parties ?? [])
+    .find((p) => p.id === "kireeyayaal")!;
+  const tenantDef = config.sections
+    .flatMap((s) => s.parties ?? [])
+    .find((p) => p.id === "kiraystayaal")!;
+
   return (
     <>
-      <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
-        {section.fields.map((field) => {
-          const err = stepErrors
-            ? validation[section.id]?.fieldErrors[field.id]
-            : undefined;
-          return (
-            <FieldRenderer
-              key={field.id}
-              field={field}
-              value={getAnswer(values, section.id, field.id)}
-              error={err}
-              onChange={(value) => setValues((v) => setAnswer(v!, section.id, field.id, value))}
-            />
-          );
-        })}
-      </div>
+      {isSetup ? (
+        <div className="space-y-6">
+          {section.fields
+            .filter((f) => setupFields.includes(f.id) || f.visibleWhen)
+            .map((field) => {
+              // visibleWhen fields on Step 1 (e.g. open/closed dates) use the
+              // standard renderer; setup choices use the rich setup cards.
+              if (field.visibleWhen) {
+                return (
+                  <FieldRenderer
+                    key={field.id}
+                    field={field}
+                    value={getAnswer(values, section.id, field.id)}
+                    error={
+                      stepErrors ? validation[section.id]?.fieldErrors[field.id] : undefined
+                    }
+                    onChange={(value) => setValues((v) => setAnswer(v!, section.id, field.id, value))}
+                  />
+                );
+              }
+              return (
+                <SetupField
+                  key={field.id}
+                  field={field}
+                  values={values}
+                  sectionId={section.id}
+                  landlordDef={landlordDef}
+                  tenantDef={tenantDef}
+                  errors={stepErrors ? validation[section.id] : undefined}
+                  onValues={(next) => (onSetupValues ? onSetupValues(next) : setValues(() => next))}
+                />
+              );
+            })}
+          {/* reference/dates/textarea-style remaining fields */}
+          {section.fields
+            .filter((f) => !setupFields.includes(f.id) && !f.visibleWhen)
+            .map((field) => (
+              <FieldRenderer
+                key={field.id}
+                field={field}
+                value={getAnswer(values, section.id, field.id)}
+                error={stepErrors ? validation[section.id]?.fieldErrors[field.id] : undefined}
+                onChange={(value) => setValues((v) => setAnswer(v!, section.id, field.id, value))}
+              />
+            ))}
+          {setupSummarySlot}
+        </div>
+      ) : (
+        <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+          {section.fields.map((field) => {
+            const err = stepErrors
+              ? validation[section.id]?.fieldErrors[field.id]
+              : undefined;
+            return (
+              <FieldRenderer
+                key={field.id}
+                field={field}
+                value={getAnswer(values, section.id, field.id)}
+                error={err}
+                onChange={(value) => setValues((v) => setAnswer(v!, section.id, field.id, value))}
+              />
+            );
+          })}
+        </div>
+      )}
 
       {/* Non-attendance repeaters (maragyo) render inline as before. */}
       {(section.parties ?? [])
@@ -186,6 +257,12 @@ export default function NewDocumentInterview() {
   const [stepErrors, setStepErrors] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** #15 — pending Step 1 change that hides a section holding entered data. */
+  const [hiddenDataChoice, setHiddenDataChoice] = useState<null | {
+    sectionId: string;
+    label: string;
+    next: FormValues;
+  }>(null);
   const hydratedRef = useRef(false);
   const savedRef = useRef(false);
   const lastSavedJsonRef = useRef("");
@@ -261,7 +338,99 @@ export default function NewDocumentInterview() {
     () => (values && config ? getSections(config, values) : []),
     [config, values],
   );
-  const steps = useMemo(() => buildSteps(visibleSections), [visibleSections]);
+
+  // Conditional workflow: derived from Step 1 answers + config visibility.
+  const steps: InterviewStep[] = useMemo(() => {
+    if (!values || !config) return [];
+    const byId = new Map(visibleSections.map((s) => [s.id, s]));
+    const out: InterviewStep[] = [];
+    for (const s of buildConditionalWorkflow(config, values)) {
+      if (s.detail.kind === "section") {
+        const section = byId.get(s.detail.sectionId);
+        if (section) out.push({ key: s.key, short: s.short, detail: { kind: "section", section } });
+      } else {
+        out.push(s as InterviewStep);
+      }
+    }
+    return out;
+  }, [config, values, visibleSections]);
+
+  const setup = useMemo(
+    () => (values ? readAgreementSetup(values) : null),
+    [values],
+  );
+  const setupComplete = setup ? isSetupComplete(setup) : false;
+
+  /**
+   * #15 — Step 1 change guard: when a setup answer hides a section that
+   * already holds entered data, ask before touching the draft. Visibility
+   * (workflow) and stored draft data stay separate concerns: "Hay xogta"
+   * hides the step but keeps the data; "Ka saar" clears that section.
+   */
+  const guardedSetValues = (next: FormValues) => {
+    if (!config) return setValues(next);
+    const get = (key: "deebaaji" | "damiinka") => {
+      const v = next[key];
+      return v && !Array.isArray(v) ? (v as Record<string, string>) : {};
+    };
+    // Which sections would the NEW answers hide?
+    const hiding: { key: "deebaaji" | "damiinka"; sectionId: string; label: string; hasData: boolean }[] = [];
+    if (getAnswer(next, "heshiiska", "deebaaji_haa") === "no") {
+      const d = get("deebaaji");
+      hiding.push({ key: "deebaaji", sectionId: "deebaaji", label: "Deebaajiga", hasData: Object.values(d).some((x) => x.trim()) });
+    }
+    if (getAnswer(next, "heshiiska", "damiin_haa") === "no") {
+      const d = get("damiinka");
+      hiding.push({ key: "damiinka", sectionId: "damiinka", label: "Damiinka", hasData: Object.values(d).some((x) => x.trim()) });
+    }
+    const current = values ?? next;
+    const losing = hiding.filter((h) => {
+      const cur = current[h.key] as Record<string, string> | undefined;
+      return cur && Object.values(cur).some((x) => x.trim()) && h.hasData === false;
+    });
+    void losing; // data-preserving default: never delete silently
+    // Any answer change that hides a populated section → confirm first.
+    const anyPopulated = hiding.find((h) => {
+      const cur = current[h.key] as Record<string, string> | undefined;
+      return cur && Object.values(cur).some((x) => (x ?? "").trim() !== "");
+    });
+    if (anyPopulated) {
+      setHiddenDataChoice({
+        sectionId: anyPopulated.sectionId,
+        label: anyPopulated.label,
+        next,
+      });
+      return;
+    }
+    setValues(next);
+  };
+
+  const applyHiddenDataChoice = (mode: "keep" | "clear" | "cancel") => {
+    if (!hiddenDataChoice) return;
+    const { next, sectionId } = hiddenDataChoice;
+    if (mode === "cancel") {
+      setHiddenDataChoice(null);
+      return;
+    }
+    if (mode === "clear") {
+      const cleared: FormValues =
+        sectionId === "deebaaji"
+          ? { ...next, deebaaji: { lacagta_deebaajiga: "", shuruudaha_deebaajiga: "" } }
+          : {
+              ...next,
+              damiinka: {
+                damiin_magac: "",
+                damiin_telefoon: "",
+                damiin_aqoonsi: "",
+                damiin_cinwaan: "",
+              },
+            };
+      setValues(cleared);
+    } else {
+      setValues(next); // keep data in draft, step stays hidden
+    }
+    setHiddenDataChoice(null);
+  };
   const totalSteps = steps.length + 1; // + review step
   const isReview = step >= steps.length;
   const currentStep = isReview ? null : steps[step];
@@ -751,9 +920,22 @@ export default function NewDocumentInterview() {
                     values={values}
                     validation={validation}
                     stepErrors={stepErrors}
+                    config={config}
                     setValues={(updater) =>
                       setValues((v) => (v ? updater(v) : v))
                     }
+                    setupSummarySlot={
+                      setup && setupComplete ? (
+                        <SetupSummaryCard
+                          config={config}
+                          setup={setup}
+                          complete={setupComplete}
+                          onEdit={() => setStep(0)}
+                          onContinue={() => setStep(1)}
+                        />
+                      ) : undefined
+                    }
+                    onSetupValues={guardedSetValues}
                   />
                 )}
 
@@ -883,6 +1065,38 @@ export default function NewDocumentInterview() {
           </section>
         </div>
       </div>
+
+      {/* #15 — Step 1 change: section about to be hidden holds data. */}
+      <AlertDialog
+        open={hiddenDataChoice !== null}
+        onOpenChange={(open) => !open && setHiddenDataChoice(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {hiddenDataChoice?.label} waxaa laga saarayaa workflow-ga
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Ma rabtaa inaad xogtii {hiddenDataChoice?.label} ka saarto draft-ka? Haddii aad
+              hayso, xogtu way kaydsan tahay laakiin tallaabadu lama muuqin doono.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => applyHiddenDataChoice("clear")}
+            >
+              Ka saar
+            </AlertDialogAction>
+            <AlertDialogAction onClick={() => applyHiddenDataChoice("keep")}>
+              Hay xogta draft-ka
+            </AlertDialogAction>
+            <AlertDialogCancel onClick={() => applyHiddenDataChoice("cancel")}>
+              Cancel
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

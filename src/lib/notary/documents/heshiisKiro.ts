@@ -19,6 +19,29 @@ const PAYMENT_TIMING: SelectOption[] = [
 
 const PROPERTY_TYPES: SelectOption[] = KIRO_SUBTYPES;
 
+/** Step 1 — single vs multiple landlords. */
+const LANDLORD_MODES: SelectOption[] = [
+  { value: "single", label: "Kireeye" },
+  { value: "multiple", label: "Kireeyayaal" },
+];
+
+/** Step 1 — single vs multiple tenants. */
+const TENANT_MODES: SelectOption[] = [
+  { value: "single", label: "Kirayste" },
+  { value: "multiple", label: "Kiraystayaal" },
+];
+
+/** Step 1 — open-ended vs fixed-term rental. */
+const DURATION_KINDS: SelectOption[] = [
+  { value: "furan", label: "Kiro Furan" },
+  { value: "xidhan", label: "Kiro Xidhan" },
+];
+
+const YES_NO: SelectOption[] = [
+  { value: "yes", label: "Haa" },
+  { value: "no", label: "Maya" },
+];
+
 /**
  * Phase 3 — per-subtype Word templates. The office designs each .docx; the
  * app only fills placeholders. Selection is automatic by sub-type through
@@ -96,9 +119,10 @@ export const heshiisKiroConfig: DocumentConfig = {
   ],
 
   // Phase 3 — named boolean flags for {{IF:FLAG}}…{{ENDIF}} blocks.
+  // Step 1 (Dejinta Heshiiska) is the source of truth for these decisions.
   conditionFlags: {
-    DEEBAAJI_HAA: { op: "is_true", field: "deebaaji.deebaaji_jira" },
-    DAMIIN_HAA: { op: "is_true", field: "lacagta.damiin_jira" },
+    DEEBAAJI_HAA: { op: "is_true", field: "heshiiska.deebaaji_haa" },
+    DAMIIN_HAA: { op: "is_true", field: "heshiiska.damiin_haa" },
     MUQADIN: { op: "equals", field: "lacagta.bixinta_hore", value: "muqadin" },
     MUAKHIR: { op: "equals", field: "lacagta.bixinta_hore", value: "muakhir" },
   },
@@ -112,14 +136,19 @@ export const heshiisKiroConfig: DocumentConfig = {
   sections: [
     {
       id: "heshiiska",
-      title: "Heshiiska",
-      description: "Aasaaska heshiiska — nambarka, taariikhda iyo nooca.",
+      title: "Dejinta Heshiiska",
+      description: "Aasaaska heshiiska — nambarka, nooca, dadka, muddada iyo go'aannada conditional.",
       fields: [
         { id: "reference", type: "text", label: "Nambarka Tixraaca (Reference Number)", placeholder: "Si toos ah ayaa la abuurayaa", optional: true, colSpan: 1 },
         { id: "taariikhda_heshiiska", type: "date", label: "Taariikhda Heshiiska", validation: { required: true } },
-        { id: "sub_type", type: "select", label: "Nooca Kiro (Sub-Type)", options: KIRO_SUBTYPES, validation: { required: true }, hint: "Guri Xaas, Qol Meherad ama Jiingad" },
-        { id: "taariikhda_bilowga", type: "date", label: "Taariikhda Bilowga", validation: { required: true } },
-        { id: "taariikhda_dhammaadka", type: "date", label: "Taariikhda Dhammaadka / Mudada", validation: { required: true, notBefore: "taariikhda_bilowga" }, hint: "Waa inay ka dambeysaa taariikhda bilowga" },
+        { id: "sub_type", type: "select", label: "Nooca Kirada", options: KIRO_SUBTYPES, validation: { required: true }, hint: "Guri Xaas, Qol Meherad ama Jiingad" },
+        { id: "kireeye_mode", type: "radio", label: "Kireeye", options: LANDLORD_MODES, validation: { required: true }, description: "Hal kireeye ama laba iyo wixii ka badan", colSpan: 2 },
+        { id: "kirayste_mode", type: "radio", label: "Kirayste", options: TENANT_MODES, validation: { required: true }, description: "Hal kirayste ama laba iyo wixii ka badan", colSpan: 2 },
+        { id: "muddada_nooca", type: "radio", label: "Nooca Muddada Kirada", options: DURATION_KINDS, validation: { required: true }, description: "Kiro Furan = muddo aan end date go'an lahayn · Kiro Xidhan = muddo iyo end date cad", colSpan: 2 },
+        { id: "deebaaji_haa", type: "yes_no", label: "Deebaaji ma jiraa?", validation: { required: true }, description: "Haddii Haa, tallaabada Deebaajiga ayaa muuqan doonta" },
+        { id: "damiin_haa", type: "yes_no", label: "Damiin ma jiraa?", validation: { required: true }, description: "Haddii Haa, tallaabada Damiinka ayaa muuqan doonta" },
+        { id: "taariikhda_bilowga", type: "date", label: "Taariikhda Bilowga", visibleWhen: { op: "equals", field: "heshiiska.muddada_nooca", value: "xidhan" }, validation: { required: true } },
+        { id: "taariikhda_dhammaadka", type: "date", label: "Taariikhda Dhammaadka / Mudada", visibleWhen: { op: "equals", field: "heshiiska.muddada_nooca", value: "xidhan" }, validation: { required: true, notBefore: "taariikhda_bilowga" }, hint: "Waa inay ka dambeysaa taariikhda bilowga" },
         { id: "shuruudaha_gaarka_ah", type: "textarea", label: "Shuruudaha Gaarka ah (Special Terms)", optional: true, colSpan: 2, placeholder: "Shuruudaha gaarka ah ee heshiiskan…" },
       ],
     },
@@ -205,27 +234,26 @@ export const heshiisKiroConfig: DocumentConfig = {
         { id: "lacagta_hadhsan", type: "currency", label: "Lacagta Hadhsan (Hadhyay)", visibleWhen: { op: "contains", field: "lacagta.habka_bixinta", value: "partial" }, optional: true, order: 5, description: "Waa in lagu buuxiyaa haddii bixintu ay tahay mid qayb ah" },
         { id: "taariikhda_bixinta", type: "text", label: "Maalinta Bixinta (Bishii)", validation: { required: true }, placeholder: "Tusaale: 1aad ee bil kasta" },
         { id: "bixinta_hore", type: "select", label: "Bixintu ma horay u tahay (MUQADIN) mise dambe (MU'AKHIR)?", options: PAYMENT_TIMING, validation: { required: true }, hint: "Waxaa lagu qori doonaa heshiiska", order: 6 },
-        { id: "damiin_jira", type: "yes_no", label: "Damiin ma jiraa?", order: 7, description: "Haddii aad doorato 'Haa', qaybta Damiinka ayaa muuqan doonta tallaabada xigta" },
         { id: "faahfaahin_lacagta", type: "textarea", label: "Faahfaahin Lacagta Dheeraad ah", optional: true, colSpan: 2, order: 8 },
       ],
     },
     {
       id: "deebaaji",
-      title: "Deebaaji",
+      title: "Deebaajiga",
       description: "Utility bills — koronto, biyo iyo wm.",
+      // Conditional workflow: whole section exists only when Step 1 said Haa.
+      visibleWhen: { op: "is_true", field: "heshiiska.deebaaji_haa" },
       fields: [
-        { id: "deebaaji_jira", type: "yes_no", label: "Deebaaji ma jiraa?", validation: { required: true } },
-        { id: "lacagta_deebaajiga", type: "currency", label: "Lacagta Deebaajiga (bil kasta)", visibleWhen: { op: "is_true", field: "deebaaji.deebaaji_jira" }, optional: true, requiredWhen: { op: "is_true", field: "deebaaji.deebaaji_jira" }, validation: { min: 0 } },
-        { id: "shuruudaha_deebaajiga", type: "textarea", label: "Shuruudaha Deebaajiga", visibleWhen: { op: "is_true", field: "deebaaji.deebaaji_jira" }, optional: true, colSpan: 2, placeholder: "Cinwaanka meter-ka, mas'uuliyadda bixinta…" },
+        { id: "lacagta_deebaajiga", type: "currency", label: "Lacagta Deebaajiga (bil kasta)", optional: true, requiredWhen: { op: "is_true", field: "heshiiska.deebaaji_haa" }, validation: { min: 0 } },
+        { id: "shuruudaha_deebaajiga", type: "textarea", label: "Shuruudaha Deebaajiga", optional: true, colSpan: 2, placeholder: "Cinwaanka meter-ka, mas'uuliyadda bixinta…" },
       ],
     },
     {
       id: "damiinka",
       title: "Damiinka",
       description: "Guarantor — damiin optional ah.",
-      // Conditional SECTION: hidden entirely unless the Lacagta section's
-      // "Damiin ma jiraa?" toggle is answered Haa (Phase 2 requirement #7).
-      visibleWhen: { op: "is_true", field: "lacagta.damiin_jira" },
+      // Conditional workflow: whole section exists only when Step 1 said Haa.
+      visibleWhen: { op: "is_true", field: "heshiiska.damiin_haa" },
       fields: [
         { id: "damiin_magac", type: "text", label: "Magaca Damiinka", validation: { required: true } },
         { id: "damiin_telefoon", type: "phone", label: "Telefoonka Damiinka", validation: { required: true } },
@@ -322,13 +350,13 @@ export const heshiisKiroConfig: DocumentConfig = {
   clauses: [
     {
       placeholder: "{{CLAUSE_DEEBAAJI}}",
-      when: { op: "equals", field: "deebaaji.deebaaji_jira", value: "yes" },
+      when: { op: "is_true", field: "heshiiska.deebaaji_haa" },
       dynamic: { kind: "deebaaji" },
       fallbackLines: ["Deebaaji (koronto iyo biyo) lama aadin heshiiskan; kiraystuhu wuxuu bixinayaa kirada keliya."],
     },
     {
       placeholder: "{{CLAUSE_DAMIIN}}",
-      when: { op: "is_true", field: "lacagta.damiin_jira" },
+      when: { op: "is_true", field: "heshiiska.damiin_haa" },
       dynamic: { kind: "damiin" },
       fallbackLines: ["Heshiiskan lama hayo damiin."],
     },

@@ -49,6 +49,11 @@ function baseAnswers(): FormValues {
     heshiiska: {
       taariikhda_heshiiska: "2026-01-15",
       sub_type: "guri_xaas",
+      kireeye_mode: "multiple",
+      kirayste_mode: "multiple",
+      muddada_nooca: "xidhan",
+      deebaaji_haa: "yes",
+      damiin_haa: "yes",
       taariikhda_bilowga: "2026-02-01",
       taariikhda_dhammaadka: "2027-01-31",
     },
@@ -68,7 +73,6 @@ function baseAnswers(): FormValues {
       habka_bixinta: "bank",
       taariikhda_bixinta: "1aad",
       bixinta_hore: "muqadin",
-      damiin_jira: "yes",
       bangiga_magaca: "Dahabshiil",
       bangiga_hisaabka: "123456",
     },
@@ -87,7 +91,6 @@ function baseAnswers(): FormValues {
     dheeraad: { shuruudo_dheeraad: "" },
   };
   values.deebaaji = {
-    deebaaji_jira: "yes",
     lacagta_deebaajiga: "25",
   };
   return values;
@@ -134,7 +137,7 @@ describe("basic fields", () => {
     const config = heshiisKiroConfig;
     const fresh = createInterviewState(config, "guri_xaas");
     const v = fresh.answers;
-    expect(getAnswer(v, "deebaaji", "deebaaji_jira")).toBe("");
+    expect(getAnswer(v, "heshiiska", "deebaaji_haa")).toBe("");
   });
 });
 
@@ -211,19 +214,31 @@ describe("conditional logic", () => {
     const section = config.sections.find((s) => s.id === "deebaaji")!;
     const yes = baseAnswers();
     const no = baseAnswers();
-    (no.deebaaji as Record<string, string>).deebaaji_jira = "no";
+    (no.heshiiska as Record<string, string>).deebaaji_haa = "no";
 
     const yesFields = getVisibleFields(section, yes).map((f) => f.id);
     const noFields = getVisibleFields(section, no).map((f) => f.id);
     expect(yesFields).toContain("lacagta_deebaajiga");
-    expect(noFields).not.toContain("lacagta_deebaajiga");
+    expect(noFields).toContain("lacagta_deebaajiga"); // field itself is visible inside the section
   });
 
-  test("damiin = maya hides the whole Damiinka section (conditional section)", () => {
+  test("Step 1 deebaaji = maya removes the whole Deebaaji section", () => {
     const config = heshiisKiroConfig;
     const yes = baseAnswers();
     const no = baseAnswers();
-    (no.lacagta as Record<string, string>).damiin_jira = "no";
+    (no.heshiiska as Record<string, string>).deebaaji_haa = "no";
+
+    const yesSections = getSections(config, yes).map((s) => s.id);
+    const noSections = getSections(config, no).map((s) => s.id);
+    expect(yesSections).toContain("deebaaji");
+    expect(noSections).not.toContain("deebaaji");
+  });
+
+  test("Step 1 damiin = maya hides the whole Damiinka section (conditional section)", () => {
+    const config = heshiisKiroConfig;
+    const yes = baseAnswers();
+    const no = baseAnswers();
+    (no.heshiiska as Record<string, string>).damiin_haa = "no";
 
     const yesSections = getSections(config, yes).map((s) => s.id);
     const noSections = getSections(config, no).map((s) => s.id);
@@ -234,7 +249,7 @@ describe("conditional logic", () => {
   test("damiinka fields validate when the section is visible", () => {
     const config = heshiisKiroConfig;
     const no = baseAnswers();
-    (no.lacagta as Record<string, string>).damiin_jira = "no";
+    (no.heshiiska as Record<string, string>).damiin_haa = "no";
     (no.damiinka as Record<string, string>) = { damiin_magac: "", damiin_telefoon: "", damiin_aqoonsi: "" };
     const errors = validateDocument(config, no);
     // Hidden conditional section is not validated even when empty.
@@ -260,7 +275,7 @@ describe("conditional logic", () => {
     expect(
       evaluateCondition(
         { op: "and", conditions: [
-          { op: "equals", field: "deebaaji.deebaaji_jira", value: "yes" },
+          { op: "is_true", field: "heshiiska.deebaaji_haa" },
           { op: "greater_than", field: "lacagta.qiimaha_bil_ka", value: 100 },
         ] },
         get,
@@ -269,8 +284,8 @@ describe("conditional logic", () => {
     expect(
       evaluateCondition(
         { op: "or", conditions: [
-          { op: "equals", field: "deebaaji.deebaaji_jira", value: "no" },
-          { op: "equals", field: "deebaaji.deebaaji_jira", value: "yes" },
+          { op: "is_false", field: "heshiiska.deebaaji_haa" },
+          { op: "is_true", field: "heshiiska.deebaaji_haa" },
         ] },
         get,
       ),
@@ -281,7 +296,7 @@ describe("conditional logic", () => {
     expect(
       evaluateCondition(
         { op: "and", conditions: [
-          { op: "is_true", field: "deebaaji.deebaaji_jira" },
+          { op: "is_true", field: "heshiiska.deebaaji_haa" },
           { op: "not", condition: { op: "less_than", field: "lacagta.qiimaha_bil_ka", value: 100 } },
         ] },
         get,
@@ -301,7 +316,7 @@ describe("conditional logic", () => {
 
   test("hidden conditional field is not validated", () => {
     const values = baseAnswers();
-    (values.deebaaji as Record<string, string>).deebaaji_jira = "no";
+    (values.heshiiska as Record<string, string>).deebaaji_haa = "no";
     (values.deebaaji as Record<string, string>).lacagta_deebaajiga = "";
     const errors = validateDocument(heshiisKiroConfig, values);
     // deebaaji section should now pass (hidden required field skipped)
@@ -468,7 +483,7 @@ describe("review", () => {
 
   test("review omits hidden conditional sections' data when deebaaji = maya", () => {
     const values = baseAnswers();
-    (values.deebaaji as Record<string, string>).deebaaji_jira = "no";
+    (values.heshiiska as Record<string, string>).deebaaji_haa = "no";
     (values.deebaaji as Record<string, string>).lacagta_deebaajiga = "";
     const review = getReviewData(heshiisKiroConfig, values);
     const block = review.find((b) => b.sectionId === "deebaaji");
@@ -495,14 +510,14 @@ describe("engine api", () => {
     const yes = baseAnswers();
     expect(getSections(heshiisKiroConfig, yes).length).toBe(10);
     const no = baseAnswers();
-    (no.lacagta as Record<string, string>).damiin_jira = "no";
+    (no.heshiiska as Record<string, string>).damiin_haa = "no";
     expect(getSections(heshiisKiroConfig, no).length).toBe(9);
   });
 
   test("evaluateRules over the engine API", () => {
     const values = baseAnswers();
     expect(
-      evaluateRules({ op: "is_true", field: "deebaaji.deebaaji_jira" }, values),
+      evaluateRules({ op: "is_true", field: "heshiiska.deebaaji_haa" }, values),
     ).toBe(true);
   });
 });

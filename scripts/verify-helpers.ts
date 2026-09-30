@@ -16,6 +16,11 @@ export function scenarioA(): FormValues {
       reference: "DPN/K/001",
       taariikhda_heshiiska: "2026-09-29",
       sub_type: "guri_xaas",
+      kireeye_mode: "multiple",
+      kirayste_mode: "multiple",
+      muddada_nooca: "xidhan",
+      deebaaji_haa: "yes",
+      damiin_haa: "yes",
       taariikhda_bilowga: "2026-10-01",
       taariikhda_dhammaadka: "2027-09-30",
       shuruudaha_gaarka_ah: "Naadiga waa inuu siiyo macdaanka.",
@@ -74,11 +79,11 @@ export function scenarioA(): FormValues {
 export function scenarioB(): FormValues {
   const v = scenarioA();
   (v.deebaaji as Record<string, string>) = {
-    deebaaji_jira: "no",
     lacagta_deebaajiga: "",
     shuruudaha_deebaajiga: "",
   };
-  (v.lacagta as Record<string, string>).damiin_jira = "no";
+  (v.heshiiska as Record<string, string>).deebaaji_haa = "no";
+  (v.heshiiska as Record<string, string>).damiin_haa = "no";
   (v.damiinka as Record<string, string>) = {
     damiin_magac: "",
     damiin_telefoon: "",

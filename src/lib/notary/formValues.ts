@@ -8,6 +8,45 @@ import type {
 import { representativesKeyFor } from "./types";
 
 /* ------------------------------------------------------------------ */
+/* Draft migration (back-compat)                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Migrate pre–Step-1 drafts to the current config:
+ *  – old `deebaaji.deebaaji_jira` → `heshiiska.deebaaji_haa`
+ *  – old `lacagta.damiin_jira` → `heshiiska.damiin_haa`
+ * Old data is preserved (never deleted); the setup answers simply point
+ * at where the data already lives. Visibility rules read the new keys.
+ */
+export function migrateDraftValues(values: FormValues): FormValues {
+  const heshiiska = { ...getSectionValues(values, "heshiiska") };
+  const deebaaji = { ...getSectionValues(values, "deebaaji") };
+  const lacagta = { ...getSectionValues(values, "lacagta") };
+
+  // Old drafts stored the deposit decision on the Deebaaji section; the
+  // new Step 1 question (heshiiska.deebaaji_haa) drives visibility now.
+  if (heshiiska.deebaaji_haa === undefined && deebaaji.deebaaji_jira !== undefined) {
+    if (deebaaji.deebaaji_jira !== "") heshiiska.deebaaji_haa = deebaaji.deebaaji_jira;
+  }
+  // Old drafts asked for the guarantor inside Lacagta.
+  if (heshiiska.damiin_haa === undefined && lacagta.damiin_jira !== undefined) {
+    if (lacagta.damiin_jira !== "") heshiiska.damiin_haa = lacagta.damiin_jira;
+  }
+  // Legacy damiin_jira / deebaaji_jira values are kept in place (data is
+  // never silently dropped) but are no longer referenced by the config.
+  if (lacagta.damiin_jira !== undefined) delete lacagta.damiin_jira;
+  if (deebaaji.deebaaji_jira !== undefined) delete deebaaji.deebaaji_jira;
+
+  return {
+    ...values,
+    heshiiska: heshiiska,
+    ...(deebaaji.deebaaji_jira !== undefined || lacagta.damiin_jira !== undefined
+      ? { deebaaji, lacagta }
+      : {}),
+  } as FormValues;
+}
+
+/* ------------------------------------------------------------------ */
 /* Fresh templates                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -29,6 +68,27 @@ export function emptyPartyRow(partyDef: PartyDef): PartyRow {
 
 export function emptyPartyRows(partyDef: PartyDef): PartyRow[] {
   return Array.from({ length: Math.max(1, partyDef.min) }, () => emptyPartyRow(partyDef));
+}
+
+/** Apply draft migration, then merge over a fresh template. */
+export function createValuesFromDraft(config: DocumentConfig, json?: string | null): FormValues {
+  const migrated = migrateDraftValues(safeParseDraft(json));
+  return mergeWithFresh(config, migrated);
+}
+
+function safeParseDraft(json: string | null | undefined): FormValues {
+  if (!json || json === "{}") return {} as FormValues;
+  try {
+    const parsed = JSON.parse(json) as FormValues;
+    return parsed && typeof parsed === "object" ? parsed : ({} as FormValues);
+  } catch {
+    return {} as FormValues;
+  }
+}
+
+function mergeWithFresh(config: DocumentConfig, stored: FormValues): FormValues {
+  const fresh = createInitialValues(config);
+  return { ...fresh, ...stored };
 }
 
 export function createInitialValues(config: DocumentConfig): FormValues {

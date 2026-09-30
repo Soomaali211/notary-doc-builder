@@ -45,6 +45,7 @@ import {
 import {
   addRepresentative,
   assignRepresentative,
+  createValuesFromDraft,
   getRepresentatives,
   removeRepresentative,
   representedByRep,
@@ -357,24 +358,15 @@ export function serializeDraft(values: FormValues): string {
 /**
  * load_draft(): deserialize a saved draft, merged over a fresh template so
  * every section/party key exists even if the config grew since saving.
- * Corrupt or foreign payloads degrade to a fresh interview instead of
- * throwing — user data or the app never crash on resume.
+ * Pre–Step-1 drafts are migrated (old deposit/guarantor answers map to
+ * the new setup questions) — data is preserved, never dropped. Corrupt or
+ * foreign payloads degrade to a fresh interview instead of throwing.
  */
 export function deserializeDraft(
   config: DocumentConfig,
   json: string | null | undefined,
 ): FormValues {
-  const fresh = createInitialValues(config);
-  if (!json || json === "{}") return fresh;
-  try {
-    const parsed = JSON.parse(json) as FormValues;
-    if (parsed && typeof parsed === "object") {
-      return { ...fresh, ...parsed };
-    }
-  } catch {
-    // fall through to fresh values
-  }
-  return fresh;
+  return createValuesFromDraft(config, json);
 }
 
 /* ------------------------------------------------------------------ */
