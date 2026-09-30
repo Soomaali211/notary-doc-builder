@@ -16,8 +16,9 @@ import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SectionStep } from "../src/pages/NewDocumentInterview";
 import { SetupField } from "../src/components/notary/SetupField";
+import { PartyListEditor } from "../src/components/notary/PartyListEditor";
 import { heshiisKiroConfig as config } from "../src/lib/notary/documents/heshiisKiro";
-import type { FormValues } from "../src/lib/notary/types";
+import type { FormValues, PartyRow } from "../src/lib/notary/types";
 
 /* ------------------------------------------------------------------ */
 /* Fixtures                                                            */
@@ -171,3 +172,125 @@ describe("Step 1 real render (req #11)", () => {
     expect(furanHtml.includes("Taariikhda Dhammaadka")).toBe(false);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* req #15 — EVERY step renders real answer inputs                     */
+/* ------------------------------------------------------------------ */
+
+const sec = (id: string) => config.sections.find((s) => s.id === id)!;
+const kireeyeDef = config.sections
+  .flatMap((s) => s.parties ?? [])
+  .find((p) => p.id === "kireeyayaal")!;
+
+function renderSection(section: ReturnType<typeof sec>, values: FormValues): string {
+  return renderToStaticMarkup(
+    <SectionStep
+      step={{ kind: "section", section }}
+      values={values}
+      validation={{}}
+      stepErrors={false}
+      setValues={() => {}}
+      config={config}
+    />,
+  );
+}
+
+const countInputs = (html: string) => html.split('data-slot="input"').length - 1;
+const countTextareas = (html: string) => html.split('data-slot="textarea"').length - 1;
+const countSelects = (html: string) => html.split('data-slot="select-trigger"').length - 1;
+
+function partyRows(n: number): PartyRow[] {
+  return Array.from({ length: n }, (_, i) => ({
+    id: `row-${i}`,
+    values: { magac: i === 0 ? "Cabdi Xasan" : "", telefoon: "", aqoonsi: "", cinwaan: "", faahfaahin_dheeraad: "" },
+  }));
+}
+
+describe("req #15 — every step has real inputs", () => {
+  test("Faahfaahinta Guriga — text inputs + select render", () => {
+    const html = renderSection(sec("guriga"), { guriga: {} } as unknown as FormValues);
+    expect(html.includes("Nooca Guriga")).toBe(true);
+    expect(html.includes("Goobta / Location")).toBe(true);
+    expect(html.includes("Cinwaanka Guriga")).toBe(true);
+    expect(countSelects(html)).toBe(1); // Nooca Guriga select
+    expect(countInputs(html)).toBeGreaterThanOrEqual(3);
+  });
+
+  test("Lacagta — payment fields render; bank fields follow habka_bixinta immediately", () => {
+    const cash = renderSection(sec("lacagta"), {
+      lacagta: { habka_bixinta: "cash" },
+    } as unknown as FormValues);
+    expect(html_has(cash, "Qiimaha Kirada Bishii", "Habka Bixinta", "Maalinta Bixinta"));
+    expect(cash.includes("Magaca Bangiga")).toBe(false); // conditional hidden
+
+    const bank = renderSection(sec("lacagta"), {
+      lacagta: { habka_bixinta: "bank" },
+    } as unknown as FormValues);
+    expect(bank.includes("Magaca Bangiga")).toBe(true); // conditional shown
+    expect(bank.includes("Nambarka Xisaabta")).toBe(true);
+  });
+
+  test("Deebaaji (Haa) — deposit fields render with inputs", () => {
+    const html = renderSection(sec("deebaaji"), {
+      heshiiska: { deebaaji_haa: "yes" },
+      deebaaji: {},
+    } as unknown as FormValues);
+    expect(html.includes("Lacagta Deebaajiga")).toBe(true);
+    expect(html.includes("Shuruudaha Deebaajiga")).toBe(true);
+    expect(countInputs(html) + countTextareas(html)).toBeGreaterThanOrEqual(2);
+  });
+
+  test("Damiinka (Haa) — guarantor fields render with inputs", () => {
+    const html = renderSection(sec("damiinka"), {
+      heshiiska: { damiin_haa: "yes" },
+      damiinka: {},
+    } as unknown as FormValues);
+    expect(html.includes("Magaca Damiinka")).toBe(true);
+    expect(html.includes("Telefoonka Damiinka")).toBe(true);
+    expect(countInputs(html)).toBeGreaterThanOrEqual(4);
+  });
+
+  test("Ogaysiinta + Dheeraad — notice and terms fields render", () => {
+    const og = renderSection(sec("ogaysiinta"), { ogaysiinta: {} } as unknown as FormValues);
+    expect(html_has(og, "Mudada Ogaysiinta", "Shuruudaha Joojinta"));
+    const dhe = renderSection(sec("dheeraad"), { dheeraad: {} } as unknown as FormValues);
+    expect(dhe.includes("Shuruudo Dheeraad ah")).toBe(true);
+    expect(countTextareas(dhe)).toBe(1);
+  });
+
+  test("Maragyada — dynamic witness list renders one card per row with inputs", () => {
+    const values = { maragyo: partyRows(3) } as unknown as FormValues;
+    const html = renderSection(sec("maragyada"), values);
+    expect(html.includes("Magaca Maraga")).toBe(true);
+    expect(html.split('Magaca Maraga').length - 1).toBe(3); // one per row
+  });
+
+  test("Party forms — N rows render N independent party forms (dynamic, not hard-coded)", () => {
+    for (const n of [1, 3, 5]) {
+      const html = renderToStaticMarkup(
+        <PartyListEditor
+          partyDef={kireeyeDef}
+          rows={partyRows(n)}
+          canAdd={true}
+          onFieldChange={() => {}}
+          onAdd={() => {}}
+          onRemove={() => {}}
+        />,
+      );
+      // Each row: 5 fields (magac input, telefoon, aqoonsi, cinwaan, textarea).
+      expect(countInputs(html)).toBe(n * 4);
+      expect(countTextareas(html)).toBe(n);
+      // Row 0 shows its stored name; unnamed rows fall back to "Kireeye N".
+      expect(html.includes("Cabdi Xasan")).toBe(true); // value kept in state
+      if (n > 1) expect(html.includes("Kireeye 2")).toBe(true);
+    }
+  });
+});
+
+/** Small helper: assert every fragment occurs in the html. */
+function html_has(html: string, ...fragments: string[]): boolean {
+  for (const f of fragments) {
+    if (!html.includes(f)) throw new Error(`Missing: ${f}`);
+  }
+  return true;
+}

@@ -88,7 +88,24 @@ function safeParseDraft(json: string | null | undefined): FormValues {
 
 function mergeWithFresh(config: DocumentConfig, stored: FormValues): FormValues {
   const fresh = createInitialValues(config);
-  return { ...fresh, ...stored };
+  const merged: FormValues = { ...fresh, ...stored };
+  // Defensive guard: a stored section/party entry that is not an object/array
+  // (corrupt draft, older schema) would replace the fresh template entry and
+  // leave the step with NOTHING to render. Restore the fresh entry instead —
+  // inputs must always exist for every visible section.
+  for (const section of config.sections) {
+    if (section.parties && section.parties.length > 0) {
+      for (const partyDef of section.parties) {
+        if (!Array.isArray(merged[partyDef.id])) merged[partyDef.id] = fresh[partyDef.id];
+      }
+    } else {
+      const v = merged[section.id];
+      if (!v || Array.isArray(v) || typeof v !== "object") {
+        merged[section.id] = fresh[section.id];
+      }
+    }
+  }
+  return merged;
 }
 
 export function createInitialValues(config: DocumentConfig): FormValues {

@@ -205,7 +205,10 @@ export function SectionStep({
         </div>
       ) : (
         <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
-          {section.fields.map((field) => {
+          {/* Conditional fields (e.g. bank details only for Bank Transfer)
+              update immediately: getVisibleFields re-evaluates per render —
+              UI visibility stays aligned with validation. */}
+          {getVisibleFields(section, values).map((field) => {
             const err = stepErrors
               ? validation[section.id]?.fieldErrors[field.id]
               : undefined;

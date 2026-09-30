@@ -138,16 +138,24 @@ describe("Example C", () => {
     expect(ids.indexOf("damiinka")).toBeGreaterThan(ids.indexOf("deebaaji"));
   });
 
-  test("order: setup → parties → property → duration/dates → payment → deposit → notice → witnesses", () => {
-    const ids = stepIds(values);
-    expect(ids[0]).toBe("heshiiska");
-    expect(ids.indexOf("kireeyaha")).toBeGreaterThan(0);
-    expect(ids.indexOf("kiraystaha")).toBeGreaterThan(ids.indexOf("kireeyaha"));
-    expect(ids.indexOf("guriga")).toBeGreaterThan(ids.indexOf("kiraystaha"));
-    expect(ids.indexOf("lacagta")).toBeGreaterThan(ids.indexOf("guriga"));
-    expect(ids.indexOf("ogaysiinta")).toBeGreaterThan(ids.indexOf("lacagta"));
-    expect(ids.indexOf("maragyada")).toBeGreaterThan(ids.indexOf("ogaysiinta"));
-    expect(ids.indexOf("dheeraad")).toBeGreaterThan(ids.indexOf("maragyada"));
+  test("order: setup → parties → property → payment → deposit → notice → witnesses", () => {
+    const workflow = buildConditionalWorkflow(config, values);
+    // Anchor every step (section OR party step) to its owning section id.
+    const anchors = workflow.map((s) => {
+      if (s.detail.kind === "section") return s.detail.sectionId;
+      const pd = (s.detail as { partyDef: { id: string } }).partyDef;
+      return config.sections.find((sec) => (sec.parties ?? []).some((p) => p.id === pd.id))!.id;
+    });
+    const expectOrder = [
+      "heshiiska", "kireeyaha", "kiraystaha", "guriga", "lacagta",
+      "deebaaji", "ogaysiinta", "maragyada", "dheeraad",
+    ];
+    let last = -1;
+    for (const id of expectOrder) {
+      const idx = anchors.indexOf(id);
+      expect(idx).toBeGreaterThan(last);
+      last = idx;
+    }
   });
 });
 
@@ -248,13 +256,32 @@ describe("conditional completeness", () => {
     expect(isSetupComplete(readAgreementSetup(values))).toBe(true);
   });
 
-  test("workflow mirrors interview completeness on minimal fixture", () => {
+  test("workflow covers every visible section — no empty steps, no missing content", () => {
     // The full interview completion is covered in revision.test.ts; here
-    // we assert the workflow derivation stays consistent with getSections.
+    // we assert every visible section is covered by the workflow: sections
+    // with their own fields get a section step; header-only sections are
+    // fully covered by their party count/data/attendance steps instead
+    // (an empty section step would render a card with NO inputs).
     const values = setupValues();
-    const workflowSections = stepIds(values);
-    const interviewSections = getSections(config, values).map((s) => s.id);
-    expect(workflowSections).toEqual(interviewSections);
+    const workflow = buildConditionalWorkflow(config, values);
+    const interviewSections = getSections(config, values);
+    for (const sec of interviewSections) {
+      const hasSectionStep = workflow.some(
+        (s) => s.detail.kind === "section" && s.detail.sectionId === sec.id,
+      );
+      const partiesCovered = (sec.parties ?? []).every((p) =>
+        workflow.some(
+          (s) => s.detail.kind !== "section" && (s.detail as { partyDef: { id: string } }).partyDef.id === p.id,
+        ),
+      );
+      const hasOwnContent = sec.fields.length > 0 || (sec.parties ?? []).some((p) => !p.attendance);
+      if (hasOwnContent) {
+        expect(hasSectionStep).toBe(true);
+      } else {
+        expect(hasSectionStep).toBe(false);
+        expect(partiesCovered).toBe(true);
+      }
+    }
     expect(isInterviewComplete(config, values)).toBe(false); // parties etc. missing
   });
 });
@@ -439,6 +466,51 @@ describe("Step 1 UI correction (req #10/#11)", () => {
     const ids = stepIds(values);
     expect(ids).not.toContain("deebaaji");
     expect(ids).not.toContain("damiinka");
+  });
+
+  test("#16 Guri Xaas + Kireeyayaal 3 + Kiraystayaal 2 + Furan + Deebaaji Haa + Damiin Maya", () => {
+    const { setRepeatableCount } = require("../src/lib/notary/engine");
+    const { validateDocument } = require("../src/lib/notary/validation");
+    const kireeyeDef = config.sections.find((s) => s.id === "kireeyaha")!.parties![0];
+    const kiraysteDef = config.sections.find((s) => s.id === "kiraystaha")!.parties![0];
+    let values = setupValues({
+      kireeye_mode: "multiple",
+      kirayste_mode: "multiple",
+      muddada_nooca: "furan",
+      deebaaji_haa: "yes",
+      damiin_haa: "no",
+    });
+    values = setRepeatableCount(values, kireeyeDef, 3);
+    values = setRepeatableCount(values, kiraysteDef, 2);
+
+    // 3 Kireeye forms + 2 Kirayste forms exist in state (rendered by their steps).
+    expect((values.kireeyayaal as unknown[]).length).toBe(3);
+    expect((values.kiraystayaal as unknown[]).length).toBe(2);
+
+    // No End Date; setup says Furan.
+    const visible = visibleHeshiiskaFields(values);
+    expect(visible).not.toContain("taariikhda_dhammaadka");
+    expect(readAgreementSetup(values).durationKind).toBe("furan");
+
+    // Deposit Step visible; Guarantor Step hidden.
+    const ids = stepIds(values);
+    expect(ids).toContain("deebaaji");
+    expect(ids).not.toContain("damiinka");
+
+    // Property/payment/notice/witness/terms fields all exist in the config
+    // for their steps to render (they are not empty).
+    for (const sid of ["guriga", "lacagta", "ogaysiinta", "dheeraad"]) {
+      const sec = config.sections.find((s) => s.id === sid)!;
+      expect(sec.fields.length).toBeGreaterThan(0);
+    }
+    // Witnesses are a repeatable party (dynamic inputs).
+    expect(config.sections.find((s) => s.id === "maragyada")!.parties![0].fields.length).toBeGreaterThan(0);
+
+    // Only the two party lists + start date are still required (no End Date
+    // error, damiinka not validated).
+    const errors = validateDocument(config, values);
+    expect(errors["heshiiska"]?.fieldErrors["taariikhda_dhammaadka"]).toBeUndefined();
+    expect(errors["damiinka"]).toBeUndefined();
   });
 
   test("#11 Furan→Xidhan: End Date immediately appears (required); Xidhan→Furan: disappears", () => {

@@ -163,11 +163,21 @@ export function buildConditionalWorkflow(
   const steps: WorkflowStep[] = [];
 
   for (const section of sections) {
-    steps.push({
-      key: `sec-${section.id}`,
-      short: section.title,
-      detail: { kind: "section", sectionId: section.id },
-    });
+    // Header-only sections (no scalar fields, no inline non-attendance
+    // repeaters) would render an EMPTY step — a card with a title and
+    // description but nothing to answer. Their attendance parties are
+    // fully rendered by their own count/data/attendance steps below, so
+    // the standalone section step is skipped (config-driven, generic).
+    const hasOwnContent =
+      section.fields.length > 0 ||
+      (section.parties ?? []).some((p) => !p.attendance);
+    if (hasOwnContent) {
+      steps.push({
+        key: `sec-${section.id}`,
+        short: section.title,
+        detail: { kind: "section", sectionId: section.id },
+      });
+    }
 
     for (const partyDef of section.parties ?? []) {
       if (!partyDef.attendance) {
