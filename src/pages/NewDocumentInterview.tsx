@@ -373,22 +373,16 @@ export default function NewDocumentInterview() {
       const v = next[key];
       return v && !Array.isArray(v) ? (v as Record<string, string>) : {};
     };
+    const current = values ?? next;
+
     // Which sections would the NEW answers hide?
-    const hiding: { key: "deebaaji" | "damiinka"; sectionId: string; label: string; hasData: boolean }[] = [];
+    const hiding: { key: "deebaaji" | "damiinka"; sectionId: string; label: string }[] = [];
     if (getAnswer(next, "heshiiska", "deebaaji_haa") === "no") {
-      const d = get("deebaaji");
-      hiding.push({ key: "deebaaji", sectionId: "deebaaji", label: "Deebaajiga", hasData: Object.values(d).some((x) => x.trim()) });
+      hiding.push({ key: "deebaaji", sectionId: "deebaaji", label: "Deebaajiga" });
     }
     if (getAnswer(next, "heshiiska", "damiin_haa") === "no") {
-      const d = get("damiinka");
-      hiding.push({ key: "damiinka", sectionId: "damiinka", label: "Damiinka", hasData: Object.values(d).some((x) => x.trim()) });
+      hiding.push({ key: "damiinka", sectionId: "damiinka", label: "Damiinka" });
     }
-    const current = values ?? next;
-    const losing = hiding.filter((h) => {
-      const cur = current[h.key] as Record<string, string> | undefined;
-      return cur && Object.values(cur).some((x) => x.trim()) && h.hasData === false;
-    });
-    void losing; // data-preserving default: never delete silently
     // Any answer change that hides a populated section → confirm first.
     const anyPopulated = hiding.find((h) => {
       const cur = current[h.key] as Record<string, string> | undefined;
@@ -398,6 +392,21 @@ export default function NewDocumentInterview() {
       setHiddenDataChoice({
         sectionId: anyPopulated.sectionId,
         label: anyPopulated.label,
+        next,
+      });
+      return;
+    }
+
+    // Duration change Xidhan → Furan: End Date becomes hidden. If a date was
+    // already entered, confirm before touching the draft — never silent.
+    if (
+      getAnswer(next, "heshiiska", "muddada_nooca") !== "xidhan" &&
+      getAnswer(current, "heshiiska", "muddada_nooca") === "xidhan" &&
+      (getAnswer(current, "heshiiska", "taariikhda_dhammaadka") ?? "").trim() !== ""
+    ) {
+      setHiddenDataChoice({
+        sectionId: "heshiiska:muddada",
+        label: "Taariikhda Dhammaadka",
         next,
       });
       return;
@@ -413,18 +422,31 @@ export default function NewDocumentInterview() {
       return;
     }
     if (mode === "clear") {
-      const cleared: FormValues =
-        sectionId === "deebaaji"
-          ? { ...next, deebaaji: { lacagta_deebaajiga: "", shuruudaha_deebaajiga: "" } }
-          : {
-              ...next,
-              damiinka: {
-                damiin_magac: "",
-                damiin_telefoon: "",
-                damiin_aqoonsi: "",
-                damiin_cinwaan: "",
-              },
-            };
+      let cleared: FormValues = next;
+      if (sectionId === "deebaaji") {
+        cleared = { ...next, deebaaji: { lacagta_deebaajiga: "", shuruudaha_deebaajiga: "" } };
+      } else if (sectionId === "damiinka") {
+        cleared = {
+          ...next,
+          damiinka: {
+            damiin_magac: "",
+            damiin_telefoon: "",
+            damiin_aqoonsi: "",
+            damiin_cinwaan: "",
+          },
+        };
+      } else if (sectionId === "heshiiska:muddada") {
+        // "Ka saar" for the duration change empties BOTH hidden date fields
+        // (start date is also hidden under Furan); stored draft data only.
+        cleared = {
+          ...next,
+          heshiiska: {
+            ...((next.heshiiska as Record<string, string>) ?? {}),
+            taariikhda_bilowga: "",
+            taariikhda_dhammaadka: "",
+          },
+        };
+      }
       setValues(cleared);
     } else {
       setValues(next); // keep data in draft, step stays hidden
@@ -1077,8 +1099,18 @@ export default function NewDocumentInterview() {
               {hiddenDataChoice?.label} waxaa laga saarayaa workflow-ga
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Ma rabtaa inaad xogtii {hiddenDataChoice?.label} ka saarto draft-ka? Haddii aad
-              hayso, xogtu way kaydsan tahay laakiin tallaabadu lama muuqin doono.
+              {hiddenDataChoice?.sectionId === "heshiiska:muddada" ? (
+                <>
+                  Waxaad Kiro Xidhan u beddelayso Kiro Furan. Taariikhda Dhammaadka hadda
+                  heshiiska kuma khusayso. Ma rabtaa inaad ka saarto xogta Taariikhda
+                  Dhammaadka draft-ka?
+                </>
+              ) : (
+                <>
+                  Ma rabtaa inaad xogtii {hiddenDataChoice?.label} ka saarto draft-ka? Haddii
+                  aad hayso, xogtu way kaydsan tahay laakiin tallaabadu lama muuqin doono.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-row">

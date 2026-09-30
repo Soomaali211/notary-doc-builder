@@ -134,7 +134,10 @@ export function validateField(field: FieldDef, value: string): string | null {
   }
 }
 
-/** Cross-field date-range check: end >= start (end_date >= start_date). */
+/**
+ * Cross-field date-range check: end > start (strictly after).
+ * Step 1 rule — Kiro Xidhan: endDate > startDate.
+ */
 export function validateSectionCross(
   fields: FieldDef[],
   values: Record<string, string>,
@@ -148,9 +151,9 @@ export function validateSectionCross(
     const endErr = validateDateString(end);
     const startErr = validateDateString(start);
     if (endErr || startErr) continue; // individual date errors already reported
-    if (new Date(end) < new Date(start)) {
+    if (new Date(end) <= new Date(start)) {
       errors.push(
-        `${field.label} waa inay ka horreysaa ama la eg tahay taariikhda bilowga.`,
+        `${field.label} waa inay ka dambeysaa taariikhda bilowga.`,
       );
     }
   }

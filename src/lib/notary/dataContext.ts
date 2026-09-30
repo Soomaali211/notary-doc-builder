@@ -132,6 +132,17 @@ export function computeReplacements(
       config.subTypes.find((s) => s.value === subType)?.label ?? subType;
   }
 
+  // Step 1 correction — Kiro Furan has no end date: a stale value left in
+  // the draft (user switched Xidhan → Furan and chose "Hay draft-ka") must
+  // never reach the document. Workflow visibility and stored draft data
+  // stay separate; generation reads the CURRENT duration answer.
+  if (subTypeRaw && !Array.isArray(subTypeRaw)) {
+    const heshiiska = subTypeRaw as Record<string, string>;
+    if (heshiiska.muddada_nooca !== "xidhan") {
+      map["{{TAARIIKHDA_DHAMMAADKA}}"] = "";
+    }
+  }
+
   return map;
 }
 
