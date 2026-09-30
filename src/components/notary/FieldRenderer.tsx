@@ -35,7 +35,7 @@ export function FieldRenderer({
         <span>{field.label}</span>
         {required && <span className="text-destructive">*</span>}
         {field.hint && (
-          <span className="notebook-annotation ml-auto hidden text-[11px] font-normal text-muted-foreground sm:inline">
+          <span className="ml-auto hidden text-[11px] font-normal text-muted-foreground sm:inline">
             {field.hint}
           </span>
         )}
@@ -127,7 +127,7 @@ export function FieldRenderer({
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
           disabled={disabled}
-          className={cn("bg-card/80", error && "border-destructive")}
+          className={cn(error && "border-destructive")}
         />
       ) : field.type === "textarea" ? (
         <Textarea
@@ -136,7 +136,7 @@ export function FieldRenderer({
           placeholder={field.placeholder}
           disabled={disabled}
           rows={3}
-          className={cn("resize-y bg-card/80", error && "border-destructive")}
+          className={cn("resize-y", error && "border-destructive")}
         />
       ) : field.type === "select" ? (
         <Select
@@ -170,7 +170,7 @@ export function FieldRenderer({
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
           disabled={disabled}
-          className={cn("bg-card/80", error && "border-destructive")}
+          className={cn(error && "border-destructive")}
         />
       )}
 

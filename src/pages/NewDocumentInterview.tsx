@@ -11,6 +11,7 @@ import { FieldRenderer } from "@/components/notary/FieldRenderer";
 import { PartyListEditor } from "@/components/notary/PartyListEditor";
 import { NumberSelector } from "@/components/notary/NumberSelector";
 import { AttendanceEditor } from "@/components/notary/AttendanceEditor";
+import { StepperProgress } from "@/components/notary/StepperProgress";
 import { getConfig, getSubTypeLabel } from "@/lib/notary/documents";
 import {
   addRepeatableItem,
@@ -479,7 +480,7 @@ export default function NewDocumentInterview() {
   if (!document || !config || !values) {
     return (
       <main className="notebook-bg min-h-screen p-6">
-        <div className="mx-auto max-w-3xl space-y-4">
+        <div className="neu-raised mx-auto max-w-3xl space-y-4 p-6">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-64 w-full" />
         </div>
@@ -490,7 +491,7 @@ export default function NewDocumentInterview() {
   if (document.status === "generated") {
     return (
       <main className="notebook-bg min-h-screen p-6">
-        <div className="notebook-page paper-grain mx-auto max-w-xl rounded-md p-8 text-center">
+        <div className="neu-raised mx-auto max-w-xl p-8 text-center">
           <Check className="mx-auto size-8 text-pen-green" />
           <h1 className="mt-3 text-xl font-semibold">Dukumeentigan horey loo sameeyay</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -512,7 +513,7 @@ export default function NewDocumentInterview() {
     const count = ((values[partyDef.id] as unknown[] | undefined) ?? []).length;
     return (
       <div className="space-y-5">
-        <div className="rounded-md border border-border/70 bg-card/60 p-5">
+        <div className="neu-inset p-5">
           <p className="text-sm text-muted-foreground">
             Imisa {partyDef.singular} ayaa heshiiska ku jira?
           </p>
@@ -525,18 +526,15 @@ export default function NewDocumentInterview() {
               onChange={(next) => setValues((v) => setRepeatableCount(v!, partyDef, next))}
             />
           </div>
-          <p className="notebook-annotation mt-3 text-xs text-muted-foreground">
+          <p className="reveal-enter mt-3 text-xs text-muted-foreground" aria-live="polite">
             {count} {partyDef.singular} waa la abuuray — xogta waa lagu soo bandhigi doonaa tallaabada xigta.
           </p>
         </div>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2.5 sm:grid-cols-3">
           {Array.from({ length: count }, (_, i) => (
-            <div
-              key={i}
-              className="notebook-page paper-grain flex items-center gap-2 rounded-md p-3 text-sm"
-            >
-              <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                {i + 1}
+            <div key={i} className="neu-raised-sm flex items-center gap-2 p-3 text-sm">
+              <span className="neu-dot flex size-6 items-center justify-center text-[10px] font-bold text-primary">
+                {String(i + 1).padStart(2, "0")}
               </span>
               {partyDef.singular} {i + 1}
             </div>
@@ -645,14 +643,28 @@ export default function NewDocumentInterview() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-          {/* Stepper sidebar (notebook tabs) */}
+        {/* Compact stepper — mobile/tablet */}
+        <div className="mb-5 lg:hidden">
+          <StepperProgress
+            steps={steps.map((s) => s.short)}
+            current={Math.min(step, steps.length - 1)}
+            review={isReview}
+            reviewLabel="Dib u Eegis"
+            completed={new Set(
+              steps.map((s) => s.key).filter((k) => completedSteps.has(k)),
+            )}
+            keys={steps.map((s) => s.key)}
+          />
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
+          {/* Stepper sidebar — neumorphic, numbered */}
           <nav className="hidden lg:block" aria-label="Tusmada tallaabada">
-            <div className="notebook-page paper-grain rounded-md p-3">
-              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            <div className="neu-raised sticky top-4 p-3">
+              <p className="mb-2 flex items-center gap-1.5 px-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                 <ClipboardList className="size-3.5" /> Tusmada
               </p>
-              <ol className="space-y-0.5">
+              <ol className="space-y-1">
                 {steps.map((s, i) => {
                   const done = completedSteps.has(s.key);
                   const isCurrent = i === step;
@@ -663,24 +675,24 @@ export default function NewDocumentInterview() {
                         type="button"
                         onClick={() => clickable && setStep(i)}
                         aria-current={isCurrent ? "step" : undefined}
-                        className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] transition-colors ${
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-all ${
                           isCurrent
-                            ? "bg-primary/10 font-semibold text-primary"
+                            ? "neu-inset glow-primary-sm font-semibold text-primary"
                             : done
-                              ? "text-foreground/70 hover:bg-muted"
-                              : "cursor-not-allowed text-muted-foreground/60"
+                              ? "text-foreground/80 hover:text-foreground"
+                              : "cursor-not-allowed text-muted-foreground/50"
                         }`}
                       >
                         <span
-                          className={`flex size-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
+                          className={`flex size-6 shrink-0 items-center justify-center text-[10px] font-bold tabular-nums ${
                             done
-                              ? "border-pen-green bg-pen-green/10 text-pen-green"
+                              ? "neu-dot-done"
                               : isCurrent
-                                ? "border-primary text-primary"
-                                : "border-border text-muted-foreground"
+                                ? "neu-dot-active"
+                                : "neu-dot text-muted-foreground"
                           }`}
                         >
-                          {done ? <Check className="size-2.5" /> : i + 1}
+                          {done ? <Check className="size-3" /> : String(i + 1).padStart(2, "0")}
                         </span>
                         {s.short}
                       </button>
@@ -691,13 +703,21 @@ export default function NewDocumentInterview() {
                   <button
                     type="button"
                     onClick={() => step >= steps.length && setStep(steps.length)}
-                    className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] ${
+                    aria-current={isReview ? "step" : undefined}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-all ${
                       isReview
-                        ? "bg-primary/10 font-semibold text-primary"
-                        : "cursor-not-allowed text-muted-foreground/60"
+                        ? "neu-inset glow-primary-sm font-semibold text-primary"
+                        : "cursor-not-allowed text-muted-foreground/50"
                     }`}
                   >
-                    <PenLine className="size-3.5" /> Dib u Eegis
+                    <span
+                      className={`neu-dot flex size-6 shrink-0 items-center justify-center text-[10px] font-bold ${
+                        isReview ? "neu-dot-active" : "text-muted-foreground"
+                      }`}
+                    >
+                      <PenLine className="size-3" />
+                    </span>
+                    Dib u Eegis
                   </button>
                 </li>
               </ol>
@@ -705,15 +725,21 @@ export default function NewDocumentInterview() {
           </nav>
 
           {/* Content page */}
-          <section className="notebook-page paper-grain rounded-md px-6 py-6 sm:px-8">
+          <section
+            key={step}
+            className="neu-raised step-enter px-6 py-6 sm:px-8"
+          >
             {!isReview && currentStep && (
               <>
                 <header className="mb-5">
-                  <h2 className="highlight-sweep inline-block text-lg font-bold">
+                  <p className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+                    Tallaabada {String(Math.min(step + 1, totalSteps)).padStart(2, "0")}
+                  </p>
+                  <h2 className="highlight-sweep mt-1 inline-block text-lg font-bold">
                     {currentStep.short}
                   </h2>
                   {stepDescription(currentStep) && (
-                    <p className="notebook-annotation mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {stepDescription(currentStep)}
                     </p>
                   )}
@@ -780,7 +806,7 @@ export default function NewDocumentInterview() {
                     const fallbackIdx = visibleSections.findIndex((s) => s.id === block.sectionId);
                     const target = idx >= 0 ? idx : fallbackIdx;
                     return (
-                      <div key={block.sectionId} className="rounded-md border border-border/70 bg-card/60 p-4">
+                      <div key={block.sectionId} className="neu-inset p-4">
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <h3 className="text-sm font-semibold">{block.sectionTitle}</h3>
                           {target >= 0 && (
@@ -817,8 +843,8 @@ export default function NewDocumentInterview() {
               </>
             )}
 
-            {/* Sticky navigation */}
-            <div className="mt-8 flex items-center justify-between border-t border-dashed border-border pt-5">
+            {/* Sticky navigation — floating soft bar */}
+            <div className="neu-raised-sm sticky bottom-4 mt-8 flex items-center justify-between gap-2 px-4 py-3">
               <Button
                 type="button"
                 variant="outline"
@@ -832,7 +858,12 @@ export default function NewDocumentInterview() {
                 {step + 1}/{totalSteps}
               </span>
               {isReview ? (
-                <Button type="button" onClick={tryContinue} disabled={generating} className="gap-2">
+                <Button
+                  type="button"
+                  onClick={tryContinue}
+                  disabled={generating}
+                  className="glow-primary-sm gap-2"
+                >
                   {generating ? (
                     <>
                       <Loader2 className="size-4 animate-spin" /> La abuurayo…
@@ -844,7 +875,7 @@ export default function NewDocumentInterview() {
                   )}
                 </Button>
               ) : (
-                <Button type="button" onClick={tryContinue} className="gap-2">
+                <Button type="button" onClick={tryContinue} className="glow-primary-sm gap-2">
                   Sii wad <ArrowRight className="size-4" />
                 </Button>
               )}

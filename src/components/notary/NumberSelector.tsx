@@ -30,7 +30,7 @@ export function NumberSelector({
 
   return (
     <div className="flex flex-wrap items-center gap-4">
-      <div className="inline-flex items-center rounded-md border border-border bg-card/80 shadow-sm">
+      <div className="neu-inset inline-flex items-center gap-1 p-1">
         <Button
           type="button"
           variant="ghost"
@@ -38,7 +38,7 @@ export function NumberSelector({
           aria-label={`Yar ${label}`}
           disabled={disabled || atMin}
           onClick={() => onChange(Math.max(min, value - 1))}
-          className="size-10 rounded-r-none"
+          className="neu-raised-sm size-10 rounded-full"
         >
           <Minus className="size-4" />
         </Button>
@@ -55,12 +55,12 @@ export function NumberSelector({
           aria-label={`Bar ${label}`}
           disabled={disabled || atMax}
           onClick={() => onChange(value + 1)}
-          className="size-10 rounded-l-none"
+          className="neu-raised-sm size-10 rounded-full"
         >
           <Plus className="size-4" />
         </Button>
       </div>
-      <span className="notebook-annotation text-xs text-muted-foreground">
+      <span className="text-xs text-muted-foreground">
         {atMax ? `Ugu badnaan ${max}.` : atMin ? "Ugu yaraan 1." : ""}
       </span>
     </div>

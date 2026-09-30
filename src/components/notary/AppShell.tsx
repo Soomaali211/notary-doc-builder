@@ -42,29 +42,27 @@ export function AppShell({
 
   return (
     <div className="notebook-bg min-h-screen">
-      {/* Top bar */}
-      <header className="border-b border-border/70 bg-card/70 backdrop-blur">
+      {/* Soft top bar */}
+      <header className="sticky top-0 z-20 bg-background/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <Link to="/dashboard" className="flex items-center gap-2 font-bold tracking-tight">
-            <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <Link to="/dashboard" className="flex items-center gap-2.5 font-bold tracking-tight">
+            <span className="neu-raised-sm glow-primary-sm flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <PenLine className="size-4" />
             </span>
             Notary Doc Builder
           </Link>
           <div className="flex items-center gap-2">
             {user?.email && (
-              <span className="notebook-annotation hidden text-xs text-muted-foreground sm:inline">
-                {user.email}
-              </span>
+              <span className="hidden text-xs text-muted-foreground sm:inline">{user.email}</span>
             )}
             <Button variant="ghost" size="sm" className="gap-1.5" onClick={handleSignOut}>
               <LogOut className="size-4" /> Sign out
             </Button>
           </div>
         </div>
-        {/* Ruled nav strip */}
-        <nav className="border-t border-dashed border-border/70">
-          <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 py-1.5">
+        {/* Raised nav pills */}
+        <nav>
+          <div className="mx-auto flex max-w-6xl gap-1.5 overflow-x-auto px-4 pb-3">
             {NAV_ITEMS.map((item) => {
               const active =
                 location.pathname === item.to || location.pathname.startsWith(item.to + "/");
@@ -73,10 +71,10 @@ export function AppShell({
                   key={item.to}
                   to={item.to}
                   className={cn(
-                    "flex shrink-0 items-center gap-1.5 rounded px-3 py-1.5 text-[13px] font-medium transition-colors",
+                    "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-all",
                     active
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "neu-inset-sm glow-primary-sm font-semibold text-primary"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   <item.icon className="size-3.5" />
@@ -92,9 +90,7 @@ export function AppShell({
         {title && (
           <div className="mb-6">
             <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-            {subtitle && (
-              <p className="notebook-annotation mt-1 text-sm text-muted-foreground">{subtitle}</p>
-            )}
+            {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
           </div>
         )}
         {children}

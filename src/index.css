@@ -40,7 +40,7 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  /* Notebook extras */
+  /* Legacy extras (kept for existing markup) */
   --color-rule: var(--rule);
   --color-margin: var(--margin);
   --color-ink: var(--ink);
@@ -51,167 +51,295 @@
   --color-pen-orange: var(--pen-orange);
 }
 
-/* CHANGE VALUES FOR THEME — Notebook: cream paper, blue ink, red margin, highlighter */
+/* ------------------------------------------------------------------ */
+/* THEME — Neumorphism / Soft UI: soft cool-gray surfaces, one vibrant */
+/* blue accent, dual soft shadows. Surfaces share ONE color so the     */
+/* dual shadows create the tactile depth.                              */
+/* ------------------------------------------------------------------ */
 :root {
-  --radius: 0.375rem;
-  --background: oklch(0.957 0.012 92);          /* aged notebook paper */
-  --foreground: oklch(0.27 0.028 258);          /* ink on paper */
-  --card: oklch(0.985 0.005 95);                /* fresh page */
-  --card-foreground: oklch(0.27 0.028 258);
-  --popover: oklch(0.985 0.005 95);
-  --popover-foreground: oklch(0.27 0.028 258);
-  --primary: oklch(0.44 0.13 256);              /* ballpoint blue ink */
-  --primary-foreground: oklch(0.985 0.005 95);
-  --secondary: oklch(0.918 0.018 95);
-  --secondary-foreground: oklch(0.33 0.03 258);
-  --muted: oklch(0.918 0.014 95);
-  --muted-foreground: oklch(0.5 0.025 258);
-  --accent: oklch(0.93 0.055 100);              /* faint highlighter tint */
-  --accent-foreground: oklch(0.33 0.04 258);
-  --destructive: oklch(0.55 0.21 27);           /* red pen */
-  --border: oklch(0.865 0.018 95);
-  --input: oklch(0.865 0.018 95);
-  --ring: oklch(0.44 0.13 256);
-  --rule: oklch(0.81 0.028 232);                /* ruled line blue-gray */
-  --margin: oklch(0.63 0.19 25);                /* red margin line */
-  --ink: oklch(0.33 0.05 256);                  /* handwriting ink */
-  --highlight: oklch(0.93 0.13 99);             /* marker yellow */
-  --pen-green: oklch(0.55 0.13 155);            /* green grading pen */
-  --pen-purple: oklch(0.52 0.17 305);           /* purple felt-tip */
-  --pen-orange: oklch(0.66 0.15 55);            /* orange marker */
-  --chart-1: oklch(0.44 0.13 256);
+  --radius: 0.75rem;
+  --background: oklch(0.945 0.008 250);         /* soft surface */
+  --foreground: oklch(0.31 0.028 258);          /* dark ink — high contrast */
+  --card: oklch(0.945 0.008 250);               /* same as bg: neu depth works */
+  --card-foreground: oklch(0.31 0.028 258);
+  --popover: oklch(0.965 0.006 250);
+  --popover-foreground: oklch(0.31 0.028 258);
+  --primary: oklch(0.52 0.185 258);             /* vibrant legal-tech blue */
+  --primary-foreground: oklch(0.985 0.005 250);
+  --secondary: oklch(0.925 0.012 250);
+  --secondary-foreground: oklch(0.36 0.03 258);
+  --muted: oklch(0.92 0.01 250);
+  --muted-foreground: oklch(0.47 0.022 258);    /* ≥ 4.5:1 on background */
+  --accent: oklch(0.9 0.03 255);                /* soft blue tint */
+  --accent-foreground: oklch(0.36 0.04 258);
+  --destructive: oklch(0.55 0.2 27);
+  --border: oklch(0.87 0.012 250);
+  --input: oklch(0.9 0.01 250);
+  --ring: oklch(0.52 0.185 258);
+  /* Neumorphic shadow inks */
+  --neu-dark: oklch(0.84 0.014 255);
+  --neu-light: oklch(0.995 0.003 250);
+  /* Legacy tokens (re-tinted, still referenced by old classes) */
+  --rule: oklch(0.88 0.01 250);
+  --margin: oklch(0.63 0.19 25);
+  --ink: oklch(0.42 0.03 258);
+  --highlight: oklch(0.9 0.05 255);
+  --pen-green: oklch(0.55 0.13 155);
+  --pen-purple: oklch(0.5 0.16 292);
+  --pen-orange: oklch(0.66 0.15 55);
+  --chart-1: oklch(0.52 0.185 258);
   --chart-2: oklch(0.6 0.12 165);
-  --chart-3: oklch(0.55 0.21 27);
+  --chart-3: oklch(0.55 0.2 27);
   --chart-4: oklch(0.75 0.13 85);
-  --chart-5: oklch(0.6 0.15 305);
-  --sidebar: oklch(0.985 0.005 95);
-  --sidebar-foreground: oklch(0.27 0.028 258);
-  --sidebar-primary: oklch(0.44 0.13 256);
-  --sidebar-primary-foreground: oklch(0.985 0.005 95);
-  --sidebar-accent: oklch(0.93 0.055 100);
-  --sidebar-accent-foreground: oklch(0.33 0.04 258);
-  --sidebar-border: oklch(0.865 0.018 95);
-  --sidebar-ring: oklch(0.44 0.13 256);
+  --chart-5: oklch(0.5 0.16 292);
+  --sidebar: oklch(0.945 0.008 250);
+  --sidebar-foreground: oklch(0.31 0.028 258);
+  --sidebar-primary: oklch(0.52 0.185 258);
+  --sidebar-primary-foreground: oklch(0.985 0.005 250);
+  --sidebar-accent: oklch(0.9 0.03 255);
+  --sidebar-accent-foreground: oklch(0.36 0.04 258);
+  --sidebar-border: oklch(0.87 0.012 250);
+  --sidebar-ring: oklch(0.52 0.185 258);
 }
 
 .dark {
-  --background: oklch(0.19 0.014 258);
-  --foreground: oklch(0.93 0.008 95);
-  --card: oklch(0.23 0.016 258);
-  --card-foreground: oklch(0.93 0.008 95);
-  --popover: oklch(0.23 0.016 258);
-  --popover-foreground: oklch(0.93 0.008 95);
-  --primary: oklch(0.72 0.11 255);
-  --primary-foreground: oklch(0.18 0.016 258);
-  --secondary: oklch(0.27 0.018 258);
-  --secondary-foreground: oklch(0.9 0.008 95);
-  --muted: oklch(0.27 0.018 258);
-  --muted-foreground: oklch(0.68 0.018 258);
-  --accent: oklch(0.3 0.024 258);
-  --accent-foreground: oklch(0.9 0.008 95);
+  --background: oklch(0.23 0.012 258);
+  --foreground: oklch(0.93 0.008 250);
+  --card: oklch(0.23 0.012 258);
+  --card-foreground: oklch(0.93 0.008 250);
+  --popover: oklch(0.26 0.012 258);
+  --popover-foreground: oklch(0.93 0.008 250);
+  --primary: oklch(0.72 0.13 255);
+  --primary-foreground: oklch(0.18 0.014 258);
+  --secondary: oklch(0.28 0.014 258);
+  --secondary-foreground: oklch(0.9 0.008 250);
+  --muted: oklch(0.28 0.012 258);
+  --muted-foreground: oklch(0.7 0.015 258);
+  --accent: oklch(0.3 0.03 258);
+  --accent-foreground: oklch(0.9 0.008 250);
   --destructive: oklch(0.66 0.18 27);
   --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.72 0.11 255);
-  --rule: oklch(0.38 0.02 255);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.72 0.13 255);
+  --neu-dark: oklch(0.16 0.01 258);
+  --neu-light: oklch(0.3 0.014 258);
+  --rule: oklch(0.32 0.012 258);
   --margin: oklch(0.62 0.16 25);
-  --ink: oklch(0.82 0.05 255);
-  --highlight: oklch(0.62 0.1 99);
+  --ink: oklch(0.82 0.02 255);
+  --highlight: oklch(0.32 0.04 258);
   --pen-green: oklch(0.74 0.12 155);
-  --pen-purple: oklch(0.72 0.13 305);
+  --pen-purple: oklch(0.72 0.13 292);
   --pen-orange: oklch(0.78 0.12 60);
-  --chart-1: oklch(0.72 0.11 255);
+  --chart-1: oklch(0.72 0.13 255);
   --chart-2: oklch(0.7 0.1 165);
   --chart-3: oklch(0.66 0.18 27);
   --chart-4: oklch(0.75 0.13 85);
-  --chart-5: oklch(0.7 0.13 305);
-  --sidebar: oklch(0.23 0.016 258);
-  --sidebar-foreground: oklch(0.93 0.008 95);
-  --sidebar-primary: oklch(0.72 0.11 255);
-  --sidebar-primary-foreground: oklch(0.18 0.016 258);
-  --sidebar-accent: oklch(0.3 0.024 258);
-  --sidebar-accent-foreground: oklch(0.9 0.008 95);
+  --chart-5: oklch(0.7 0.13 292);
+  --sidebar: oklch(0.23 0.012 258);
+  --sidebar-foreground: oklch(0.93 0.008 250);
+  --sidebar-primary: oklch(0.72 0.13 255);
+  --sidebar-primary-foreground: oklch(0.18 0.014 258);
+  --sidebar-accent: oklch(0.3 0.03 258);
+  --sidebar-accent-foreground: oklch(0.9 0.008 250);
   --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.72 0.11 255);
+  --sidebar-ring: oklch(0.72 0.13 255);
 }
 
-/* ---------- Notebook paper foundations ---------- */
+/* ------------------------------------------------------------------ */
+/* Neumorphic primitives (Soft UI)                                     */
+/* ------------------------------------------------------------------ */
 
-/* Subtle paper grain using an inline SVG turbulence texture */
+/* Raised surface — the standard card. */
+.neu-raised {
+  background-color: var(--card);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    6px 6px 14px var(--neu-dark),
+    -6px -6px 14px var(--neu-light);
+}
+
+/* Smaller raised surface (chips, inner cards). */
+.neu-raised-sm {
+  background-color: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    3px 3px 8px var(--neu-dark),
+    -3px -3px 8px var(--neu-light);
+}
+
+/* Inset (pressed) surface — wells, wells for inputs and steppers. */
+.neu-inset {
+  background-color: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    inset 4px 4px 9px var(--neu-dark),
+    inset -4px -4px 9px var(--neu-light);
+}
+
+.neu-inset-sm {
+  background-color: var(--card);
+  border-radius: var(--radius-md);
+  box-shadow:
+    inset 2.5px 2.5px 6px var(--neu-dark),
+    inset -2.5px -2.5px 6px var(--neu-light);
+}
+
+/* Inset input with a controlled blue focus glow (accessibility kept:
+   the ring remains visible for keyboard users). */
+.neu-input {
+  background-color: var(--card);
+  border-radius: var(--radius-md);
+  box-shadow:
+    inset 3px 3px 7px var(--neu-dark),
+    inset -3px -3px 7px var(--neu-light);
+  border: 1px solid transparent;
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+}
+.neu-input:focus-visible,
+.neu-input:focus {
+  outline: none;
+  border-color: color-mix(in oklab, var(--primary) 55%, transparent);
+}
+
+/* Controlled blue glow — ONLY for active/selected/CTA states. */
+.glow-primary {
+  box-shadow:
+    4px 4px 10px var(--neu-dark),
+    -4px -4px 10px var(--neu-light),
+    0 0 0 1.5px color-mix(in oklab, var(--primary) 55%, transparent),
+    0 2px 18px color-mix(in oklab, var(--primary) 30%, transparent);
+}
+
+.glow-primary-sm {
+  box-shadow:
+    0 0 0 1.5px color-mix(in oklab, var(--primary) 55%, transparent),
+    0 0 14px color-mix(in oklab, var(--primary) 28%, transparent);
+}
+
+/* Inset circle used by stepper numbers. */
+.neu-dot {
+  border-radius: 9999px;
+  background-color: var(--card);
+  box-shadow:
+    inset 2.5px 2.5px 5px var(--neu-dark),
+    inset -2.5px -2.5px 5px var(--neu-light);
+}
+.neu-dot-active {
+  border-radius: 9999px;
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow:
+    0 0 0 1.5px color-mix(in oklab, var(--primary) 45%, transparent),
+    0 0 14px color-mix(in oklab, var(--primary) 35%, transparent);
+}
+.neu-dot-done {
+  border-radius: 9999px;
+  background-color: color-mix(in oklab, var(--pen-green) 16%, var(--card));
+  color: var(--pen-green);
+  box-shadow:
+    inset 1.5px 1.5px 4px var(--neu-dark),
+    inset -1.5px -1.5px 4px var(--neu-light);
+}
+
+/* Smooth lift for premium cards (hover transitions). */
+.transition-lift {
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.transition-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Subtle step transition (reduced-motion aware). */
+@keyframes stepIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.step-enter {
+  animation: stepIn 240ms ease;
+}
+@keyframes revealIn {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.reveal-enter {
+  animation: revealIn 200ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-enter,
+  .reveal-enter,
+  .transition-lift:hover {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Legacy class names — restyled to Soft UI so every existing page     */
+/* upgrades at once. The old paper look is fully retired.              */
+/* ------------------------------------------------------------------ */
+
 .paper-grain {
   position: relative;
 }
 .paper-grain::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.5;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
-  background-repeat: repeat;
+  content: none; /* grain retired — clean soft surfaces */
 }
 
-/* Ruled writing lines (every 28px) */
 .paper-ruled {
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 27px,
-    var(--rule) 27px,
-    var(--rule) 28px
-  );
+  background-image: none;
 }
 
-/* A page card with red margin line + ruled lines, like a notebook leaf */
+/* Raised card (was a ruled notebook leaf). */
 .notebook-page {
   position: relative;
   background-color: var(--card);
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 27px,
-    color-mix(in oklab, var(--rule) 55%, transparent) 27px,
-    color-mix(in oklab, var(--rule) 55%, transparent) 28px
-  );
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 8px 24px -18px rgb(0 0 0 / 0.25);
+  border: none;
+  border-radius: var(--radius-xl);
+  box-shadow:
+    6px 6px 14px var(--neu-dark),
+    -6px -6px 14px var(--neu-light);
 }
 .notebook-page::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 44px;
-  width: 1.5px;
-  background: color-mix(in oklab, var(--margin) 60%, transparent);
-  pointer-events: none;
+  content: none; /* red margin line retired */
 }
 
-/* Handwritten-style annotations */
+/* Secondary text — clean typography (handwriting font retired). */
 .notebook-annotation {
-  font-family: "Comic Sans MS", "Segoe Print", "Bradley Hand", cursive;
-  color: var(--ink);
+  font-family: inherit;
+  color: var(--muted-foreground);
 }
 
-/* Highlighter sweep behind text */
+/* Blue-tinted highlight behind key headings. */
 .highlight-sweep {
   background-image: linear-gradient(
     to bottom,
-    transparent 12%,
-    color-mix(in oklab, var(--highlight) 75%, transparent) 12%,
-    color-mix(in oklab, var(--highlight) 75%, transparent) 88%,
-    transparent 88%
+    transparent 8%,
+    color-mix(in oklab, var(--primary) 16%, transparent) 8%,
+    color-mix(in oklab, var(--primary) 16%, transparent) 92%,
+    transparent 92%
   );
-  padding: 0 0.15em;
+  padding: 0 0.2em;
+  border-radius: 0.2em;
 }
 
-/* Colored highlighter sweeps for accents */
 .hl-blue {
   background-image: linear-gradient(
     to bottom,
     transparent 12%,
-    color-mix(in oklab, var(--primary) 30%, transparent) 12%,
-    color-mix(in oklab, var(--primary) 30%, transparent) 88%,
+    color-mix(in oklab, var(--primary) 24%, transparent) 12%,
+    color-mix(in oklab, var(--primary) 24%, transparent) 88%,
     transparent 88%
   );
   padding: 0 0.15em;
@@ -220,8 +348,8 @@
   background-image: linear-gradient(
     to bottom,
     transparent 12%,
-    color-mix(in oklab, var(--pen-green) 32%, transparent) 12%,
-    color-mix(in oklab, var(--pen-green) 32%, transparent) 88%,
+    color-mix(in oklab, var(--pen-green) 26%, transparent) 12%,
+    color-mix(in oklab, var(--pen-green) 26%, transparent) 88%,
     transparent 88%
   );
   padding: 0 0.15em;
@@ -230,58 +358,28 @@
   background-image: linear-gradient(
     to bottom,
     transparent 12%,
-    color-mix(in oklab, var(--pen-purple) 28%, transparent) 12%,
-    color-mix(in oklab, var(--pen-purple) 28%, transparent) 88%,
+    color-mix(in oklab, var(--pen-purple) 22%, transparent) 12%,
+    color-mix(in oklab, var(--pen-purple) 22%, transparent) 88%,
     transparent 88%
   );
   padding: 0 0.15em;
 }
 
-/* Smooth lift for premium cards (hover transitions) */
-.transition-lift {
-  transition: transform 200ms ease, box-shadow 200ms ease;
-}
-.transition-lift:hover {
-  transform: translateY(-2px);
-}
-
-/* Spiral binding dots along the top of the workspace */
+/* Retired decorations kept as no-ops for existing markup. */
 .spiral-edge {
-  background-image: radial-gradient(
-    circle at 10px 8px,
-    color-mix(in oklab, var(--foreground) 30%, transparent) 2.5px,
-    transparent 3px
-  );
-  background-size: 34px 16px;
-  background-repeat: repeat-x;
+  background-image: none;
 }
-
-/* Dotted "index card" separators for list layouts */
 .index-dots {
-  background-image: radial-gradient(
-    circle,
-    color-mix(in oklab, var(--border) 100%, transparent) 1px,
-    transparent 1px
-  );
-  background-size: 8px 8px;
-  background-repeat: repeat-x;
-  background-position: bottom;
+  background-image: none;
 }
 
-/* Full-page notebook paper background */
+/* Full-page soft background (flat, clean). */
 .notebook-bg {
   background-color: var(--background);
   position: relative;
 }
 .notebook-bg::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.55;
-  z-index: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
-  background-repeat: repeat;
+  content: none; /* grain retired */
 }
 .notebook-bg > * {
   position: relative;
@@ -299,4 +397,58 @@
   [role="button"]:not([disabled]) {
     cursor: pointer;
   }
+  /* Visible keyboard focus everywhere. */
+  :focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--primary) 70%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* shadcn/ui primitives → Soft UI (inset inputs, raised buttons)       */
+/* ------------------------------------------------------------------ */
+
+[data-slot="input"],
+[data-slot="textarea"] {
+  background-color: var(--card);
+  border: 1px solid transparent;
+  box-shadow:
+    inset 3px 3px 7px var(--neu-dark),
+    inset -3px -3px 7px var(--neu-light);
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+}
+[data-slot="input"]:focus-visible,
+[data-slot="textarea"]:focus-visible {
+  border-color: color-mix(in oklab, var(--primary) 55%, transparent);
+}
+
+[data-slot="select-trigger"] {
+  background-color: var(--card);
+  border: 1px solid transparent;
+  box-shadow:
+    inset 3px 3px 7px var(--neu-dark),
+    inset -3px -3px 7px var(--neu-light);
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+}
+[data-slot="select-trigger"]:focus-visible {
+  border-color: color-mix(in oklab, var(--primary) 55%, transparent);
+}
+
+[data-slot="select-item"][data-highlighted],
+[data-slot="select-item"][data-state="checked"] {
+  background-color: color-mix(in oklab, var(--primary) 14%, transparent);
+}
+
+/* Radio/checkbox indicators pick up the blue accent. */
+[data-slot="radio-group-item"],
+[data-slot="checkbox-indicator"] {
+  box-shadow:
+    inset 2px 2px 4px var(--neu-dark),
+    inset -2px -2px 4px var(--neu-light);
+}
+[data-slot="radio-group-item"][data-state="checked"] {
+  border-color: var(--primary);
+  box-shadow:
+    0 0 0 1.5px color-mix(in oklab, var(--primary) 45%, transparent),
+    0 0 12px color-mix(in oklab, var(--primary) 30%, transparent);
 }

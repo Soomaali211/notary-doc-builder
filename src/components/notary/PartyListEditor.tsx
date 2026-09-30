@@ -71,11 +71,7 @@ export function PartyListEditor({
         const canRemove = rows.length > partyDef.min;
         const att = row.attendance;
         return (
-          <div
-            key={row.id}
-            className="notebook-page paper-grain rounded-md p-4"
-            style={{ borderLeft: "3px solid var(--rule)" }}
-          >
+          <div key={row.id} className="neu-raised-sm p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <span className="flex items-center gap-2 text-xs font-semibold tracking-wide text-primary uppercase">
                 <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[10px]">

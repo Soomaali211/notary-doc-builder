@@ -102,10 +102,9 @@ export function AttendanceEditor({
             <div
               key={row.id}
               className={cn(
-                "notebook-page paper-grain rounded-md p-4 transition-shadow hover:shadow-sm",
+                "neu-raised-sm p-4 transition-lift",
                 rowErr && "ring-1 ring-destructive/50",
               )}
-              style={{ borderLeft: "3px solid var(--rule)" }}
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2 text-xs font-semibold tracking-wide text-primary uppercase">
@@ -144,10 +143,10 @@ export function AttendanceEditor({
                       disabled={disabled}
                       onClick={() => onSetStatus(partyDef.id, index, opt.value)}
                       className={cn(
-                        "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-md border px-2 py-2 text-center transition-all focus-visible:outline-2 focus-visible:outline-ring",
+                        "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-lg border border-transparent px-2 py-2 text-center transition-all focus-visible:outline-2 focus-visible:outline-ring",
                         active
-                          ? STATUS_STYLE[opt.value].chip + " shadow-sm"
-                          : "border-border bg-card/70 text-muted-foreground hover:bg-muted",
+                          ? cn("glow-primary-sm border-primary/60", STATUS_STYLE[opt.value].chip)
+                          : "neu-raised-sm text-muted-foreground hover:text-foreground",
                       )}
                     >
                       <span className="text-sm font-semibold">
@@ -177,10 +176,10 @@ export function AttendanceEditor({
                           <label
                             key={rep.id}
                             className={cn(
-                              "flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm transition-colors",
+                              "flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm transition-all",
                               checked
-                                ? "border-pen-purple bg-pen-purple/10 font-medium"
-                                : "border-border bg-card/70 hover:bg-muted",
+                                ? "glow-primary-sm border-pen-purple/60 bg-pen-purple/10 font-medium"
+                                : "neu-raised-sm border-transparent hover:text-foreground",
                             )}
                           >
                             <input
@@ -226,7 +225,7 @@ export function AttendanceEditor({
       </div>
 
       {/* Shared representatives — entered once, linked to many */}
-      <div className="rounded-md border border-border/70 bg-card/60 p-4">
+      <div className="neu-inset p-4">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h4 className="flex items-center gap-2 text-sm font-semibold">
             <Users className="size-4 text-primary" />
@@ -255,13 +254,10 @@ export function AttendanceEditor({
             const representing = representedByRep(values, partyDef, rep.id);
             const isOpen = expanded === rep.id;
             return (
-              <div
-                key={rep.id}
-                className="rounded-md border border-border bg-background/60 p-3"
-              >
+              <div key={rep.id} className="neu-raised-sm p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="flex size-7 items-center justify-center rounded-full bg-pen-purple/10 text-pen-purple">
+                    <span className="neu-dot flex size-8 items-center justify-center text-pen-purple">
                       <UserRound className="size-4" />
                     </span>
                     <div>
@@ -270,12 +266,18 @@ export function AttendanceEditor({
                         {repName && <span className="ml-1.5 font-normal text-muted-foreground">— {repName}</span>}
                       </p>
                       {representing.length > 0 ? (
-                        <p className="text-xs text-muted-foreground">
+                        <div className="mt-1 text-xs text-muted-foreground">
                           <span className="font-medium text-pen-purple">
                             {t(ATTENDANCE_UI.representing, locale)}:
-                          </span>{" "}
-                          {representing.join(", ")}
-                        </p>
+                          </span>
+                          <ul className="mt-0.5 space-y-0.5">
+                            {representing.map((name) => (
+                              <li key={name} className="flex items-center gap-1">
+                                <span aria-hidden className="text-pen-purple">•</span> {name}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       ) : (
                         <p className="text-xs text-pen-orange">{t(ATTENDANCE_UI.unlinked, locale)}</p>
                       )}
@@ -347,7 +349,7 @@ export function AttendanceEditor({
 
       {/* Relationship summary — clear visual mapping */}
       {reps.some((r) => representedByRep(values, partyDef, r.id).length > 0) && (
-        <div className="rounded-md border border-pen-green/40 bg-pen-green/5 p-3">
+        <div className="neu-inset-sm p-3">
           {reps
             .map((r) => ({ rep: r, parties: representedByRep(values, partyDef, r.id) }))
             .filter(({ parties }) => parties.length > 0)

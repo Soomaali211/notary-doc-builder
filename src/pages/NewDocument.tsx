@@ -62,10 +62,8 @@ export default function NewDocument() {
                   setSubType(null);
                 }}
                 className={cn(
-                  "notebook-page paper-grain group relative rounded-md p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-2 focus-visible:outline-ring",
-                  selected && "ring-2 ring-primary shadow-md",
-                  !selected && i % 3 === 1 && "border-t-4 border-t-pen-green/50",
-                  !selected && i % 3 === 2 && "border-t-4 border-t-pen-orange/50",
+                  "neu-raised group relative p-5 text-left transition-lift focus-visible:outline-2 focus-visible:outline-ring",
+                  selected && "glow-primary -translate-y-0.5",
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -83,10 +81,7 @@ export default function NewDocument() {
             );
           })}
           {upcomingDocumentTypes.slice(0, 2).map((c) => (
-            <div
-              key={c.id}
-              className="rounded-md border border-dashed border-border/80 p-5 opacity-60"
-            >
+            <div key={c.id} className="neu-inset p-5 opacity-60">
               <div className="flex items-start justify-between gap-2">
                 <p className="font-semibold">{c.title}</p>
                 <Badge variant="secondary" className="text-[10px]">Planned</Badge>
@@ -116,8 +111,8 @@ export default function NewDocument() {
                   aria-checked={selected}
                   onClick={() => setSubType(s.value)}
                   className={cn(
-                    "notebook-page paper-grain flex min-h-11 items-center gap-2 rounded-md px-5 py-3 text-sm font-medium transition-all hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-ring",
-                    selected && "ring-2 ring-primary shadow-sm",
+                    "neu-raised-sm flex min-h-11 items-center gap-2 px-5 py-3 text-sm font-medium transition-all focus-visible:outline-2 focus-visible:outline-ring",
+                    selected && "glow-primary-sm text-primary",
                   )}
                 >
                   {selected && <Sparkles className="size-3.5 text-primary" />}
