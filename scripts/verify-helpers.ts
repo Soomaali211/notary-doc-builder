@@ -4,6 +4,11 @@ export function row(values: Record<string, string>): PartyRow {
   return { id: Math.random().toString(36).slice(2), values };
 }
 
+/** Attendance-enabled row (jooga default in fixtures). */
+export function attRow(values: Record<string, string>): PartyRow {
+  return { ...row(values), attendance: { status: "jooga" } };
+}
+
 /** Test data #30 — scenario A (everything present). */
 export function scenarioA(): FormValues {
   return {
@@ -16,13 +21,13 @@ export function scenarioA(): FormValues {
       shuruudaha_gaarka_ah: "Naadiga waa inuu siiyo macdaanka.",
     },
     kireeyayaal: [
-      row({ magac: "Cabdi Xasan", telefoon: "+252 61 5551234", aqoonsi: "ID-8842", cinwaan: "Hodan, Muqdisho", faahfaahin_dheeraad: "" }),
-      row({ magac: "Faadumo Ali", telefoon: "+244 61 5559999", aqoonsi: "PP-2231", cinwaan: "", faahfaahin_dheeraad: "" }),
+      attRow({ magac: "Cabdi Xasan", telefoon: "+252 61 5551234", aqoonsi: "ID-8842", cinwaan: "Hodan, Muqdisho", faahfaahin_dheeraad: "" }),
+      attRow({ magac: "Faadumo Ali", telefoon: "+244 61 5559999", aqoonsi: "PP-2231", cinwaan: "", faahfaahin_dheeraad: "" }),
     ],
     kiraystayaal: [
-      row({ magac: "Xuseen Maxamed", telefoon: "+252 63 4447777", aqoonsi: "ID-1177", cinwaan: "Wadajir, Muqdisho", faahfaahin_dheeraad: "" }),
-      row({ magac: "Amina Osman", telefoon: "+252 63 4448888", aqoonsi: "ID-1178", cinwaan: "", faahfaahin_dheeraad: "" }),
-      row({ magac: "Liibaan Yusuf", telefoon: "+252 63 4449999", aqoonsi: "ID-1179", cinwaan: "", faahfaahin_dheeraad: "" }),
+      attRow({ magac: "Xuseen Maxamed", telefoon: "+252 63 4447777", aqoonsi: "ID-1177", cinwaan: "Wadajir, Muqdisho", faahfaahin_dheeraad: "" }),
+      attRow({ magac: "Amina Osman", telefoon: "+252 63 4448888", aqoonsi: "ID-1178", cinwaan: "", faahfaahin_dheeraad: "" }),
+      attRow({ magac: "Liibaan Yusuf", telefoon: "+252 63 4449999", aqoonsi: "ID-1179", cinwaan: "", faahfaahin_dheeraad: "" }),
     ],
     guriga: {
       nooca_guriga: "guri_xaas",

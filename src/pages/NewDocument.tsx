@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { documentConfigs, upcomingDocumentTypes } from "@/lib/notary/documents";
 import { cn } from "@/lib/utils";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
 
 /** Step one of the workflow: pick a document type, then a sub-type. */
 export default function NewDocument() {
@@ -41,36 +41,47 @@ export default function NewDocument() {
   return (
     <AppShell
       title="New Document"
-      subtitle="Pick the contract type, then the sub-type — the interview adapts to your choice."
+      subtitle="Dooro nooca heshiiska, kadibna nooca hoose — su'aalaha waxay la socdaan doorashadaada."
     >
-      {/* Step 1: document type */}
-      <section>
+      {/* Step 1: document type — radio cards */}
+      <section aria-label="1 · Nooca Heshiiska">
         <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          1 · Document type
+          1 · Nooca Heshiiska
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {documentConfigs.map((c, i) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => {
-                setTypeId(c.id);
-                setSubType(null);
-              }}
-              className={cn(
-                "notebook-page paper-grain rounded-md p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md",
-                typeId === c.id && "ring-2 ring-primary",
-                i % 3 === 1 && "border-t-4 border-t-pen-green/50",
-                i % 3 === 2 && "border-t-4 border-t-pen-orange/50",
-              )}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold">{c.title}</p>
-                <Badge className="hl-green text-[10px]">Ready</Badge>
-              </div>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">{c.description}</p>
-            </button>
-          ))}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label="Nooca Heshiiska">
+          {documentConfigs.map((c, i) => {
+            const selected = typeId === c.id;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => {
+                  setTypeId(c.id);
+                  setSubType(null);
+                }}
+                className={cn(
+                  "notebook-page paper-grain group relative rounded-md p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-2 focus-visible:outline-ring",
+                  selected && "ring-2 ring-primary shadow-md",
+                  !selected && i % 3 === 1 && "border-t-4 border-t-pen-green/50",
+                  !selected && i % 3 === 2 && "border-t-4 border-t-pen-orange/50",
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold">{c.title}</p>
+                  {selected ? (
+                    <span className="flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      <Check className="size-3.5" />
+                    </span>
+                  ) : (
+                    <Badge className="hl-green text-[10px]">Ready</Badge>
+                  )}
+                </div>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">{c.description}</p>
+              </button>
+            );
+          })}
           {upcomingDocumentTypes.slice(0, 2).map((c) => (
             <div
               key={c.id}
@@ -81,7 +92,7 @@ export default function NewDocument() {
                 <Badge variant="secondary" className="text-[10px]">Planned</Badge>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Not built yet — see the catalog for what's coming.
+                Weli lama dhisin — eeg catalog-ka si aad u aragto waxa imanaya.
               </p>
             </div>
           ))}
@@ -90,37 +101,45 @@ export default function NewDocument() {
 
       {/* Step 2: sub-type */}
       {config && (
-        <section className="mt-10">
+        <section className="mt-10" aria-label="2 · Nooca Kirada">
           <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            2 · Sub-type
+            2 · Nooca Kirada
           </h2>
-          <div className="flex flex-wrap gap-3">
-            {config.subTypes.map((s, i) => (
-              <button
-                key={s.value}
-                type="button"
-                onClick={() => setSubType(s.value)}
-                className={cn(
-                  "notebook-page paper-grain rounded-md px-5 py-3 text-sm font-medium transition-all hover:-translate-y-0.5",
-                  subType === s.value && "ring-2 ring-primary",
-                  i === 1 && "border-t-4 border-t-pen-green/50",
-                  i === 2 && "border-t-4 border-t-pen-orange/50",
-                )}
-              >
-                {s.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-3" role="radiogroup" aria-label="Nooca Kirada">
+            {config.subTypes.map((s) => {
+              const selected = subType === s.value;
+              return (
+                <button
+                  key={s.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setSubType(s.value)}
+                  className={cn(
+                    "notebook-page paper-grain flex min-h-11 items-center gap-2 rounded-md px-5 py-3 text-sm font-medium transition-all hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-ring",
+                    selected && "ring-2 ring-primary shadow-sm",
+                  )}
+                >
+                  {selected && <Sparkles className="size-3.5 text-primary" />}
+                  {s.label}
+                </button>
+              );
+            })}
           </div>
 
-          <div className="mt-8 flex justify-end">
+          <div className="mt-8 flex items-center justify-between gap-3">
+            <p className="notebook-annotation text-xs text-muted-foreground">
+              Markaad bilowdo waxaa lagu hagayaa tallaabada tallaabada — tirada xubnaha, xogta,
+              joogitaanka iyo wakiillada.
+            </p>
             <Button onClick={start} disabled={!subType || creating} className="gap-2">
               {creating ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" /> Preparing…
+                  <Loader2 className="size-4 animate-spin" /> Diyaarinaya…
                 </>
               ) : (
                 <>
-                  Start the interview <ArrowRight className="size-4" />
+                  Bilow Su'aalaha <ArrowRight className="size-4" />
                 </>
               )}
             </Button>

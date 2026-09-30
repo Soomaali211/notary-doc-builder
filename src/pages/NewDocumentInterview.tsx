@@ -9,29 +9,37 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FieldRenderer } from "@/components/notary/FieldRenderer";
 import { PartyListEditor } from "@/components/notary/PartyListEditor";
+import { NumberSelector } from "@/components/notary/NumberSelector";
+import { AttendanceEditor } from "@/components/notary/AttendanceEditor";
 import { getConfig, getSubTypeLabel } from "@/lib/notary/documents";
 import {
   addRepeatableItem,
-  canAddRepeatableItem,
-  createInterviewState,
-  deserializeDraft,
-  getAnswer,
-  getSections,
-  getVisibleFields,
-  getVisibleParties,
-  isInterviewComplete,
-  removeRepeatableItem,
-  setRepeatableAnswer,
-  setAnswer,
-  serializeDraft,
+  createRepresentative,
+  deleteRepresentative,
   getPartySummary,
   getReviewData,
+  getSections,
+  linkPartyRepresentative,
+  removeRepeatableItem,
+  serializeDraft,
+  setAnswer,
+  setPartyAttendance,
+  setRepeatableAnswer,
+  setRepeatableCount,
+  setRepresentativeField,
   validateSectionById,
 } from "@/lib/notary/engine";
 import { validateDocument } from "@/lib/notary/validation";
+import { getAnswer } from "@/lib/notary/engine";
 import { buildFileBaseName } from "@/lib/notary/archiver";
 import { generateDocument } from "@/lib/notary/pipeline";
-import type { FormValues, PartyDef, SectionDef } from "@/lib/notary/types";
+import { deserializeDraft } from "@/lib/notary/engine";
+import type {
+  AttendanceStatus,
+  FormValues,
+  PartyDef,
+  SectionDef,
+} from "@/lib/notary/types";
 import {
   ArrowLeft,
   ArrowRight,
@@ -41,10 +49,129 @@ import {
   Loader2,
   Save,
   PenLine,
+  UserCheck,
+  Users,
 } from "lucide-react";
 
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+/* ------------------------------------------------------------------ */
+/* Smart interview step model                                          */
+/* ------------------------------------------------------------------ */
+
+type StepKind =
+  | { kind: "section"; section: SectionDef }
+  | { kind: "count"; partyDef: PartyDef }
+  | { kind: "party-data"; partyDef: PartyDef }
+  | { kind: "attendance"; partyDef: PartyDef };
+
+interface InterviewStep {
+  key: string;
+  short: string;
+  detail: StepKind;
+}
+
+/**
+ * Smart Guided Interview: the section list expands into count-first →
+ * data → attendance steps for every attendance-enabled party group.
+ * Each answer determines what comes next; non-attendance groups (maragyo)
+ * keep their classic single-section repeater step.
+ */
+function buildSteps(sections: SectionDef[]): InterviewStep[] {
+  const steps: InterviewStep[] = [];
+  for (const section of sections) {
+    steps.push({ key: `sec-${section.id}`, short: section.title, detail: { kind: "section", section } });
+    for (const partyDef of section.parties ?? []) {
+      if (partyDef.attendance) {
+        steps.push({ key: `count-${partyDef.id}`, short: `Tirada ${partyDef.label}`, detail: { kind: "count", partyDef } });
+        steps.push({ key: `data-${partyDef.id}`, short: partyDef.label, detail: { kind: "party-data", partyDef } });
+        steps.push({ key: `att-${partyDef.id}`, short: `Joogitaanka ${partyDef.label}`, detail: { kind: "attendance", partyDef } });
+      } else {
+        steps.push({ key: `party-${partyDef.id}`, short: partyDef.label, detail: { kind: "party-data", partyDef } });
+      }
+    }
+  }
+  return steps;
+}
+
+/** Somali description shown under a step title. */
+function stepDescription(step: InterviewStep): string {
+  switch (step.detail.kind) {
+    case "section":
+      return step.detail.section.description ?? "";
+    case "count":
+      return `Dooro tirada ${step.detail.partyDef.label.toLowerCase()} — rows-ka waa si toos ah loo abuuri doonaa.`;
+    case "party-data":
+      return `Buuxi xogta ${step.detail.partyDef.label.toLowerCase()} — xubin kasta gooni ah.`;
+    case "attendance":
+      return "Xubin kasta si gaar ah: Jooga, Ma Joogo, ama Wakiil ayaa matalaya.";
+  }
+}
+
+/** One config section: scalar fields + classic (non-attendance) repeaters. */
+function SectionStep({
+  step,
+  values,
+  validation,
+  stepErrors,
+  setValues,
+}: {
+  step: Extract<InterviewStep["detail"], { kind: "section" }>;
+  values: FormValues;
+  validation: Record<string, import("@/lib/notary/validation").SectionErrors>;
+  stepErrors: boolean;
+  setValues: (updater: (v: FormValues) => FormValues) => void;
+}) {
+  const section = step.section;
+  return (
+    <>
+      <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+        {section.fields.map((field) => {
+          const err = stepErrors
+            ? validation[section.id]?.fieldErrors[field.id]
+            : undefined;
+          return (
+            <FieldRenderer
+              key={field.id}
+              field={field}
+              value={getAnswer(values, section.id, field.id)}
+              error={err}
+              onChange={(value) => setValues((v) => setAnswer(v!, section.id, field.id, value))}
+            />
+          );
+        })}
+      </div>
+
+      {/* Non-attendance repeaters (maragyo) render inline as before. */}
+      {(section.parties ?? [])
+        .filter((p) => !p.attendance)
+        .map((partyDef) => (
+          <div key={partyDef.id} className="mt-6 border-t border-dashed border-border pt-5">
+            <PartyListEditor
+              partyDef={partyDef}
+              rows={values[partyDef.id] as never}
+              errors={
+                stepErrors
+                  ? Object.fromEntries(
+                      (validation[section.id]?.partyErrors[partyDef.id] ?? []).map(
+                        (e) => [e.index, e.errors],
+                      ),
+                    )
+                  : undefined
+              }
+              canAdd={true}
+              onFieldChange={(rowIndex, fieldId, value) =>
+                setValues((v) => setRepeatableAnswer(v!, partyDef.id, rowIndex, fieldId, value))
+              }
+              onAdd={() => setValues((v) => addRepeatableItem(v!, partyDef))}
+              onRemove={(rowIndex) => setValues((v) => removeRepeatableItem(v!, partyDef, rowIndex))}
+            />
+          </div>
+        ))}
+    </>
+  );
+}
 
 export default function NewDocumentInterview() {
   const { docId } = useParams<{ docId: string }>();
@@ -129,26 +256,44 @@ export default function NewDocumentInterview() {
   const generateUploadUrl = useMutation(api.notaryDocuments.generateUploadUrl);
   const commitGenerated = useMutation(api.notaryDocuments.commitGenerated);
 
-  const allSections: SectionDef[] = config?.sections ?? [];
-  const visibleSections = useMemo(
+  const visibleSections: SectionDef[] = useMemo(
     () => (values && config ? getSections(config, values) : []),
     [config, values],
   );
-  const totalSteps = visibleSections.length + 1; // + review step
-  const isReview = step >= visibleSections.length;
-  const currentSection = isReview ? null : visibleSections[step];
+  const steps = useMemo(() => buildSteps(visibleSections), [visibleSections]);
+  const totalSteps = steps.length + 1; // + review step
+  const isReview = step >= steps.length;
+  const currentStep = isReview ? null : steps[step];
 
   const validation = useMemo(
     () => (values && config ? validateDocument(config, values) : {}),
     [values, config],
   );
 
-  const completedSections = useMemo(
+  const completedSteps = useMemo(
     () =>
       new Set(
-        visibleSections.filter((s) => !validation[s.id]).map((s) => s.id),
+        steps
+          .filter((s) => {
+            if (s.detail.kind === "section") return !validation[s.detail.section.id];
+            if (s.detail.kind === "count") {
+              const partyDef = s.detail.partyDef;
+              return (values?.[partyDef.id] as unknown[] | undefined)?.length
+                ? true
+                : false;
+            }
+            if (s.detail.kind === "party-data" || s.detail.kind === "attendance") {
+              const partyDef = s.detail.partyDef;
+              const sectionId = visibleSections.find((sec) =>
+                (sec.parties ?? []).some((p) => p.id === partyDef.id),
+              )?.id;
+              return sectionId ? !validation[sectionId] : false;
+            }
+            return false;
+          })
+          .map((s) => s.key),
       ),
-    [visibleSections, validation],
+    [steps, validation, values, visibleSections],
   );
 
   const handleSaveDraft = () => {
@@ -162,15 +307,48 @@ export default function NewDocumentInterview() {
     }, 400);
   };
 
+  /** Validation check for the CURRENT step only (inline, per-step). */
+  const currentStepHasErrors = (): boolean => {
+    if (!values || !config || !currentStep) return false;
+    switch (currentStep.detail.kind) {
+      case "section": {
+        const errs = validateSectionById(config, values, currentStep.detail.section.id);
+        return Boolean(
+          errs &&
+            (Object.keys(errs.fieldErrors).length ||
+              errs.general.length ||
+              Object.keys(errs.partyErrors).length),
+        );
+      }
+      case "count": {
+        return false; // count always has a value (min enforced by selector)
+      }
+      case "party-data":
+      case "attendance": {
+        const partyDef = currentStep.detail.partyDef;
+        const sectionId = visibleSections.find((sec) =>
+          (sec.parties ?? []).some((p) => p.id === partyDef.id),
+        )?.id;
+        if (!sectionId) return false;
+        const errs = validateSectionById(config, values, sectionId);
+        if (!errs) return false;
+        const partyErrs = errs.partyErrors[partyDef.id] ?? [];
+        const general = errs.general.filter((g) =>
+          partyDef.attendance ? true : !g.startsWith("Wakiil"),
+        );
+        return partyErrs.length > 0 || general.length > 0;
+      }
+    }
+  };
+
   const tryContinue = () => {
     if (!values || !config) return;
-    if (!currentSection) {
+    if (!currentStep) {
       setStepErrors(false);
       handleGenerate();
       return;
     }
-    const errs = validateSectionById(config, values, currentSection.id);
-    if (errs && (Object.keys(errs.fieldErrors).length || errs.general.length || Object.keys(errs.partyErrors).length)) {
+    if (currentStepHasErrors()) {
       setStepErrors(true);
       toast.error("Waxaa jira xog aan dhammaystirnayn. Fadlan sax meelaha lagu calaamadeeyay.");
       return;
@@ -187,7 +365,18 @@ export default function NewDocumentInterview() {
       const allErrors = validateDocument(config, values);
       const errorSections = Object.keys(allErrors);
       if (errorSections.length > 0) {
-        const idx = visibleSections.findIndex((s) => s.id === errorSections[0]);
+        const idx = steps.findIndex((s) => {
+          if (s.detail.kind === "section") return s.detail.section.id === errorSections[0];
+          if (s.detail.kind === "party-data" || s.detail.kind === "attendance") {
+            const pd = s.detail.partyDef;
+            return visibleSections.some(
+              (sec) =>
+                sec.id === errorSections[0] &&
+                (sec.parties ?? []).some((p) => p.id === pd.id),
+            );
+          }
+          return false;
+        });
         if (idx >= 0) setStep(idx);
         setStepErrors(true);
         toast.error("Weli waxaa jira qalado — fadlan sax.");
@@ -315,6 +504,102 @@ export default function NewDocumentInterview() {
     );
   }
 
+  /* ---------------------------------------------------------------- */
+  /* Step renderers                                                    */
+  /* ---------------------------------------------------------------- */
+
+  const renderCountStep = (partyDef: PartyDef) => {
+    const count = ((values[partyDef.id] as unknown[] | undefined) ?? []).length;
+    return (
+      <div className="space-y-5">
+        <div className="rounded-md border border-border/70 bg-card/60 p-5">
+          <p className="text-sm text-muted-foreground">
+            Imisa {partyDef.singular} ayaa heshiiska ku jira?
+          </p>
+          <div className="mt-3">
+            <NumberSelector
+              value={count}
+              min={partyDef.min}
+              max={partyDef.max}
+              label={partyDef.singular}
+              onChange={(next) => setValues((v) => setRepeatableCount(v!, partyDef, next))}
+            />
+          </div>
+          <p className="notebook-annotation mt-3 text-xs text-muted-foreground">
+            {count} {partyDef.singular} waa la abuuray — xogta waa lagu soo bandhigi doonaa tallaabada xigta.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {Array.from({ length: count }, (_, i) => (
+            <div
+              key={i}
+              className="notebook-page paper-grain flex items-center gap-2 rounded-md p-3 text-sm"
+            >
+              <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                {i + 1}
+              </span>
+              {partyDef.singular} {i + 1}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderPartyDataStep = (partyDef: PartyDef) => {
+    const rows = (values[partyDef.id] as FormValues[keyof FormValues]) ?? [];
+    const sectionId = visibleSections.find((sec) =>
+      (sec.parties ?? []).some((p) => p.id === partyDef.id),
+    )?.id;
+    const rowErrMap = Object.fromEntries(
+      (sectionId ? (validation[sectionId]?.partyErrors[partyDef.id] ?? []) : []).map(
+        (e) => [e.index, e.errors],
+      ),
+    );
+    return (
+      <PartyListEditor
+        partyDef={partyDef}
+        rows={rows as never}
+        errors={stepErrors ? rowErrMap : undefined}
+        canAdd={true}
+        onFieldChange={(rowIndex, fieldId, value) =>
+          setValues((v) => setRepeatableAnswer(v!, partyDef.id, rowIndex, fieldId, value))
+        }
+        onAdd={() => setValues((v) => addRepeatableItem(v!, partyDef))}
+        onRemove={(rowIndex) => setValues((v) => removeRepeatableItem(v!, partyDef, rowIndex))}
+      />
+    );
+  };
+
+  const renderAttendanceStep = (partyDef: PartyDef) => {
+    const sectionId = visibleSections.find((sec) =>
+      (sec.parties ?? []).some((p) => p.id === partyDef.id),
+    )?.id;
+    const rowErrMap = Object.fromEntries(
+      (sectionId ? (validation[sectionId]?.partyErrors[partyDef.id] ?? []) : []).map(
+        (e) => [e.index, e.errors],
+      ),
+    );
+    return (
+      <AttendanceEditor
+        partyDef={partyDef}
+        values={values}
+        errors={stepErrors ? rowErrMap : undefined}
+        onSetStatus={(partyId, rowIndex, status: AttendanceStatus) =>
+          setValues((v) => setPartyAttendance(v!, partyId, rowIndex, status))
+        }
+        onLinkRep={(partyId, rowIndex, repId) =>
+          setValues((v) => linkPartyRepresentative(v!, partyId, rowIndex, repId))
+        }
+        onCreateRep={() => setValues((v) => createRepresentative(v!, partyDef))}
+        onUpdateRep={(repId, fieldId, value) =>
+          setValues((v) => setRepresentativeField(v!, partyDef, repId, fieldId, value))
+        }
+        onRemoveRep={(repId) => setValues((v) => deleteRepresentative(v!, partyDef, repId))}
+      />
+    );
+  };
+
   return (
     <main className="notebook-bg min-h-screen pb-24">
       <div className="mx-auto max-w-6xl px-4 pt-6">
@@ -333,10 +618,13 @@ export default function NewDocumentInterview() {
               {config.title} · {getSubTypeLabel(config, getAnswer(values, "heshiiska", "sub_type") || document.subType)}
             </p>
             <h1 className="text-2xl font-bold tracking-tight">
-              {isReview ? "Dib u Eegis & Abuur" : (currentSection?.title ?? "")}
+              {isReview ? "Dib u Eegis & Abuur" : (currentStep?.short ?? "")}
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <span className="notebook-annotation hidden text-xs text-muted-foreground sm:inline">
+              {lastSavedJsonRef.current ? "La kaydiyay ✓" : "Weli lama kaydin"}
+            </span>
             <Button
               type="button"
               variant="outline"
@@ -357,46 +645,52 @@ export default function NewDocumentInterview() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-          {/* Section index (notebook tabs) */}
-          <nav className="hidden lg:block">
+        <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+          {/* Stepper sidebar (notebook tabs) */}
+          <nav className="hidden lg:block" aria-label="Tusmada tallaabada">
             <div className="notebook-page paper-grain rounded-md p-3">
               <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                 <ClipboardList className="size-3.5" /> Tusmada
               </p>
               <ol className="space-y-0.5">
-                {visibleSections.map((s, i) => (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => i <= step && setStep(i)}
-                      className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] transition-colors ${
-                        i === step
-                          ? "bg-primary/10 font-semibold text-primary"
-                          : i < step
-                            ? "text-foreground/70 hover:bg-muted"
-                            : "cursor-not-allowed text-muted-foreground/60"
-                      }`}
-                    >
-                      <span
-                        className={`flex size-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
-                          completedSections.has(s.id)
-                            ? "border-pen-green bg-pen-green/10 text-pen-green"
-                            : i === step
-                              ? "border-primary text-primary"
-                              : "border-border text-muted-foreground"
+                {steps.map((s, i) => {
+                  const done = completedSteps.has(s.key);
+                  const isCurrent = i === step;
+                  const clickable = i <= step;
+                  return (
+                    <li key={s.key}>
+                      <button
+                        type="button"
+                        onClick={() => clickable && setStep(i)}
+                        aria-current={isCurrent ? "step" : undefined}
+                        className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] transition-colors ${
+                          isCurrent
+                            ? "bg-primary/10 font-semibold text-primary"
+                            : done
+                              ? "text-foreground/70 hover:bg-muted"
+                              : "cursor-not-allowed text-muted-foreground/60"
                         }`}
                       >
-                        {completedSections.has(s.id) ? <Check className="size-2.5" /> : i + 1}
-                      </span>
-                      {s.title}
-                    </button>
-                  </li>
-                ))}
+                        <span
+                          className={`flex size-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
+                            done
+                              ? "border-pen-green bg-pen-green/10 text-pen-green"
+                              : isCurrent
+                                ? "border-primary text-primary"
+                                : "border-border text-muted-foreground"
+                          }`}
+                        >
+                          {done ? <Check className="size-2.5" /> : i + 1}
+                        </span>
+                        {s.short}
+                      </button>
+                    </li>
+                  );
+                })}
                 <li>
                   <button
                     type="button"
-                    onClick={() => step >= visibleSections.length && setStep(visibleSections.length)}
+                    onClick={() => step >= steps.length && setStep(steps.length)}
                     className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] ${
                       isReview
                         ? "bg-primary/10 font-semibold text-primary"
@@ -411,73 +705,59 @@ export default function NewDocumentInterview() {
           </nav>
 
           {/* Content page */}
-          <section className="notebook-page paper-grain spiral-edge rounded-md px-6 py-6 sm:px-8">
-            {!isReview && currentSection && (
+          <section className="notebook-page paper-grain rounded-md px-6 py-6 sm:px-8">
+            {!isReview && currentStep && (
               <>
                 <header className="mb-5">
                   <h2 className="highlight-sweep inline-block text-lg font-bold">
-                    {currentSection.title}
+                    {currentStep.short}
                   </h2>
-                  {currentSection.description && (
+                  {stepDescription(currentStep) && (
                     <p className="notebook-annotation mt-1 text-sm text-muted-foreground">
-                      {currentSection.description}
+                      {stepDescription(currentStep)}
                     </p>
                   )}
                 </header>
 
-                <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
-                  {getVisibleFields(currentSection, values).map((field) => {
-                    const err = stepErrors
-                      ? validation[currentSection.id]?.fieldErrors[field.id]
-                      : undefined;
-                    return (
-                      <FieldRenderer
-                        key={field.id}
-                        field={field}
-                        value={getAnswer(values, currentSection.id, field.id)}
-                        error={err}
-                        onChange={(value) =>
-                          setValues((v) =>
-                            setAnswer(v!, currentSection.id, field.id, value),
-                          )
-                        }
-                      />
-                    );
-                  })}
-                </div>
+                {currentStep.detail.kind === "section" && (
+                  <SectionStep
+                    step={currentStep.detail}
+                    values={values}
+                    validation={validation}
+                    stepErrors={stepErrors}
+                    setValues={(updater) =>
+                      setValues((v) => (v ? updater(v) : v))
+                    }
+                  />
+                )}
 
-                {getVisibleParties(currentSection, values).map((partyDef) => {
-                  const rowErrMap = Object.fromEntries(
-                    (validation[currentSection.id]?.partyErrors[partyDef.id] ?? []).map(
-                      (e) => [e.index, e.errors],
-                    ),
-                  );
-                  return (
-                    <div key={partyDef.id} className="mt-6 border-t border-dashed border-border pt-5">
-                      <PartyListEditor
-                        partyDef={partyDef}
-                        rows={values[partyDef.id] as never}
-                        errors={stepErrors ? rowErrMap : undefined}
-                        canAdd={canAddRepeatableItem(partyDef, values)}
-                        onFieldChange={(rowIndex, fieldId, value) =>
-                          setValues((v) =>
-                            setRepeatableAnswer(v!, partyDef.id, rowIndex, fieldId, value),
-                          )
-                        }
-                        onAdd={() => setValues((v) => addRepeatableItem(v!, partyDef))}
-                        onRemove={(rowIndex) =>
-                          setValues((v) => removeRepeatableItem(v!, partyDef, rowIndex))
-                        }
-                      />
-                    </div>
-                  );
-                })}
+                {currentStep.detail.kind === "count" && renderCountStep(currentStep.detail.partyDef)}
+                {currentStep.detail.kind === "party-data" && renderPartyDataStep(currentStep.detail.partyDef)}
+                {currentStep.detail.kind === "attendance" && renderAttendanceStep(currentStep.detail.partyDef)}
 
-                {stepErrors && validation[currentSection.id]?.general.map((g, i) => (
-                  <p key={i} className="mt-4 text-sm font-medium text-destructive">
-                    ✗ {g}
-                  </p>
-                ))}
+                {stepErrors && currentStep.detail.kind === "section" && (() => {
+                  const section = currentStep.detail.section;
+                  return (validation[section.id]?.general ?? []).map((g, i) => (
+                    <p key={i} className="mt-4 text-sm font-medium text-destructive">
+                      ✗ {g}
+                    </p>
+                  ));
+                })()}
+                {stepErrors && currentStep.detail.kind === "attendance" && (() => {
+                  const pd = currentStep.detail.partyDef;
+                  const secId = visibleSections.find((sec) =>
+                    (sec.parties ?? []).some((p) => p.id === pd.id),
+                  )?.id;
+                  if (!secId) return null;
+                  const general = (validation[secId]?.general ?? []).filter(
+                    (g) => g.includes("Wakiil") || g.includes("marag"),
+                  );
+                  return general.map((g, i) => (
+                    <p key={i} className="mt-4 text-sm font-medium text-destructive">
+                      ✗ {g}
+                    </p>
+                  ));
+                })()}
               </>
             )}
 
@@ -494,19 +774,23 @@ export default function NewDocumentInterview() {
                 )}
                 <div className="space-y-4">
                   {reviewBlocks.map((block) => {
-                    const idx = visibleSections.findIndex((s) => s.id === block.sectionId);
+                    const idx = steps.findIndex((s) =>
+                      s.detail.kind === "section" ? s.detail.section.id === block.sectionId : false,
+                    );
+                    const fallbackIdx = visibleSections.findIndex((s) => s.id === block.sectionId);
+                    const target = idx >= 0 ? idx : fallbackIdx;
                     return (
                       <div key={block.sectionId} className="rounded-md border border-border/70 bg-card/60 p-4">
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <h3 className="text-sm font-semibold">{block.sectionTitle}</h3>
-                          {idx >= 0 && (
+                          {target >= 0 && (
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               className="h-7 gap-1 px-2 text-xs"
                               onClick={() => {
-                                setStep(idx);
+                                setStep(target);
                                 setStepErrors(false);
                               }}
                             >
@@ -533,7 +817,7 @@ export default function NewDocumentInterview() {
               </>
             )}
 
-            {/* Navigation */}
+            {/* Sticky navigation */}
             <div className="mt-8 flex items-center justify-between border-t border-dashed border-border pt-5">
               <Button
                 type="button"

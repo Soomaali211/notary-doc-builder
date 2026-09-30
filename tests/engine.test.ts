@@ -39,6 +39,11 @@ function row(values: Record<string, string>): PartyRow {
   return { id: Math.random().toString(36).slice(2), values };
 }
 
+/** Attendance-enabled row (jooga by default in fixtures). */
+function attRow(values: Record<string, string>): PartyRow {
+  return { ...row(values), attendance: { status: "jooga" } };
+}
+
 function baseAnswers(): FormValues {
   const values: FormValues = {
     heshiiska: {
@@ -48,10 +53,10 @@ function baseAnswers(): FormValues {
       taariikhda_dhammaadka: "2027-01-31",
     },
     kireeyayaal: [
-      row({ magac: "Cabdi", telefoon: "+252 61 5551234", aqoonsi: "ID-1", cinwaan: "", faahfaahin_dheeraad: "" }),
+      attRow({ magac: "Cabdi", telefoon: "+252 61 5551234", aqoonsi: "ID-1", cinwaan: "", faahfaahin_dheeraad: "" }),
     ],
     kiraystayaal: [
-      row({ magac: "Xuseen", telefoon: "+252 63 4447777", aqoonsi: "ID-2", cinwaan: "", faahfaahin_dheeraad: "" }),
+      attRow({ magac: "Xuseen", telefoon: "+252 63 4447777", aqoonsi: "ID-2", cinwaan: "", faahfaahin_dheeraad: "" }),
     ],
     guriga: {
       nooca_guriga: "guri_xaas",

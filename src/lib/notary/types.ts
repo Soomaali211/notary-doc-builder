@@ -108,6 +108,73 @@ export interface PartyDef {
   /** Visibility rule for the whole repeater block. */
   visibleWhen?: Condition;
   fields: FieldDef[];
+  /**
+   * Phase Revision — enable the per-row attendance flow
+   * (Jooga / Ma Joogo / Wakiil ayaa matalaya). When true the interview
+   * adds attendance + representative steps for this group.
+   */
+  attendance?: boolean;
+  /**
+   * Phase Revision — data collected ONCE per representative (wakiil) of
+   * this group. Representatives are shared: one rep can represent many
+   * parties (PartyRepresentative relationship).
+   */
+  representativeFields?: FieldDef[];
+  /**
+   * FormValues key holding the group's shared representative list.
+   * Defaults to `wakiilo_<partyId>`.
+   */
+  representativesKey?: string;
+}
+
+/* ------------------------------------------------------------------ */
+/* Phase Revision — attendance & representative model                  */
+/* ------------------------------------------------------------------ */
+
+/** Per-party attendance status (Kireeye/Kirayste kasta si gaar ah). */
+export type AttendanceStatus = "jooga" | "ma_joogo" | "wakiil";
+
+/** A UI string ready for multilingual rendering (Somali primary). */
+export interface LocalizedLabel {
+  so: string;
+  en?: string;
+}
+
+/** The three attendance choices with their UI labels. */
+export const ATTENDANCE_OPTIONS: {
+  value: AttendanceStatus;
+  label: LocalizedLabel;
+  hint: LocalizedLabel;
+}[] = [
+  {
+    value: "jooga",
+    label: { so: "Jooga", en: "Present" },
+    hint: { so: "Wuxuu saxiixayaa isaga oo joogo", en: "Signs in person" },
+  },
+  {
+    value: "ma_joogo",
+    label: { so: "Ma Joogo", en: "Absent" },
+    hint: { so: "Ma soo gaaray fadhiga", en: "Not attending" },
+  },
+  {
+    value: "wakiil",
+    label: { so: "Wakiil ayaa matalaya", en: "Represented" },
+    hint: { so: "Wakiil ayaa saxiixayaa xilli beddelka", en: "A representative signs" },
+  },
+];
+
+/** Attendance answer of one party row + its representative link. */
+export interface PartyAttendance {
+  status: AttendanceStatus;
+  /** PartyRow.id of the representative inside the group's rep list. */
+  representativeId?: string;
+}
+
+/** FormValues key of a group's shared representative list. */
+export function representativesKeyFor(
+  partyDef: Pick<PartyDef, "id" | "representativesKey">,
+): string {
+  return partyDef.representativesKey ?? `wakiilo_${partyDef.id}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -289,12 +356,18 @@ export interface DocumentFormatConfig {
 export interface PartyRow {
   id: string;
   values: Record<string, string>;
+  /**
+   * Phase Revision — attendance + representative link of this row
+   * (only for groups with PartyDef.attendance).
+   */
+  attendance?: PartyAttendance;
 }
 
 /**
  * Section scalar fields → Record<string, string>.
  * Repeatable groups → PartyRow[].
  * checkbox values are "yes"/"no"; multiselect is a comma-joined string.
+ * A group's shared representatives (wakiilo) live at `wakiilo_<partyId>`.
  */
 export interface FormValues {
   [key: string]: Record<string, string> | PartyRow[] | undefined;
@@ -315,6 +388,20 @@ export interface GeneratedDocumentMetadata {
   fileName: string;
 }
 
+/** One party summary row (archive + generation metadata). */
+export interface PartySummaryRow {
+  role: string;
+  name: string;
+  phone?: string;
+  idNumber?: string;
+  /** Jooga / Ma Joogo / Wakiil — present for attendance-enabled groups. */
+  attendance?: AttendanceStatus;
+  /** Representative name when this party is represented. */
+  representative?: string;
+  /** Names of the parties this representative acts for (rep summary rows). */  
+  representing?: string;
+}
+
 export interface StoredDocumentPayload {
   documentType: string;
   documentTypeTitle: string;
@@ -322,7 +409,7 @@ export interface StoredDocumentPayload {
   subTypeLabel: string;
   referenceNumber: string;
   /** Party summary rows for the archive: [roleLabel, name, phone, id]. */
-  parties: { role: string; name: string; phone?: string; idNumber?: string }[];
+  parties: PartySummaryRow[];
   fileBaseName: string;
   values: FormValues;
 }

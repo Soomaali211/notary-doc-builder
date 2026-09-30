@@ -11,6 +11,12 @@ const partySummary = v.object({
   name: v.string(),
   phone: v.optional(v.string()),
   idNumber: v.optional(v.string()),
+  /** Phase Revision — attendance + representative relationship. */
+  attendance: v.optional(
+    v.union(v.literal("jooga"), v.literal("ma_joogo"), v.literal("wakiil")),
+  ),
+  representative: v.optional(v.string()),
+  representing: v.optional(v.string()),
 });
 
 const savePayload = v.object({

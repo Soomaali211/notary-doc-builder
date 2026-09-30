@@ -197,9 +197,24 @@ function DocumentDetailView({ docId }: { docId: string }) {
                       <span>
                         <span className="text-xs font-semibold text-primary uppercase">{p.role}</span>
                         <span className="ml-2 font-medium">{p.name}</span>
+                        {p.attendance === "jooga" && (
+                          <span className="ml-1.5 text-xs font-semibold text-pen-green">✓ Jooga</span>
+                        )}
+                        {p.attendance === "ma_joogo" && (
+                          <span className="ml-1.5 text-xs font-semibold text-destructive">✗ Ma Joogo</span>
+                        )}
+                        {p.representative && (
+                          <span className="ml-1.5 text-xs text-pen-purple">◉ {p.representative}</span>
+                        )}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {[p.phone, p.idNumber].filter(Boolean).join(" · ")}
+                        {[
+                          p.phone,
+                          p.idNumber,
+                          p.representing ? `Matalaya: ${p.representing}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     </li>
                   ))}

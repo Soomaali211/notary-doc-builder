@@ -85,10 +85,14 @@ export const heshiisKiroConfig: DocumentConfig = {
   templates: KIRO_TEMPLATES,
 
   // Phase 3 — repeated blocks over dynamic party lists.
+  // Phase Revision — WAKIILO_* blocks let the office's own template render
+  // each shared representative ONCE plus who they represent ({{MATALAYA}}).
   repeatBlocks: [
     { blockId: "MARAGYO", partyId: "maragyo", numberPlaceholder: "NUMBER", aliases: { PHONE: "telefoon", ID: "aqoonsi" } },
     { blockId: "KIREYEYAYAAL", partyId: "kireeyayaal" },
     { blockId: "KIRAYSTAYAAL", partyId: "kiraystayaal" },
+    { blockId: "WAKIILO_KIREEYAYAAL", partyId: "wakiilo_kireeyayaal", numberPlaceholder: "NUMBER" },
+    { blockId: "WAKIILO_KIRAYSTAYAAL", partyId: "wakiilo_kiraystayaal", numberPlaceholder: "NUMBER" },
   ],
 
   // Phase 3 — named boolean flags for {{IF:FLAG}}…{{ENDIF}} blocks.
@@ -130,6 +134,13 @@ export const heshiisKiroConfig: DocumentConfig = {
           singular: "Kireeye",
           description: "Ku dar hal ama dhowr kireeye.",
           min: 1,
+          attendance: true,
+          representativeFields: [
+            { id: "magac", type: "text", label: "Magaca Wakiilka", validation: { required: true } },
+            { id: "telefoon", type: "phone", label: "Telefoonka Wakiilka", validation: { required: true }, placeholder: "+252 61 5551234" },
+            { id: "aqoonsi", type: "text", label: "Nambarka Aqoonsiga / Document", validation: { required: true }, placeholder: "ID / Passport" },
+            { id: "cinwaan", type: "text", label: "Cinwaanka", optional: true, placeholder: "Degmada, magaalada" },
+          ],
           fields: [
             { id: "magac", type: "text", label: "Magaca Buuxa", validation: { required: true }, placeholder: "Magaca kireeyaha" },
             { id: "telefoon", type: "phone", label: "Telefoon", validation: { required: true }, placeholder: "+252 61 5551234" },
@@ -152,6 +163,13 @@ export const heshiisKiroConfig: DocumentConfig = {
           singular: "Kirayste",
           description: "Ku dar hal ama dhowr kirayste.",
           min: 1,
+          attendance: true,
+          representativeFields: [
+            { id: "magac", type: "text", label: "Magaca Wakiilka", validation: { required: true } },
+            { id: "telefoon", type: "phone", label: "Telefoonka Wakiilka", validation: { required: true }, placeholder: "+252 61 5551234" },
+            { id: "aqoonsi", type: "text", label: "Nambarka Aqoonsiga / Document", validation: { required: true }, placeholder: "ID / Passport" },
+            { id: "cinwaan", type: "text", label: "Cinwaanka", optional: true, placeholder: "Degmada, magaalada" },
+          ],
           fields: [
             { id: "magac", type: "text", label: "Magaca Buuxa", validation: { required: true }, placeholder: "Magaca kiraystaha" },
             { id: "telefoon", type: "phone", label: "Telefoon", validation: { required: true }, placeholder: "+252 61 5551234" },

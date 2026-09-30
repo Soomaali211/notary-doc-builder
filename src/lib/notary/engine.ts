@@ -42,6 +42,18 @@ import {
   updatePartyField,
   updateSectionField,
 } from "./formValues";
+import {
+  addRepresentative,
+  assignRepresentative,
+  getRepresentatives,
+  removeRepresentative,
+  representedByRep,
+  representativeNameFor,
+  setAttendanceStatus,
+  setPartyCount,
+  updateRepresentativeField,
+} from "./formValues";
+import { representativesKeyFor } from "./types";
 
 /* ------------------------------------------------------------------ */
 /* Configuration access                                                */
@@ -180,6 +192,103 @@ export function removeRepeatableItem(
 /** repeater_count_bounds(): effective [min, max] (max 0 = unlimited). */
 export function repeaterCountBounds(partyDef: PartyDef): { min: number; max: number } {
   return { min: partyDef.min, max: partyDef.max ?? 0 };
+}
+
+/* ------------------------------------------------------------------ */
+/* Phase Revision — count-first & representative model                 */
+/* ------------------------------------------------------------------ */
+
+/** Count-first: grow/shrink a party list to exactly N rows. */
+export function setRepeatableCount(
+  values: FormValues,
+  partyDef: PartyDef,
+  count: number,
+): FormValues {
+  return setPartyCount(values, partyDef, count);
+}
+
+/** Current row count of one party list. */
+export function partyRowCount(values: FormValues, partyId: string): number {
+  return getPartyRows(values, partyId).length;
+}
+
+/** Representatives (wakiillo) of one attendance-enabled group. */
+export function listRepresentatives(
+  values: FormValues,
+  partyDef: PartyDef,
+): PartyRow[] {
+  return getRepresentatives(values, partyDef);
+}
+
+/** Representatives storage key, e.g. "wakiilo_kireeyayaal". */
+export function representativesKey(partyDef: PartyDef): string {
+  return representativesKeyFor(partyDef);
+}
+
+/** Create a fresh representative row ("Samee Wakiil Cusub"). */
+export function createRepresentative(
+  values: FormValues,
+  partyDef: PartyDef,
+): FormValues {
+  return addRepresentative(values, partyDef);
+}
+
+/** Edit one representative field. */
+export function setRepresentativeField(
+  values: FormValues,
+  partyDef: PartyDef,
+  repId: string,
+  fieldId: string,
+  value: string,
+): FormValues {
+  return updateRepresentativeField(values, partyDef, repId, fieldId, value);
+}
+
+/** Delete a representative; linked parties fall back to unlinked wakiil. */
+export function deleteRepresentative(
+  values: FormValues,
+  partyDef: PartyDef,
+  repId: string,
+): FormValues {
+  return removeRepresentative(values, partyDef, repId);
+}
+
+/** Per-party attendance: Jooga / Ma Joogo / Wakiil. */
+export function setPartyAttendance(
+  values: FormValues,
+  partyId: string,
+  rowIndex: number,
+  status: "jooga" | "ma_joogo" | "wakiil",
+): FormValues {
+  return setAttendanceStatus(values, partyId, rowIndex, status);
+}
+
+/** Link one party to a (shared) representative. */
+export function linkPartyRepresentative(
+  values: FormValues,
+  partyId: string,
+  rowIndex: number,
+  representativeId: string | undefined,
+): FormValues {
+  return assignRepresentative(values, partyId, rowIndex, representativeId);
+}
+
+/** Name of the representative acting for one party row. */
+export function repNameFor(
+  values: FormValues,
+  partyDef: PartyDef,
+  row: PartyRow,
+): string {
+  return representativeNameFor(values, partyDef, row);
+}
+
+/** Parties one representative acts for ("Matalaya: Kireeye 2, Kireeye 3"). */
+export function partiesRepresentedBy(
+  values: FormValues,
+  partyDef: PartyDef,
+  repId: string,
+): string[] {
+  return representedByRep(values, partyDef, repId);
 }
 
 /* ------------------------------------------------------------------ */

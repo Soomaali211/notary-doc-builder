@@ -15,6 +15,8 @@ import type {
 } from "./types";
 import { evaluateCondition, makeGetter } from "./conditions";
 import { formatValueByKind, resolveKey, joinNonEmpty } from "./format";
+import { representedByRep } from "./formValues";
+import { representativesKeyFor } from "./types";
 
 export interface DataContext {
   config: DocumentConfig;
@@ -195,6 +197,27 @@ export function buildRepeatBlockData(
       ...(row.values ?? {}),
       ...partyRowTokens(row, mapping),
     }));
+
+    // Phase Revision — representative blocks carry a computed MATALAYA
+    // token: the parties each wakiil represents ("Kireeye 2, Kireeye 3").
+    if (mapping.partyId.startsWith("wakiilo_")) {
+      const parentDef = config.sections
+        .flatMap((s) => s.parties ?? [])
+        .find((p) => representativesKeyFor(p) === mapping.partyId);
+      if (parentDef) {
+        const filled = filledRows(partyRows(values, mapping.partyId));
+        rows.forEach((row, i) => {
+          const repRow = filled[i];
+          if (!repRow) return;
+          (row as Record<string, string>).MATALAYA = representedByRep(
+            values,
+            parentDef,
+            repRow.id,
+          ).join(", ");
+        });
+      }
+    }
+
     map.set(mapping.blockId.toUpperCase(), {
       mapping,
       rows: rows as Record<string, string>[],

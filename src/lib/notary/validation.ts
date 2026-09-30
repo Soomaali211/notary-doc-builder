@@ -8,6 +8,7 @@ import type {
 } from "./types";
 import { evaluateCondition, makeGetter } from "./conditions";
 import { formatValueByKind, resolveKey } from "./format";
+import { getRepresentatives, representedByRep, representativeNameFor } from "./formValues";
 
 const PHONE_RE = /^[0-9()+\-\s]{6,20}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -199,6 +200,86 @@ function validatePartyList(
   return perRow;
 }
 
+/* ------------------------------------------------------------------ */
+/* Phase Revision — attendance & representative validation             */
+/* ------------------------------------------------------------------ */
+
+const ATTENDANCE_VALID = new Set(["jooga", "ma_joogo", "wakiil"]);
+
+/**
+ * Validate one attendance-enabled group: every party needs a status, and
+ * every "wakiil" party must be linked to a named, complete representative.
+ * One shared rep may serve many parties (never duplicated).
+ */
+export function validateAttendanceGroup(
+  partyDef: PartyDef,
+  values: FormValues,
+  general: string[],
+): Record<number, FieldError[]> {
+  const perRow: Record<number, FieldError[]> = {};
+  if (!partyDef.attendance) return perRow;
+
+  const rows = (Array.isArray(values[partyDef.id]) ? values[partyDef.id] : []) as PartyRow[];
+  const reps = getRepresentatives(values, partyDef);
+  const nameField = partyDef.representativeFields?.[0]?.id ?? "magac";
+
+  rows.forEach((row, index) => {
+    const name = (row.values?.[partyDef.fields[0]?.id ?? ""] ?? "").trim();
+    if (!name) return; // row-level field rules already cover empty rows
+    const att = row.attendance;
+    if (!att || !ATTENDANCE_VALID.has(att.status)) {
+      perRow[index] = [
+        {
+          fieldId: "attendance",
+          message: `${partyDef.singular} ${index + 1}: dooro xaaladda (Jooga / Ma Joogo / Wakiil).`,
+        },
+      ];
+      return;
+    }
+    if (att.status === "wakiil") {
+      if (!att.representativeId) {
+        perRow[index] = [
+          { fieldId: "attendance", message: `${partyDef.singular} ${index + 1}: dooro wakiilka matalaya.` },
+        ];
+        return;
+      }
+      const rep = reps.find((r) => r.id === att.representativeId);
+      if (!rep) {
+        perRow[index] = [
+          { fieldId: "attendance", message: `${partyDef.singular} ${index + 1}: wakiilka la doortay waa lama baaba'ay — dooro wakiil kale.` },
+        ];
+        return;
+      }
+      const repName = (rep.values?.[nameField] ?? "").trim();
+      if (!repName) {
+        perRow[index] = [
+          { fieldId: "attendance", message: `Wakiilka ${partyDef.singular} ${index + 1}: buuxi magaca wakiilka.` },
+        ];
+      }
+    }
+  });
+
+  // A representative entered but linked to nobody is flagged so the user
+  // links or removes it (keeps the document truthful). Linked reps must
+  // have their own data complete — their field rules apply too.
+  for (const rep of reps) {
+    const repName = (rep.values?.[nameField] ?? "").trim();
+    const linked = representedByRep(values, partyDef, rep.id).length > 0;
+    if (repName && !linked) {
+      general.push(`Wakiil "${repName}": xiriir wakiilka iyo xisbi (Matalaya) si uu heshiisku ugu muuqdo.`);
+    }
+    if (linked) {
+      for (const field of partyDef.representativeFields ?? []) {
+        const err = validateField(field, rep.values?.[field.id] ?? "");
+        if (err) {
+          general.push(`Wakiil "${repName || "(magac la'aan)"}": ${err}`);
+        }
+      }
+    }
+  }
+  return perRow;
+}
+
 /**
  * Validate the whole interview against its config.
  * Hidden conditional sections/fields are skipped; `requiredWhen` can make a
@@ -249,6 +330,11 @@ export function validateDocument(
       }
       const rows = (Array.isArray(values[partyDef.id]) ? values[partyDef.id] : []) as PartyRow[];
       const perRow = validatePartyList(partyDef, rows, general);
+      const attRow = validateAttendanceGroup(partyDef, values, general);
+      for (const [idx, errs] of Object.entries(attRow)) {
+        const i = Number(idx);
+        perRow[i] = [...(perRow[i] ?? []), ...errs];
+      }
       if (Object.keys(perRow).length > 0) {
         partyErrors[partyDef.id] = Object.entries(perRow).map(([index, errs]) => ({
           index: Number(index),
@@ -346,11 +432,36 @@ export function collectFilledValues(
           .map((f) => row.values?.[f.id] ?? "")
           .filter(Boolean)
           .join(" — ");
+        let value = details ? `${name} — ${details}` : name;
+        // Attendance + representative shown clearly in review.
+        if (partyDef.attendance) {
+          const att = row.attendance;
+          if (att?.status === "jooga") value += " — ✓ Jooga";
+          else if (att?.status === "ma_joogo") value += " — ✗ Ma Joogo";
+          else if (att?.status === "wakiil") {
+            const repName = representativeNameFor(values, partyDef, row);
+            value += repName ? ` — ◉ Wakiil: ${repName}` : " — ◉ Wakiil";
+          }
+        }
         rows.push({
           label: `${partyDef.singular} ${i + 1}`,
-          value: details ? `${name} — ${details}` : name,
+          value,
         });
       });
+      // Shared representatives: entered once, shown with who they represent.
+      if (partyDef.attendance) {
+        for (const rep of getRepresentatives(values, partyDef)) {
+          const nameField = partyDef.representativeFields?.[0]?.id ?? "magac";
+          const repName = (rep.values?.[nameField] ?? "").trim();
+          if (!repName) continue;
+          const representing = representedByRep(values, partyDef, rep.id);
+          if (representing.length === 0) continue;
+          rows.push({
+            label: `Wakiil (${partyDef.singular})`,
+            value: `${repName} — Matalaya: ${representing.join(", ")}`,
+          });
+        }
+      }
     }
 
     if (rows.length > 0) {

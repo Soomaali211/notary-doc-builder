@@ -69,6 +69,7 @@ export function PartyListEditor({
         const rowErrors = errors?.[index];
         const name = (row.values?.[partyDef.fields[0]?.id ?? ""] ?? "").trim();
         const canRemove = rows.length > partyDef.min;
+        const att = row.attendance;
         return (
           <div
             key={row.id}
@@ -82,41 +83,59 @@ export function PartyListEditor({
                 </span>
                 {name || `${partyDef.singular} ${index + 1}`}
               </span>
-              {canRemove && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={disabled}
-                      className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="size-3.5" />
-                      Remove
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Xaqiiji tirtirida</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Ma tirtirayn doontaa{" "}
-                        <strong>{name || `${partyDef.singular} ${index + 1}`}</strong>?
-                        Xogta la geliyay qaybtan waa la baabi'inayaa.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Jooji</AlertDialogCancel>
-                      <AlertDialogAction
-                        className="bg-destructive text-white hover:bg-destructive/90"
-                        onClick={() => onRemove(index)}
+              <div className="flex items-center gap-2">
+                {/* Attendance chip — clear status at a glance */}
+                {att?.status === "jooga" && (
+                  <span className="rounded-full border border-pen-green/60 bg-pen-green/10 px-2 py-0.5 text-[10px] font-semibold text-pen-green">
+                    ✓ Jooga
+                  </span>
+                )}
+                {att?.status === "ma_joogo" && (
+                  <span className="rounded-full border border-destructive/50 bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+                    ✗ Ma Joogo
+                  </span>
+                )}
+                {att?.status === "wakiil" && (
+                  <span className="rounded-full border border-pen-purple/60 bg-pen-purple/10 px-2 py-0.5 text-[10px] font-semibold text-pen-purple">
+                    ◉ Wakiil
+                  </span>
+                )}
+                {canRemove && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={disabled}
+                        className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive"
                       >
-                        Haa, tirtir
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
+                        <Trash2 className="size-3.5" />
+                        Remove
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Xaqiiji tirtirida</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Ma tirtirayn doontaa{" "}
+                          <strong>{name || `${partyDef.singular} ${index + 1}`}</strong>?
+                          Xogta la geliyay qaybtan waa la baabi'inayaa.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Jooji</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-white hover:bg-destructive/90"
+                          onClick={() => onRemove(index)}
+                        >
+                          Haa, tirtir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
             </div>
             <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
               {partyDef.fields.map((field) => {

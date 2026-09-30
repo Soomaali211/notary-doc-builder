@@ -237,6 +237,14 @@
   padding: 0 0.15em;
 }
 
+/* Smooth lift for premium cards (hover transitions) */
+.transition-lift {
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.transition-lift:hover {
+  transform: translateY(-2px);
+}
+
 /* Spiral binding dots along the top of the workspace */
 .spiral-edge {
   background-image: radial-gradient(
