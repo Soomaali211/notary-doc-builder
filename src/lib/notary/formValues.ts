@@ -331,6 +331,35 @@ export function assignRepresentative(
   return { ...values, [partyId]: rows };
 }
 
+/**
+ * Step-2 combined editor: choosing "Maya" guarantees the party has a LINKED
+ * representative — the inline "Qaybta Wakiilka" inputs bind to it. Reuses an
+ * unlinked rep when one exists (shared wakiil), otherwise creates + links a
+ * fresh one. Never duplicates an existing link.
+ */
+export function ensureRepresentative(
+  values: FormValues,
+  partyDef: PartyDef,
+  partyId: string,
+  rowIndex: number,
+): FormValues {
+  const rows = getPartyRows(values, partyId);
+  const row = rows[rowIndex];
+  if (!row) return values;
+  const reps = getRepresentatives(values, partyDef);
+  const currentId = row.attendance?.representativeId;
+  if (currentId && reps.some((r) => r.id === currentId)) return values; // already linked
+  const taken = new Set(rows.map((r) => r.attendance?.representativeId));
+  const free = reps.find((r) => !taken.has(r.id));
+  if (free) return assignRepresentative(values, partyId, rowIndex, free.id);
+  const withNew = addRepresentative(values, partyDef);
+  const all = getRepresentatives(withNew, partyDef);
+  const created = all[all.length - 1];
+  return created
+    ? assignRepresentative(withNew, partyId, rowIndex, created.id)
+    : withNew;
+}
+
 /** Clear every rep link pointing at a removed row id (party rows only). */
 export function detachRepresentative(values: FormValues, representativeId: string): FormValues {
   let out = values;

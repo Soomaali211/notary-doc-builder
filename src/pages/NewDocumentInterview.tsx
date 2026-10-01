@@ -19,8 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { FieldRenderer } from "@/components/notary/FieldRenderer";
 import { PartyListEditor } from "@/components/notary/PartyListEditor";
-import { NumberSelector } from "@/components/notary/NumberSelector";
-import { AttendanceEditor } from "@/components/notary/AttendanceEditor";
+import { PartyStatusEditor } from "@/components/notary/PartyStatusEditor";
 import { StepperProgress } from "@/components/notary/StepperProgress";
 import { SetupField } from "@/components/notary/SetupField";
 import { SetupSummaryCard } from "@/components/notary/SetupSummaryCard";
@@ -34,6 +33,7 @@ import {
   addRepeatableItem,
   createRepresentative,
   deleteRepresentative,
+  ensurePartyRepresentative,
   getPartySummary,
   getReviewData,
   getSections,
@@ -43,7 +43,6 @@ import {
   setAnswer,
   setPartyAttendance,
   setRepeatableAnswer,
-  setRepeatableCount,
   setRepresentativeField,
   validateSectionById,
 } from "@/lib/notary/engine";
@@ -54,11 +53,10 @@ import { buildFileBaseName } from "@/lib/notary/archiver";
 import { generateDocument } from "@/lib/notary/pipeline";
 import { deserializeDraft } from "@/lib/notary/engine";
 import { makeGetter } from "@/lib/notary/conditions";
-import { getPartyRows, stripSkipMarkers } from "@/lib/notary/formValues";
-import { isFieldRequired, partyDataErrors } from "@/lib/notary/validation";
+import { getPartyRows, getRepresentatives, stripSkipMarkers } from "@/lib/notary/formValues";
+import { isFieldRequired } from "@/lib/notary/validation";
 import { FIELD_SKIPPED } from "@/lib/notary/types";
 import type {
-  AttendanceStatus,
   FieldDef,
   FormValues,
   PartyDef,
@@ -87,9 +85,8 @@ const DOCX_MIME =
 
 type StepKind =
   | { kind: "section"; section: SectionDef }
-  | { kind: "count"; partyDef: PartyDef }
   | { kind: "party-data"; partyDef: PartyDef }
-  | { kind: "attendance"; partyDef: PartyDef };
+  | { kind: "party-status"; partyDef: PartyDef };
 
 interface InterviewStep {
   key: string;
@@ -110,12 +107,10 @@ function stepDescription(step: InterviewStep): string {
   switch (step.detail.kind) {
     case "section":
       return step.detail.section.description ?? "";
-    case "count":
-      return `Dooro tirada ${step.detail.partyDef.label.toLowerCase()} — rows-ka waa si toos ah loo abuuri doonaa.`;
     case "party-data":
       return `Buuxi xogta ${step.detail.partyDef.label.toLowerCase()} — xubin kasta gooni ah.`;
-    case "attendance":
-      return "Xubin kasta si gaar ah: Jooga, Ma Joogo, ama Wakiil ayaa matalaya.";
+    case "party-status":
+      return "Ma Joogaa Heshiiska? Haa = xogta qofka jooga; Maya = wakiil ayaa matalaya (magac + telefoon).";
   }
 }
 
@@ -494,13 +489,7 @@ export default function NewDocumentInterview() {
         steps
           .filter((s) => {
             if (s.detail.kind === "section") return !validation[s.detail.section.id];
-            if (s.detail.kind === "count") {
-              const partyDef = s.detail.partyDef;
-              return (values?.[partyDef.id] as unknown[] | undefined)?.length
-                ? true
-                : false;
-            }
-            if (s.detail.kind === "party-data" || s.detail.kind === "attendance") {
+            if (s.detail.kind === "party-data" || s.detail.kind === "party-status") {
               const partyDef = s.detail.partyDef;
               const sectionId = visibleSections.find((sec) =>
                 (sec.parties ?? []).some((p) => p.id === partyDef.id),
@@ -538,11 +527,10 @@ export default function NewDocumentInterview() {
               Object.keys(errs.partyErrors).length),
         );
       }
-      case "count": {
-        return false; // count always has a value (min enforced by selector)
-      }
       case "party-data":
-      case "attendance": {
+      case "party-status": {
+        // Step 2 owns data + presence + wakiil TOGETHER: full party errors
+        // (identity AND the Ma-Joogaa choice) plus rep-related generals.
         const partyDef = currentStep.detail.partyDef;
         const sectionId = visibleSections.find((sec) =>
           (sec.parties ?? []).some((p) => p.id === partyDef.id),
@@ -550,12 +538,7 @@ export default function NewDocumentInterview() {
         if (!sectionId) return false;
         const errs = validateSectionById(config, values, sectionId);
         if (!errs) return false;
-        // Attendance-status gaps belong to the FOLLOWING attendance step;
-        // they never block or surface on the data step.
-        const partyErrs =
-          currentStep.detail.kind === "party-data"
-            ? partyDataErrors(errs.partyErrors[partyDef.id])
-            : errs.partyErrors[partyDef.id] ?? [];
+        const partyErrs = errs.partyErrors[partyDef.id] ?? [];
         const general = errs.general.filter((g) =>
           partyDef.attendance ? true : !g.startsWith("Wakiil"),
         );
@@ -593,7 +576,7 @@ export default function NewDocumentInterview() {
           });
         }
       }
-    } else if (step.kind === "party-data" || step.kind === "attendance") {
+    } else if (step.kind === "party-data") {
       const partyDef = step.partyDef;
       getPartyRows(values, partyDef.id).forEach((row, rowIndex) => {
         const rowHasAny = Object.values(row.values ?? {}).some((x) => (x ?? "").trim() !== "");
@@ -610,8 +593,47 @@ export default function NewDocumentInterview() {
           }
         }
       });
+    } else if (step.kind === "party-status") {
+      // Step 2 — status-aware gaps: the Ma Joogaa? choice, identity fields
+      // per state (telefoon/aqoonsi/cinwaan only for jooga), and the linked
+      // wakiil's required fields when Maya. N/A fields are NEVER listed.
+      const partyDef = step.partyDef;
+      const reps = getRepresentatives(values, partyDef);
+      getPartyRows(values, partyDef.id).forEach((row, rowIndex) => {
+        const status = row.attendance?.status;
+        const base = `${partyDef.singular} ${rowIndex + 1}`;
+        if (!status) {
+          fields.push({ label: `${base}: Ma Joogaa Heshiiska?`, status: "required-missing" });
+        }
+        for (const field of partyDef.fields) {
+          if (field.showOnlyWhenRowStatus && field.showOnlyWhenRowStatus !== status) continue;
+          const raw = row.values?.[field.id] ?? "";
+          const required = isReq(field) || field.requiredWhenRowStatus === status;
+          if (raw === FIELD_SKIPPED) {
+            fields.push({ label: `${base}: ${field.label}`, status: "skipped" });
+          } else if (raw.trim() === "") {
+            fields.push({
+              label: `${base}: ${field.label}`,
+              status: required ? "required-missing" : "optional-empty",
+            });
+          }
+        }
+        if (status === "wakiil") {
+          const rep = reps.find((r) => r.id === row.attendance?.representativeId);
+          if (!rep) {
+            fields.push({ label: `${base}: Wakiilka matalaya`, status: "required-missing" });
+          } else {
+            for (const field of partyDef.representativeFields ?? []) {
+              if (field.optional) continue;
+              if ((rep.values?.[field.id] ?? "").trim() === "") {
+                fields.push({ label: `${base}: ${field.label}`, status: "required-missing" });
+              }
+            }
+          }
+        }
+      });
     } else {
-      return null; // count step always has a value
+      return null;
     }
     return fields.length > 0 ? { fields } : null;
   };
@@ -667,7 +689,7 @@ export default function NewDocumentInterview() {
         (f) => getAnswer(values, d.section.id, f.id) === FIELD_SKIPPED,
       );
     }
-    if (d.kind === "party-data" || d.kind === "attendance") {
+    if (d.kind === "party-data" || d.kind === "party-status") {
       return getPartyRows(values, d.partyDef.id).some((row) =>
         Object.values(row.values ?? {}).some((v) => v === FIELD_SKIPPED),
       );
@@ -684,7 +706,7 @@ export default function NewDocumentInterview() {
       if (errorSections.length > 0) {
         const idx = steps.findIndex((s) => {
           if (s.detail.kind === "section") return s.detail.section.id === errorSections[0];
-          if (s.detail.kind === "party-data" || s.detail.kind === "attendance") {
+          if (s.detail.kind === "party-data" || s.detail.kind === "party-status") {
             const pd = s.detail.partyDef;
             return visibleSections.some(
               (sec) =>
@@ -827,38 +849,70 @@ export default function NewDocumentInterview() {
   /* Step renderers                                                    */
   /* ---------------------------------------------------------------- */
 
-  const renderCountStep = (partyDef: PartyDef) => {
-    const count = ((values[partyDef.id] as unknown[] | undefined) ?? []).length;
+  /** Step 2 — presence switch: Haa (jooga) / Maya (wakiil ayaa matalaya). */
+  const withPresence = (
+    v: FormValues,
+    partyDef: PartyDef,
+    rowIndex: number,
+    present: boolean,
+  ): FormValues => {
+    const before = getPartyRows(v, partyDef.id);
+    const prevRepId = before[rowIndex]?.attendance?.representativeId;
+    let next = setPartyAttendance(v, partyDef.id, rowIndex, present ? "jooga" : "wakiil");
+    if (!present) {
+      // Maya: guarantee a LINKED wakiil so the inline inputs have a real
+      // storage target (reuse an unlinked rep first — shared wakiil).
+      return ensurePartyRepresentative(next, partyDef, partyDef.id, rowIndex);
+    }
+    // Haa: drop this row's auto wakiil when NO other row shares it — leaves
+    // no orphan rep behind (validation would demand a link nobody uses).
+    if (prevRepId) {
+      const shared = before.some(
+        (r, i) => i !== rowIndex && r.attendance?.representativeId === prevRepId,
+      );
+      const exists = getRepresentatives(next, partyDef).some((r) => r.id === prevRepId);
+      if (exists && !shared) next = deleteRepresentative(next, partyDef, prevRepId);
+    }
+    return next;
+  };
+
+  /** Step 2 — new wakiil: created AND linked to this row in one action. */
+  const createAndLinkRep = (v: FormValues, partyDef: PartyDef, rowIndex: number): FormValues => {
+    const next = createRepresentative(v, partyDef);
+    const reps = getRepresentatives(next, partyDef);
+    const created = reps[reps.length - 1];
+    return created ? linkPartyRepresentative(next, partyDef.id, rowIndex, created.id) : next;
+  };
+
+  const renderPartyStatusStep = (partyDef: PartyDef) => {
+    const sectionId = visibleSections.find((sec) =>
+      (sec.parties ?? []).some((p) => p.id === partyDef.id),
+    )?.id;
+    const rowErrMap = Object.fromEntries(
+      (sectionId ? (validation[sectionId]?.partyErrors[partyDef.id] ?? []) : []).map(
+        (e) => [e.index, e.errors],
+      ),
+    );
     return (
-      <div className="space-y-5">
-        <div className="neu-inset p-5">
-          <p className="text-sm text-muted-foreground">
-            Imisa {partyDef.singular} ayaa heshiiska ku jira?
-          </p>
-          <div className="mt-3">
-            <NumberSelector
-              value={count}
-              min={partyDef.min}
-              max={partyDef.max}
-              label={partyDef.singular}
-              onChange={(next) => setValues((v) => setRepeatableCount(v!, partyDef, next))}
-            />
-          </div>
-          <p className="reveal-enter mt-3 text-xs text-muted-foreground" aria-live="polite">
-            {count} {partyDef.singular} waa la abuuray — xogta waa lagu soo bandhigi doonaa tallaabada xigta.
-          </p>
-        </div>
-        <div className="grid gap-2.5 sm:grid-cols-3">
-          {Array.from({ length: count }, (_, i) => (
-            <div key={i} className="neu-raised-sm flex items-center gap-2 p-3 text-sm">
-              <span className="neu-dot flex size-6 items-center justify-center text-[10px] font-bold text-primary">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              {partyDef.singular} {i + 1}
-            </div>
-          ))}
-        </div>
-      </div>
+      <PartyStatusEditor
+        partyDef={partyDef}
+        values={values}
+        errors={stepErrors ? rowErrMap : undefined}
+        onFieldChange={(rowIndex, fieldId, value) =>
+          setValues((v) => setRepeatableAnswer(v!, partyDef.id, rowIndex, fieldId, value))
+        }
+        onPresence={(rowIndex, present) =>
+          setValues((v) => withPresence(v!, partyDef, rowIndex, present))
+        }
+        onLinkRep={(rowIndex, repId) =>
+          setValues((v) => linkPartyRepresentative(v!, partyDef.id, rowIndex, repId))
+        }
+        onCreateRep={(rowIndex) => setValues((v) => createAndLinkRep(v!, partyDef, rowIndex))}
+        onUpdateRep={(repId, fieldId, value) =>
+          setValues((v) => setRepresentativeField(v!, partyDef, repId, fieldId, value))
+        }
+        onRemoveRep={(repId) => setValues((v) => deleteRepresentative(v!, partyDef, repId))}
+      />
     );
   };
 
@@ -867,12 +921,10 @@ export default function NewDocumentInterview() {
     const sectionId = visibleSections.find((sec) =>
       (sec.parties ?? []).some((p) => p.id === partyDef.id),
     )?.id;
-    // Data step shows only DATA errors — attendance-status gaps are the
-    // next step's responsibility ("dooro xaaladda" lives there).
     const rowErrMap = Object.fromEntries(
-      partyDataErrors(
-        sectionId ? validation[sectionId]?.partyErrors[partyDef.id] : undefined,
-      ).map((e) => [e.index, e.errors]),
+      (sectionId ? (validation[sectionId]?.partyErrors[partyDef.id] ?? []) : []).map(
+        (e) => [e.index, e.errors],
+      ),
     );
     return (
       <PartyListEditor
@@ -885,35 +937,6 @@ export default function NewDocumentInterview() {
         }
         onAdd={() => setValues((v) => addRepeatableItem(v!, partyDef))}
         onRemove={(rowIndex) => setValues((v) => removeRepeatableItem(v!, partyDef, rowIndex))}
-      />
-    );
-  };
-
-  const renderAttendanceStep = (partyDef: PartyDef) => {
-    const sectionId = visibleSections.find((sec) =>
-      (sec.parties ?? []).some((p) => p.id === partyDef.id),
-    )?.id;
-    const rowErrMap = Object.fromEntries(
-      (sectionId ? (validation[sectionId]?.partyErrors[partyDef.id] ?? []) : []).map(
-        (e) => [e.index, e.errors],
-      ),
-    );
-    return (
-      <AttendanceEditor
-        partyDef={partyDef}
-        values={values}
-        errors={stepErrors ? rowErrMap : undefined}
-        onSetStatus={(partyId, rowIndex, status: AttendanceStatus) =>
-          setValues((v) => setPartyAttendance(v!, partyId, rowIndex, status))
-        }
-        onLinkRep={(partyId, rowIndex, repId) =>
-          setValues((v) => linkPartyRepresentative(v!, partyId, rowIndex, repId))
-        }
-        onCreateRep={() => setValues((v) => createRepresentative(v!, partyDef))}
-        onUpdateRep={(repId, fieldId, value) =>
-          setValues((v) => setRepresentativeField(v!, partyDef, repId, fieldId, value))
-        }
-        onRemoveRep={(repId) => setValues((v) => deleteRepresentative(v!, partyDef, repId))}
       />
     );
   };
@@ -1101,9 +1124,8 @@ export default function NewDocumentInterview() {
                   />
                 )}
 
-                {currentStep.detail.kind === "count" && renderCountStep(currentStep.detail.partyDef)}
                 {currentStep.detail.kind === "party-data" && renderPartyDataStep(currentStep.detail.partyDef)}
-                {currentStep.detail.kind === "attendance" && renderAttendanceStep(currentStep.detail.partyDef)}
+                {currentStep.detail.kind === "party-status" && renderPartyStatusStep(currentStep.detail.partyDef)}
 
                 {stepErrors && currentStep.detail.kind === "section" && (() => {
                   const section = currentStep.detail.section;
@@ -1113,7 +1135,7 @@ export default function NewDocumentInterview() {
                     </p>
                   ));
                 })()}
-                {stepErrors && currentStep.detail.kind === "attendance" && (() => {
+                {stepErrors && currentStep.detail.kind === "party-status" && (() => {
                   const pd = currentStep.detail.partyDef;
                   const secId = visibleSections.find((sec) =>
                     (sec.parties ?? []).some((p) => p.id === pd.id),

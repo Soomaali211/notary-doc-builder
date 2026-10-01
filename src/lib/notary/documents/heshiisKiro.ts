@@ -170,18 +170,18 @@ export const heshiisKiroConfig: DocumentConfig = {
           representativeFields: [
             { id: "magac", type: "text", label: "Magaca Wakiilka", validation: { required: true } },
             { id: "telefoon", type: "phone", label: "Telefoonka Wakiilka", validation: { required: true }, placeholder: "+252 61 5551234" },
-            { id: "aqoonsi", type: "text", label: "Nambarka Aqoonsiga / Document", validation: { required: true }, placeholder: "ID / Passport" },
+            { id: "aqoonsi", type: "text", label: "Nambarka Aqoonsiga / Document", optional: true, placeholder: "ID / Passport" },
             { id: "cinwaan", type: "text", label: "Cinwaanka", optional: true, placeholder: "Degmada, magaalada" },
           ],
           // Guided-form metadata: Magac is REQUIRED (a contract cannot be
-          // made without it); Telefoon is optional; Aqoonsi is explicitly
-          // skippable ("xog aan hadda la hayn, dambe la heli karo").
+          // made without it); Telefoon is REQUIRED for a PRESENT party and
+          // hidden when a wakiil represents them; Aqoonsi is skippable.
           fields: [
-            { id: "magac", type: "text", label: "Magaca Buuxa", validation: { required: true }, placeholder: "Magaca kireeyaha" },
-            { id: "telefoon", type: "phone", label: "Telefoon", optional: true, placeholder: "+252 61 5551234" },
-            { id: "aqoonsi", type: "text", label: "Nambarka Aqoonsiga / Document", optional: true, skippable: true, placeholder: "ID / Passport" },
-            { id: "cinwaan", type: "text", label: "Cinwaanka", optional: true, placeholder: "Degmada, magaalada" },
-            { id: "faahfaahin_dheeraad", type: "textarea", label: "Faahfaahin Aqoonsi Dheeraad ah", optional: true, colSpan: 2 },
+            { id: "magac", type: "text", label: "Magaca Kireeyaha", validation: { required: true }, placeholder: "Magaca kireeyaha" },
+            { id: "telefoon", type: "phone", label: "Telefoonka Kireeyaha", optional: true, requiredWhenRowStatus: "jooga", showOnlyWhenRowStatus: "jooga", placeholder: "+252 61 5551234" },
+            { id: "aqoonsi", type: "text", label: "Nambarka Aqoonsiga / Document", optional: true, skippable: true, showOnlyWhenRowStatus: "jooga", placeholder: "ID / Passport" },
+            { id: "cinwaan", type: "text", label: "Cinwaanka", optional: true, showOnlyWhenRowStatus: "jooga", placeholder: "Degmada, magaalada" },
+            { id: "faahfaahin_dheeraad", type: "textarea", label: "Faahfaahin Dheeraad ah", optional: true, colSpan: 2, showOnlyWhenRowStatus: "jooga" },
           ],
         },
       ],
@@ -202,16 +202,16 @@ export const heshiisKiroConfig: DocumentConfig = {
           representativeFields: [
             { id: "magac", type: "text", label: "Magaca Wakiilka", validation: { required: true } },
             { id: "telefoon", type: "phone", label: "Telefoonka Wakiilka", validation: { required: true }, placeholder: "+252 61 5551234" },
-            { id: "aqoonsi", type: "text", label: "Nambarka Aqoonsiga / Document", validation: { required: true }, placeholder: "ID / Passport" },
+            { id: "aqoonsi", type: "text", label: "Nambarka Aqoonsiga / Document", optional: true, placeholder: "ID / Passport" },
             { id: "cinwaan", type: "text", label: "Cinwaanka", optional: true, placeholder: "Degmada, magaalada" },
           ],
-          // Same guided-form metadata as the landlord group.
+          // Same guided metadata as the landlord group (labels adjusted).
           fields: [
-            { id: "magac", type: "text", label: "Magaca Buuxa", validation: { required: true }, placeholder: "Magaca kiraystaha" },
-            { id: "telefoon", type: "phone", label: "Telefoon", optional: true, placeholder: "+252 61 5551234" },
-            { id: "aqoonsi", type: "text", label: "Nambarka Aqoonsiga / Document", optional: true, skippable: true, placeholder: "ID / Passport" },
-            { id: "cinwaan", type: "text", label: "Cinwaanka", optional: true, placeholder: "Degmada, magaalada" },
-            { id: "faahfaahin_dheeraad", type: "textarea", label: "Faahfaahin Aqoonsi Dheeraad ah", optional: true, colSpan: 2 },
+            { id: "magac", type: "text", label: "Magaca Kiraystaha", validation: { required: true }, placeholder: "Magaca kiraystaha" },
+            { id: "telefoon", type: "phone", label: "Telefoonka Kiraystaha", optional: true, requiredWhenRowStatus: "jooga", showOnlyWhenRowStatus: "jooga", placeholder: "+252 61 5551234" },
+            { id: "aqoonsi", type: "text", label: "Nambarka Aqoonsiga / Document", optional: true, skippable: true, showOnlyWhenRowStatus: "jooga", placeholder: "ID / Passport" },
+            { id: "cinwaan", type: "text", label: "Cinwaanka", optional: true, showOnlyWhenRowStatus: "jooga", placeholder: "Degmada, magaalada" },
+            { id: "faahfaahin_dheeraad", type: "textarea", label: "Faahfaahin Dheeraad ah", optional: true, colSpan: 2, showOnlyWhenRowStatus: "jooga" },
           ],
         },
       ],

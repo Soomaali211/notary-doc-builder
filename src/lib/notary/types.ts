@@ -71,6 +71,18 @@ export interface BaseField {
    * (empty ≠ skipped) and is stripped before document generation.
    */
   skippable?: boolean;
+  /**
+   * Step-2 combined party editor: the field is shown ONLY when the party
+   * row's attendance status equals this value. Fields about the PERSON
+   * present (Telefoon/Aqoonsi/Cinwaan) are hidden when a wakiil represents
+   * them — never rendered, never validated (N/A).
+   */
+  showOnlyWhenRowStatus?: AttendanceStatus;
+  /**
+   * Step-2 combined party editor: the field becomes REQUIRED when the row's
+   * attendance status equals this value (e.g. Telefoon for a jooga party).
+   */
+  requiredWhenRowStatus?: AttendanceStatus;
   /** For select/radio/multiselect. */
   options?: SelectOption[];
   /** Applied when creating a fresh interview (checkbox: "yes"/"no"). */

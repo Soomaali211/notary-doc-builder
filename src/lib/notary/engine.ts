@@ -47,6 +47,7 @@ import {
   addRepresentative,
   assignRepresentative,
   createValuesFromDraft,
+  ensureRepresentative,
   getRepresentatives,
   removeRepresentative,
   representedByRep,
@@ -263,6 +264,20 @@ export function setPartyAttendance(
   status: "jooga" | "ma_joogo" | "wakiil",
 ): FormValues {
   return setAttendanceStatus(values, partyId, rowIndex, status);
+}
+
+/**
+ * Step-2 combined editor: picking "Maya" for a party guarantees a LINKED
+ * wakiil (reuses an unlinked rep, else creates + links one) so the inline
+ * "Qaybta Wakiilka" inputs always have a real storage target.
+ */
+export function ensurePartyRepresentative(
+  values: FormValues,
+  partyDef: PartyDef,
+  partyId: string,
+  rowIndex: number,
+): FormValues {
+  return ensureRepresentative(values, partyDef, partyId, rowIndex);
 }
 
 /** Link one party to a (shared) representative. */

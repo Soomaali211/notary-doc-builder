@@ -129,9 +129,13 @@ export function setupSummaryRows(
 
 export type WorkflowStepKind =
   | { kind: "section"; sectionId: string }
-  | { kind: "count"; partyDef: PartyDef }
   | { kind: "party-data"; partyDef: PartyDef }
-  | { kind: "attendance"; partyDef: PartyDef };
+  /**
+   * Step 2 — "Xogta iyo Xaaladda": ONE combined step per attendance group
+   * (identity + presence + representation). The count is decided in Step 1
+   * and there is no separate count or attendance step.
+   */
+  | { kind: "party-status"; partyDef: PartyDef };
 
 export interface WorkflowStep {
   key: string;
@@ -184,42 +188,23 @@ export function buildConditionalWorkflow(
         steps.push({ key: `party-${partyDef.id}`, short: partyDef.label, detail: { kind: "party-data", partyDef } });
         continue;
       }
+      // Step 2 — "Xogta iyo Xaaladda Kireeyaha/Kiraystaha": ONE combined
+      // step (identity + Ma Joogaa Haa/Maya + inline wakiil inputs). The
+      // count is decided in Step 1 (Kireeye/Kireeyayaal card + inline
+      // Tirada selector) — it is NEVER asked again here, and there is no
+      // separate attendance step. Rows render dynamically from Step 1.
       const isLandlord = partyDef.id === "kireeyayaal";
       const isTenant = partyDef.id === "kiraystayaal";
       const mode = isLandlord ? setup.landlordMode : isTenant ? setup.tenantMode : "multiple";
-      const singularTitle =
-        (isLandlord ? "Kireeyaha" : isTenant ? "Kiraystaha" : partyDef.singular) + (mode === "single" ? "" : "");
-
-      if (mode === "single") {
-        // 02 Kireeyaha — hal qof: data + attendance in one combined flow.
-        steps.push({
-          key: `data-${partyDef.id}`,
-          short: singularTitle,
-          detail: { kind: "party-data", partyDef },
-        });
-        steps.push({
-          key: `att-${partyDef.id}`,
-          short: `Xaaladda ${singularTitle}`,
-          detail: { kind: "attendance", partyDef },
-        });
-      } else {
-        // 02 Kireeyayaasha — dynamic party list with count-first.
-        steps.push({
-          key: `count-${partyDef.id}`,
-          short: `Tirada ${partyDef.label}`,
-          detail: { kind: "count", partyDef },
-        });
-        steps.push({
-          key: `data-${partyDef.id}`,
-          short: partyDef.label,
-          detail: { kind: "party-data", partyDef },
-        });
-        steps.push({
-          key: `att-${partyDef.id}`,
-          short: `Joogitaanka ${partyDef.label}`,
-          detail: { kind: "attendance", partyDef },
-        });
-      }
+      const singularTitle = isLandlord ? "Kireeyaha" : isTenant ? "Kiraystaha" : partyDef.singular;
+      steps.push({
+        key: `party-${partyDef.id}`,
+        short:
+          mode === "single"
+            ? `Xogta iyo Xaaladda ${singularTitle}`
+            : `Xogta iyo Xaaladda ${partyDef.label}`,
+        detail: { kind: "party-status", partyDef },
+      });
     }
   }
 

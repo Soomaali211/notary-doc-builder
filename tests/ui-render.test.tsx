@@ -21,6 +21,7 @@ import { heshiisKiroConfig as config } from "../src/lib/notary/documents/heshiis
 import type { FormValues, PartyRow } from "../src/lib/notary/types";
 import { FIELD_SKIPPED } from "../src/lib/notary/types";
 import { FieldRenderer } from "../src/components/notary/FieldRenderer";
+import { PartyStatusEditor } from "../src/components/notary/PartyStatusEditor";
 
 /* ------------------------------------------------------------------ */
 /* Fixtures                                                            */
@@ -346,5 +347,120 @@ describe("guided form skip UI (req #2/#3)", () => {
     const afterLabel = html.slice(html.indexOf("(Optional)"));
     expect(afterLabel.includes('data-slot="input"')).toBe(true);
     expect(/>\s*Skip\s*<\/button>/.test(afterLabel)).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* STEP 2 — Xogta iyo Xaaladda (req: Haa/Maya + inline wakiil inputs)  */
+/* ------------------------------------------------------------------ */
+
+function statusRow(
+  id: string,
+  values: Record<string, string>,
+  attendance?: { status: string; representativeId?: string },
+): PartyRow {
+  return { id, values, ...(attendance ? { attendance } : {}) } as unknown as PartyRow;
+}
+
+function renderPartyStatus(rows: PartyRow[], reps: PartyRow[] = []): string {
+  return renderToStaticMarkup(
+    <PartyStatusEditor
+      partyDef={kireeyeDef}
+      values={{ kireeyayaal: rows, wakiilo_kireeyayaal: reps } as unknown as FormValues}
+      onFieldChange={() => {}}
+      onPresence={() => {}}
+      onLinkRep={() => {}}
+      onCreateRep={() => {}}
+      onUpdateRep={() => {}}
+      onRemoveRep={() => {}}
+    />,
+  );
+}
+
+const emptyPerson = (over: Record<string, string> = {}) => ({
+  magac: "",
+  telefoon: "",
+  aqoonsi: "",
+  cinwaan: "",
+  faahfaahin_dheeraad: "",
+  ...over,
+});
+
+describe("Step 2 — PartyStatusEditor real render", () => {
+  test("Ma Joogaa Heshiiska? is asked per party (Haa/Maya radios)", () => {
+    const html = renderPartyStatus([statusRow("r1", emptyPerson())]);
+    expect(html.includes("Ma Joogaa Heshiiska?")).toBe(true);
+    expect(html.includes("Haa")).toBe(true);
+    expect(html.includes("Maya")).toBe(true);
+    expect(html.includes('role="radiogroup"')).toBe(true);
+    // Unanswered: only Magaca renders — no telefoon, no wakiil block.
+    expect(html.includes("Magaca Kireeyaha")).toBe(true);
+    expect(html.includes("Telefoonka Kireeyaha")).toBe(false);
+    expect(html.includes("Qaybta Wakiilka")).toBe(false);
+    expect(countInputs(html)).toBe(1);
+  });
+
+  test("TEST 3 — Haa: Magaca + Telefoonka qofka *; Wakiil fields HIDDEN", () => {
+    const html = renderPartyStatus([
+      statusRow("r1", emptyPerson({ magac: "Cabdi" }), { status: "jooga" }),
+    ]);
+    expect(html.includes("Magaca Kireeyaha")).toBe(true);
+    expect(html.includes("Telefoonka Kireeyaha")).toBe(true);
+    // Required star for the jooga phone (requiredWhenRowStatus).
+    expect(/Telefoonka Kireeyaha[\s\S]{0,220}\*\s*<\/span>/.test(html)).toBe(true);
+    expect(html.includes("Magaca Wakiilka")).toBe(false);
+    expect(html.includes("Telefoonka Wakiilka")).toBe(false);
+    expect(html.includes("Qaybta Wakiilka")).toBe(false);
+    // Magac, telefoon, aqoonsi, cinwaan inputs + faahfaahin textarea.
+    expect(countInputs(html)).toBe(4);
+    expect(countTextareas(html)).toBe(1);
+    // Haa is the active radio.
+    expect(html.split('aria-checked="true"').length - 1).toBe(1);
+  });
+
+  test("TEST 4 — Maya: Wakiil fields are REAL inputs; qofka telefoon hidden", () => {
+    const html = renderPartyStatus(
+      [
+        statusRow("r1", emptyPerson({ magac: "Cabdi" }), {
+          status: "wakiil",
+          representativeId: "rep-1",
+        }),
+      ],
+      [statusRow("rep-1", { magac: "Wakiil A", telefoon: "+252 61 2222222", aqoonsi: "", cinwaan: "" })],
+    );
+    expect(html.includes("Qaybta Wakiilka")).toBe(true);
+    expect(html.includes("Magaca Wakiilka")).toBe(true);
+    expect(html.includes("Telefoonka Wakiilka")).toBe(true);
+    // Party's own telefoon is N/A under Maya (req #11).
+    expect(html.includes("Telefoonka Kireeyaha")).toBe(false);
+    // Inputs: party magac + wakiil magac + wakiil telefoon (real fields).
+    expect(countInputs(html)).toBe(3);
+    // Bound to the linked rep's stored values — not labels.
+    expect(html.includes('value="Wakiil A"')).toBe(true);
+    expect(html.includes('value="+252 61 2222222"')).toBe(true);
+    // Maya is the active radio.
+    expect(html.split('aria-checked="true"').length - 1).toBe(1);
+  });
+
+  test("TEST 5 — rows stay independent: row 1 wakiil, row 2 own phone", () => {
+    const html = renderPartyStatus(
+      [
+        statusRow("r1", emptyPerson({ magac: "Axmed" }), {
+          status: "wakiil",
+          representativeId: "rep-1",
+        }),
+        statusRow("r2", emptyPerson({ magac: "Faadumo", telefoon: "+252 61 1111111" }), {
+          status: "jooga",
+        }),
+      ],
+      [statusRow("rep-1", { magac: "Wakiil A", telefoon: "+252 61 2222222", aqoonsi: "", cinwaan: "" })],
+    );
+    // The wakiil block exists for row 1 ONLY.
+    expect(html.split("Qaybta Wakiilka").length - 1).toBe(1);
+    expect(html.includes("Wakiil A")).toBe(true);
+    // Row 2 keeps its own identity data (never mixed with the rep's).
+    expect(html.includes("Faadumo")).toBe(true);
+    expect(html.includes('value="+252 61 1111111"')).toBe(true);
+    expect(html.includes('value="+252 61 2222222"')).toBe(true);
   });
 });

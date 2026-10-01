@@ -52,7 +52,7 @@ const stepIds = (values: FormValues) => {
 const partyStepIds = (values: FormValues) => {
   const workflow = buildConditionalWorkflow(config, values);
   return workflow
-    .filter((s) => s.detail.kind === "count" || s.detail.kind === "party-data")
+    .filter((s) => s.detail.kind === "party-status" || s.detail.kind === "party-data")
     .map((s) => s.key);
 };
 
@@ -109,10 +109,19 @@ describe("Example B", () => {
     expect(visible).not.toContain("taariikhda_dhammaadka"); // End Date hidden
   });
 
-  test("single landlord → no count step; multiple tenants → count step", () => {
+  test("single landlord + multiple tenants → ONE party-status step each (count lives in Step 1)", () => {
     const keys = partyStepIds(values);
-    expect(keys).not.toContain("count-kireeyayaal");
-    expect(keys).toContain("count-kiraystayaal");
+    // No count questions and no split data/attendance steps anymore.
+    expect(keys.some((k) => k.startsWith("count-"))).toBe(false);
+    expect(keys.some((k) => k.startsWith("data-"))).toBe(false);
+    expect(keys.some((k) => k.startsWith("att-"))).toBe(false);
+    // Exactly one combined step per attendance group.
+    expect(keys).toContain("party-kireeyayaal");
+    expect(keys).toContain("party-kiraystayaal");
+    const wf = buildConditionalWorkflow(config, values);
+    const statusSteps = wf.filter((s) => s.detail.kind === "party-status");
+    expect(statusSteps.length).toBe(2);
+    expect(statusSteps[0].short).toContain("Xogta iyo Xaaladda");
   });
 
   test("setup readback", () => {
@@ -527,19 +536,26 @@ describe("Step 1 UI correction (req #10/#11)", () => {
     expect(kireeyeDef.fields[2].skippable).toBe(true);
     expect(kireeyeDef.fields[0].skippable).toBeUndefined(); // required never skippable
 
-    // CASE C: aqoonsi skipped → no error; telefoon optional-empty → no error.
+    // CASE C: aqoonsi skipped → no error; cinwaan optional-empty → no error.
+    // (Telefoon is REQUIRED for a jooga party — spec: Haa → telefoonka qofka *.)
     let values = setupValues();
     values = setRepeatableCount(values, kireeyeDef, 2);
     values = setRepeatableAnswer(values, "kireeyayaal", 0, "magac", "Axmed");
     values = setRepeatableAnswer(values, "kireeyayaal", 0, "telefoon", "+252 61 0000000");
     values = setRepeatableAnswer(values, "kireeyayaal", 0, "aqoonsi", FIELD_SKIPPED); // skipped
     values = setRepeatableAnswer(values, "kireeyayaal", 1, "magac", "Faadumo");
-    values = setRepeatableAnswer(values, "kireeyayaal", 1, "telefoon", ""); // optional empty
+    values = setRepeatableAnswer(values, "kireeyayaal", 1, "telefoon", "+252 61 1111111");
     // Attendance is part of the flow (required per party).
     values = setPartyAttendance(values, "kireeyayaal", 0, "jooga");
     values = setPartyAttendance(values, "kireeyayaal", 1, "jooga");
     const errors = validateDocument(config, values);
     expect(errors["kireeyaha"]).toBeUndefined(); // no errors at all
+
+    // Spec rule: jooga row WITHOUT telefoon IS an error now; optional
+    // cinwaan stays empty without any error (optional ≠ required).
+    let missingPhone = setRepeatableAnswer(values, "kireeyayaal", 1, "telefoon", "");
+    const phoneErrs = validateDocument(config, missingPhone)["kireeyaha"]?.partyErrors["kireeyayaal"] ?? [];
+    expect(phoneErrs.some((e) => e.errors.some((x) => x.fieldId === "telefoon"))).toBe(true);
 
     // Marker survives draft round-trip (empty ≠ skipped in storage).
     const restored = deserializeDraft(config, serializeDraft(values));
@@ -558,7 +574,7 @@ describe("Step 1 UI correction (req #10/#11)", () => {
     const badErrors = validateDocument(config, bad);
     expect(
       (badErrors["kireeyaha"]?.partyErrors["kireeyayaal"] ?? []).some((e) =>
-        e.errors.some((x) => x.message.includes("Magaca Buuxa")),
+        e.errors.some((x) => x.message.includes("Magaca Kireeyaha")),
       ),
     ).toBe(true);
 
@@ -592,6 +608,84 @@ describe("Step 1 UI correction (req #10/#11)", () => {
     expect(
       partyDataErrors(rawBad).some((pe) => pe.errors.some((e) => e.fieldId === "magac")),
     ).toBe(true);
+  });
+
+  test("#19 Step 2 spec: Haa/Maya cards — count from Step 1, inline wakiil, shared reps", () => {
+    const {
+      setRepeatableCount,
+      setRepeatableAnswer,
+      setPartyAttendance,
+      ensurePartyRepresentative,
+      linkPartyRepresentative,
+      setRepresentativeField,
+      listRepresentatives,
+    } = require("../src/lib/notary/engine");
+    const { representedByRep } = require("../src/lib/notary/formValues");
+    const { validateDocument } = require("../src/lib/notary/validation");
+    const kireeyeDef = config.sections.find((s) => s.id === "kireeyaha")!.parties![0];
+    const kRows = (v: FormValues) =>
+      v.kireeyayaal as { values: Record<string, string>; attendance?: { status: string; representativeId?: string } }[];
+
+    // TEST 1 — Kireeye + Kirayste (single/single): ONE combined Step 2 per
+    // group, NO count question and NO split data/attendance steps.
+    const single = setupValues({ kireeye_mode: "single", kirayste_mode: "single" });
+    const wf1 = buildConditionalWorkflow(config, single);
+    const status1 = wf1.filter((s) => s.detail.kind === "party-status");
+    expect(status1.length).toBe(2);
+    expect(status1[0].short).toContain("Kireeyaha");
+    expect(status1[1].short).toContain("Kiraystaha");
+    expect(wf1.some((s) => s.detail.kind === "count")).toBe(false);
+
+    // TEST 2 — Kireeyayaal + Tirada 2 (chosen in Step 1): Step 2 renders
+    // dynamically from the SAME row state — the count is never re-asked.
+    let values = setupValues({ kireeye_mode: "multiple", kirayste_mode: "single" });
+    values = setRepeatableCount(values, kireeyeDef, 2);
+    expect(kRows(values).length).toBe(2);
+    expect(
+      buildConditionalWorkflow(config, values).filter((s) => s.detail.kind === "party-status")
+        .length,
+    ).toBe(2); // still exactly one step per group
+
+    // TEST 3 — Haa (jooga): own name + REQUIRED phone; wakiil N/A.
+    values = setRepeatableAnswer(values, "kireeyayaal", 0, "magac", "Axmed");
+    values = setRepeatableAnswer(values, "kireeyayaal", 1, "magac", "Faadumo");
+    values = setPartyAttendance(values, "kireeyayaal", 0, "jooga");
+    values = setRepeatableAnswer(values, "kireeyayaal", 0, "telefoon", "+252 61 0000000");
+    // TEST 4 — Maya (wakiil): ensure() creates + links a real rep row so
+    // the inline QAYBTA WAKIILKA inputs have storage; the party's own
+    // telefoon is NOT demanded (N/A when Maya).
+    values = setPartyAttendance(values, "kireeyayaal", 1, "wakiil");
+    values = ensurePartyRepresentative(values, kireeyeDef, "kireeyayaal", 1);
+    const reps = listRepresentatives(values, kireeyeDef);
+    expect(reps.length).toBe(1);
+    expect(kRows(values)[1].attendance?.representativeId).toBe(reps[0].id);
+
+    const errsBefore = validateDocument(config, values)["kireeyaha"];
+    expect((errsBefore?.general ?? []).some((g) => g.includes("Magaca Wakiilka"))).toBe(true);
+    expect(
+      (errsBefore?.partyErrors["kireeyayaal"] ?? []).some((e) =>
+        e.errors.some((x) => x.fieldId === "telefoon"),
+      ),
+    ).toBe(false);
+    // Fill the inline wakiil fields → the whole Step 2 group is clean.
+    values = setRepresentativeField(values, kireeyeDef, reps[0].id, "magac", "Wakiil A");
+    values = setRepresentativeField(values, kireeyeDef, reps[0].id, "telefoon", "+252 61 2222222");
+    expect(validateDocument(config, values)["kireeyaha"]).toBeUndefined();
+
+    // TEST 5 — sharing: Kireye 1 also Maya → its OWN fresh wakiil (never a
+    // duplicate of A); linking it to Wakiil A shares ONE rep, no re-typing.
+    values = setPartyAttendance(values, "kireeyayaal", 0, "wakiil");
+    values = ensurePartyRepresentative(values, kireeyeDef, "kireeyayaal", 0);
+    expect(listRepresentatives(values, kireeyeDef).length).toBe(2);
+    values = linkPartyRepresentative(values, "kireeyayaal", 0, reps[0].id);
+    expect(representedByRep(values, kireeyeDef, reps[0].id).length).toBe(2);
+    // ensure() on an already-linked row is a no-op — never duplicates.
+    const beforeCount = listRepresentatives(values, kireeyeDef).length;
+    values = ensurePartyRepresentative(values, kireeyeDef, "kireeyayaal", 0);
+    expect(listRepresentatives(values, kireeyeDef).length).toBe(beforeCount);
+    // Independence: each row keeps its own identity data.
+    expect(kRows(values)[0].values.magac).toBe("Axmed");
+    expect(kRows(values)[1].values.magac).toBe("Faadumo");
   });
 
   test("#11 Furan→Xidhan: End Date immediately appears (required); Xidhan→Furan: disappears", () => {

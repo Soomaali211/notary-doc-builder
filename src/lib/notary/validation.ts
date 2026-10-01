@@ -191,9 +191,12 @@ function validatePartyList(
   general: string[],
 ): Record<number, FieldError[]> {
   const perRow: Record<number, FieldError[]> = {};
-  const filledRows = rows.filter((r) =>
-    Object.values(r.values ?? {}).some((v) => (v ?? "").trim() !== ""),
-  );
+  // A row with a chosen attendance status counts as "started" even before
+  // its fields are typed — Step 2 requires every party's data.
+  const rowStarted = (r: PartyRow) =>
+    Boolean(r.attendance?.status) ||
+    Object.values(r.values ?? {}).some((v) => (v ?? "").trim() !== "");
+  const filledRows = rows.filter(rowStarted);
 
   if (filledRows.length < partyDef.min) {
     general.push(
@@ -210,16 +213,32 @@ function validatePartyList(
   }
 
   rows.forEach((row, index) => {
-    const rowHasAny = Object.values(row.values ?? {}).some(
-      (v) => (v ?? "").trim() !== "",
-    );
+    const rowHasAny = rowStarted(row);
     // Ignore trailing empty rows on optional lists.
     if (!rowHasAny && partyDef.optionalList) return;
     if (!rowHasAny && index >= partyDef.min) return;
 
     const rowErrors: FieldError[] = [];
     for (const field of partyDef.fields) {
-      const err = validateField(field, row.values?.[field.id] ?? "");
+      // Step-2 status visibility: a field shown only in another attendance
+      // state (e.g. Telefoon for a jooga party) is N/A here — never validated.
+      if (
+        field.showOnlyWhenRowStatus &&
+        field.showOnlyWhenRowStatus !== row.attendance?.status
+      ) {
+        continue;
+      }
+      let err = validateField(field, row.values?.[field.id] ?? "");
+      // Conditional requiredness per row status: Telefoonka qofka waa waajib
+      // marka uu JOOGO; waa qarsoon (N/A) marka wakiil matalo.
+      if (
+        !err &&
+        field.requiredWhenRowStatus &&
+        field.requiredWhenRowStatus === row.attendance?.status &&
+        (row.values?.[field.id] ?? "").trim() === ""
+      ) {
+        err = `Fadlan buuxi: ${field.label}`;
+      }
       if (err) rowErrors.push({ fieldId: field.id, message: err });
     }
     if (rowErrors.length > 0) perRow[index] = rowErrors;
@@ -251,14 +270,14 @@ export function validateAttendanceGroup(
   const nameField = partyDef.representativeFields?.[0]?.id ?? "magac";
 
   rows.forEach((row, index) => {
-    const name = (row.values?.[partyDef.fields[0]?.id ?? ""] ?? "").trim();
-    if (!name) return; // row-level field rules already cover empty rows
+    // Step 2: EVERY party must explicitly choose Ma Joogaa? (Haa / Maya) —
+    // the choice is never skipped, so it is checked for all rows.
     const att = row.attendance;
     if (!att || !ATTENDANCE_VALID.has(att.status)) {
       perRow[index] = [
         {
           fieldId: "attendance",
-          message: `${partyDef.singular} ${index + 1}: dooro xaaladda (Jooga / Ma Joogo / Wakiil).`,
+          message: `${partyDef.singular} ${index + 1}: dooro xaaladda — Ma Joogaa? (Haa / Maya).`,
         },
       ];
       return;
