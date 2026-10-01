@@ -7,11 +7,11 @@
  *   B  two wakiils, disjoint groups, no cross-wiring
  *   C  the document shows BOTH the person and the representative
  *   D  a present person is never given a representative
- *   E  one wakiil covering many people signs ONCE
+ *   E  one wakiil covering many people is named on each row
  *   F  Kiro Furan hides the end date
  *   G  Kiro Xidhan shows the end date
  *   H  Deebaaji = Maya hides the deposit section
- *   I  Damiin = Maya hides the section and the signature
+ *   I  Damiin = Maya hides the section
  */
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -305,7 +305,7 @@ describe("TEST D — a present person is never given a representative", () => {
   });
 });
 
-describe("TEST E — one wakiil covering many people signs ONCE", () => {
+describe("TEST E — one wakiil covering many people", () => {
   const v = base();
   v.kireeyayaal = [
     row("k1", "P1 CABDI", "063111", "jooga"),
@@ -319,12 +319,13 @@ describe("TEST E — one wakiil covering many people signs ONCE", () => {
   const text = render(v);
   const sig = text.split("Saxiiyada:")[1] ?? "";
 
-  test("the wakiil appears once per represented row, but signs once", () => {
-    // 4 absent rows each name their representative, plus the one signature
-    // block below → 5 mentions in the whole document.
-    expect(count(text, "AXMED CALI")).toBe(5);
-    // …and the signature block appears only ONCE.
-    expect(count(sig, "AXMED CALI")).toBe(1);
+  test("the wakiil is named on every row it covers, and there is no signature section", () => {
+    // 4 absent rows each name their representative — and only those rows.
+    expect(count(text, "Wakiilka: AXMED CALI")).toBe(4);
+    expect(count(text, "AXMED CALI")).toBe(4);
+    // The document carries no signature block at all.
+    expect(sig).toBe("");
+    expect(text).not.toContain("Saxiiyada");
     expect(resolveFlags(heshiisKiroConfig, v).KIREEYE_WAKIIL).toBe(true);
   });
 });

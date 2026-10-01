@@ -66,9 +66,11 @@ const LEGAL = {
   // Reference item 10 — closing
   c10:
     "Sidana waxaanu ku saxeexnay xafiiska nootaayada sharciga ah hortisa, anagoo miyir iyo maan ba qabna, xiskayaguna dhan yahay.",
-  // Reference closing paragraph
-  closing:
-    "Cadaynta Xafiiska: Xafiisku waxa uu cadaynayaa in heshiiskani-kirada ahi u dhacay sifo sharciga waafaqsan, waafqaan laguna hor saxeexay laguna camal-fali doono.",
+  // Reference closing — the document ENDS with these three lines.
+  closingTitle: "Cadaynta Xafiiska:",
+  closingBody:
+    "Xafiisku waxa uu cadaynayaa in heshiiskani-kirada ahi u dhacay sifo sharciga waafaqsan, waafaqaan laguna hor saxeexay laguna camal-fali doono.",
+  closingSeal: "(Sarkaalka Xafiiska Nootaayada Sharciga ah Ee Daloodho)",
 } as const;
 
 /* ------------------------------------------------------------------ */
@@ -145,22 +147,6 @@ function centredHeading(text: string): Paragraph {
     alignment: AlignmentType.CENTER,
     spacing: { before: 200, after: 140 },
   });
-}
-
-/** A signature block: name label, rule, then the typed name/phone. */
-function signatureBlock(label: string, nameToken: string, phoneToken: string): Paragraph[] {
-  return [
-    new Paragraph({
-      children: [new TextRun({ text: label, bold: true })],
-      spacing: { before: 240, after: 60 },
-    }),
-    new Paragraph({
-      children: [new TextRun({ text: "Saxiix: ____________________" })],
-      spacing: { after: 60 },
-    }),
-    new Paragraph({ children: [new TextRun({ text: "Magac: " }), new TextRun({ text: nameToken })] }),
-    new Paragraph({ children: [new TextRun({ text: "Tell: " }), new TextRun({ text: phoneToken })] }),
-  ];
 }
 
 /* ------------------------------------------------------------------ */
@@ -390,101 +376,16 @@ export function buildHeshiisKiroTemplateV2(): Document {
           }),
           marker(`{{/${N("MARAGYO")}}}`),
 
-          /* ---- Closing attestation ---- */
-          new Paragraph({
-            children: [new TextRun({ text: LEGAL.closing, bold: true })],
-            alignment: AlignmentType.LEFT,
-            spacing: { before: 240, after: 120 },
-          }),
+          /* ---- Closing attestation — the document ends here ---- */
+          body(LEGAL.closingTitle),
+          body(LEGAL.closingBody),
           new Paragraph({
             alignment: AlignmentType.CENTER,
             children: [
-              new TextRun({ text: "(Sarkaalka Xafiiska Nootaayada Sharciga ah Ee Daloodho)", bold: true, underline: {} }),
+              new TextRun({ text: LEGAL.closingSeal, bold: true, underline: {} }),
             ],
             spacing: { before: 200 },
           }),
-
-          /* ---- Signatures (prose blocks, not a table) ---- */
-          new Paragraph({
-            children: [new TextRun({ text: "Saxiiyada:", bold: true })],
-            spacing: { before: 320, after: 80 },
-          }),
-          // A party signs for itself when present; when absent, the person who
-          // signs is the representative who stands in for them. Exactly one
-          // of these two blocks renders — never an empty signature line.
-          // Single party → one signature block with the scalar name.
-          marker(`{{IF:${N("KIREYE_HAL")}}}`),
-          marker("{{IF:KIREEYE_JOOGA}}"),
-          ...signatureBlock("Kireeye", T("KIREYE_MAGAC"), T("KIREYE_TELEFOON")),
-          marker("{{END:KIREEYE_JOOGA}}"),
-          marker("{{IF:KIREEYE_WAKIIL}}"),
-          ...signatureBlock(
-            "Wakiilka (oo matalaya Kireeyaha)",
-            "{{KIREEYE_WAKIIL_MAGAC}}",
-            "{{KIREEYE_WAKIIL_TELEFOON}}",
-          ),
-          marker("{{END:KIREEYE_WAKIIL}}"),
-          marker(`{{END:${N("KIREYE_HAL")}}}`),
-
-          // Several parties → one signature block per SIGNING party, so a
-          // scalar {{KIREYE_MAGAC}} (a joined list when plural) is never
-          // printed on its own. Present parties sign; each representative
-          // signs once for the group of people they stand in for.
-          marker(`{{IF:${N("KIREEYAYAAL_BADAN")}}}`),
-          marker(`{{#${N("KIREYEYAYAAL")}}}`),
-          marker("{{IF:JOOGA}}"),
-          ...signatureBlock("Kireeye {{NUMBER}}", "{{MAGAC}}", "{{TELEFOON}}"),
-          marker("{{END:JOOGA}}"),
-          marker("{{/KIREYEYAYAAL}}"),
-          marker(`{{END:${N("KIREEYAYAAL_BADAN")}}}`),
-
-          marker(`{{IF:${N("KIRAYSTE_HAL")}}}`),
-          marker("{{IF:KIRAYSTE_JOOGA}}"),
-          ...signatureBlock("Kirayste", T("KIRAYSTE_MAGAC"), T("KIRAYSTE_TELEFOON")),
-          marker("{{END:KIRAYSTE_JOOGA}}"),
-          marker("{{IF:KIRAYSTE_WAKIIL}}"),
-          ...signatureBlock(
-            "Wakiilka (oo matalaya Kiraystaha)",
-            "{{KIRAYSTE_WAKIIL_MAGAC}}",
-            "{{KIRAYSTE_WAKIIL_TELEFOON}}",
-          ),
-          marker("{{END:KIRAYSTE_WAKIIL}}"),
-          marker(`{{END:${N("KIRAYSTE_HAL")}}}`),
-
-          marker(`{{IF:${N("KIRAYSTAYAAL_BADAN")}}}`),
-          marker(`{{#${N("KIRAYSTAYAAL")}}}`),
-          marker("{{IF:JOOGA}}"),
-          ...signatureBlock("Kirayste {{NUMBER}}", "{{MAGAC}}", "{{TELEFOON}}"),
-          marker("{{END:JOOGA}}"),
-          marker("{{/KIRAYSTAYAAL}}"),
-          marker(`{{END:${N("KIRAYSTAYAAL_BADAN")}}}`),
-
-          // Representatives sign once for everyone they represent, in the
-          // plural case too — never a duplicate block per absent party.
-          marker(`{{IF:${N("KIREEYAYAAL_BADAN")}}}`),
-          marker("{{IF:KIREEYE_WAKIIL}}"),
-          ...signatureBlock(
-            "Wakiilka (oo matalaya Kireeyada)",
-            "{{KIREEYE_WAKIIL_MAGAC}}",
-            "{{KIREEYE_WAKIIL_TELEFOON}}",
-          ),
-          marker("{{END:KIREEYE_WAKIIL}}"),
-          marker(`{{END:${N("KIREEYAYAAL_BADAN")}}}`),
-
-          marker(`{{IF:${N("KIRAYSTAYAAL_BADAN")}}}`),
-          marker("{{IF:KIRAYSTE_WAKIIL}}"),
-          ...signatureBlock(
-            "Wakiilka (oo matalaya Kiraystada)",
-            "{{KIRAYSTE_WAKIIL_MAGAC}}",
-            "{{KIRAYSTE_WAKIIL_TELEFOON}}",
-          ),
-          marker("{{END:KIRAYSTE_WAKIIL}}"),
-          marker(`{{END:${N("KIRAYSTAYAAL_BADAN")}}}`),
-
-          // Damiin signs only when a Damiin exists.
-          marker(`{{IF:${N("DAMIIN_HAA")}}}`),
-          ...signatureBlock("Damiin", T("DAMIIN_MAGAC"), T("DAMIIN_TELEFOON")),
-          marker(`{{END:${N("DAMIIN_HAA")}}}`),
         ],
       },
     ],

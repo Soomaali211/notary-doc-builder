@@ -175,12 +175,11 @@ describe("MAIN SCENARIO — 5 Kireeye, 1 present, 4 absent, ONE wakiil", () => {
       expect(`${n}: ${full.includes(`❖ ${n}. ${name}`)}`).toBe(`${n}: true`);
     }
     // The wakiil line follows each of them.
-    // Each absent row carries the wakiil line (4). The signature block is a
-    // separate "Wakiilka (oo matalaya …)" label, so the name and phone are
-    // seen 4 times in the list plus once in the signature = 5.
+    // Each absent row carries the wakiil line (4). There is no signature
+    // section, so the name and phone appear only on those four rows.
     expect(count(full, "Wakiilka:")).toBe(4);
-    expect(count(full, "AXMED CALI")).toBe(5);
-    expect(count(full, "0600999888")).toBe(5);
+    expect(count(full, "AXMED CALI")).toBe(4);
+    expect(count(full, "0600999888")).toBe(4);
   });
 
   test("the wakiil line sits directly under the person it stands in for", () => {
@@ -205,12 +204,13 @@ describe("MAIN SCENARIO — 5 Kireeye, 1 present, 4 absent, ONE wakiil", () => {
     }
   });
 
-  test("the wakiil signature appears ONCE, not four times", () => {
-    expect(count(sigStart, "AXMED CALI")).toBe(1);
-    expect(sigStart).toContain("Wakiilka");
-    // Exactly one signature line for him.
-    const sigLines = sigStart.split("\n").filter((l) => l.includes("AXMED CALI"));
-    expect(sigLines.length).toBe(1);
+  test("there is no signature section — the document ends at the seal", () => {
+    expect(sigStart).toBe("");
+    expect(full).not.toContain("Saxiiyada");
+    expect(full).not.toContain("Saxiix");
+    expect(
+      full.trim().endsWith("(Sarkaalka Xafiiska Nootaayada Sharciga ah Ee Daloodho)"),
+    ).toBe(true);
   });
 
   test("one stored record, four references — nothing duplicated in storage", () => {

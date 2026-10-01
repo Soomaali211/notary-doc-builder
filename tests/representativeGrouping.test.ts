@@ -315,9 +315,9 @@ describe("TEST 2 — 1 Kireeye, absent via wakiil", () => {
     expect(rows[0].WAKIIL_MAGAC).toBe("AXMED CALI");
   });
 
-  test("the wakiil signs for the absent person", () => {
-    const sig = text.split("Saxiiyada:")[1] ?? "";
-    expect(sig).toContain("AXMED CALI");
+  test("the wakiil appears on the absent person's row (no signature section)", () => {
+    expect(text).toContain("Wakiilka: AXMED CALI");
+    expect(text).not.toContain("Saxiiyada");
   });
 });
 
@@ -498,9 +498,11 @@ describe("TEST 10 — several tenants, ONE wakiil standing in for many", () => {
     expect(rows[2].WAKIIL_MAGAC).toBe("AMINA WALI");
   });
 
-  test("the representative signs once for the tenants", () => {
-    const sig = text.split("Saxiiyada:")[1] ?? "";
-    expect(count(sig, "AMINA WALI")).toBe(1);
+  test("the representative appears on each absent tenant's row", () => {
+    // Two absent tenants share the one representative — named twice, on the
+    // two rows it stands in for. There is no signature section any more.
+    expect(count(text, "Wakiilka: AMINA WALI")).toBe(2);
+    expect(text).not.toContain("Saxiiyada");
   });
 
   test("the present tenant is unaffected", () => {

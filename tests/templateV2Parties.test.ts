@@ -87,8 +87,9 @@ describe("Case 1 — 1 Kireeye, 1 Kirayste, no wakiil", () => {
   const text = render(values);
 
   test("each person appears exactly once (no duplicate)", () => {
-    expect(occurrences(text, "FARXIYA AADAN YUUSUF")).toBe(2); // party line + signature
-    expect(occurrences(text, "CABDIKARIIX MAXAMUUD CABDI")).toBe(2);
+    // No signature section exists — each person appears once, in the list.
+    expect(occurrences(text, "FARXIYA AADAN YUUSUF")).toBe(1);
+    expect(occurrences(text, "CABDIKARIIX MAXAMUUD CABDI")).toBe(1);
   });
 
   test("singular labels, never plural", () => {
@@ -128,7 +129,8 @@ describe("Case 2 — 2 Kireeye, 1 Kirayste", () => {
     expect(text).not.toContain("Magaca Kireeysada Guriga");
     // Kireeye Kowaad appears once in the list; the signature block is
     // intentionally separate (it names the signing party).
-    expect(occurrences(text, "Kireeye Kowaad")).toBe(2);
+    // No signature section — the landlord is named once, in the list.
+    expect(occurrences(text, "Kireeye Kowaad")).toBe(1);
   });
 
   test("landlord repeat block did not leak into the tenant section", () => {
@@ -213,6 +215,11 @@ describe("Case 4 — 1 Kireeye absent, represented by a wakiil", () => {
   test("present tenant has no wakiil block", () => {
     expect(occurrences(text, "Wakiilka:")).toBe(1);
   });
+
+  test("no signature section at all", () => {
+    expect(text).not.toContain("Saxiix");
+    expect(text).not.toContain("Saxiiyada");
+  });
 });
 
 describe("Case 5 — Kiro Furan hides the end date", () => {
@@ -248,9 +255,7 @@ describe("Case 8 — Damiin = Maya hides the section AND the signature", () => {
     const text = render(values);
     expect(text).not.toContain("DAMIIN MAAL");
     expect(text).not.toContain("Saxeexa Damiinka");
-    // The Damiin signature block must be gone too.
-    const sigPart = text.split("Saxiiyada:")[1] ?? "";
-    expect(sigPart).not.toContain("Damiin");
+    expect(text).not.toContain("Saxiiyada");
   });
 });
 
@@ -267,8 +272,8 @@ describe("Case 9 — Damiin = Haa shows the section AND the signature", () => {
     expect(text).toContain("DAMIIN MAAL");
     expect(text).toContain("MUSTAFE AHMED CABDI");
     expect(text).toContain("0634714915");
-    const sigPart = text.split("Saxiiyada:")[1] ?? "";
-    expect(sigPart).toContain("Damiin");
+    // The document ends at the notary seal — no signature section exists.
+    expect(text).not.toContain("Saxiiyada");
   });
 });
 

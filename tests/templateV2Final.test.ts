@@ -128,8 +128,9 @@ describe("REVIEW CASE 1 — 1 Kireeye, 1 Kirayste, both present, Furan, no depos
 
   test("no duplicate people", () => {
     // Each person appears in the party list AND in their signature block.
-    expect(count(text, "FARXIYA AADAN YUUSUF")).toBe(2);
-    expect(count(text, "CABDIKARIIX MAXAMUUD CABDI")).toBe(2);
+    // No signature section — each person is named once, in the party list.
+    expect(count(text, "FARXIYA AADAN YUUSUF")).toBe(1);
+    expect(count(text, "CABDIKARIIX MAXAMUUD CABDI")).toBe(1);
   });
 
   test("singular headings", () => {
@@ -152,11 +153,10 @@ describe("REVIEW CASE 1 — 1 Kireeye, 1 Kirayste, both present, Furan, no depos
     expect(text).not.toContain("DAMIIN MAAL");
   });
 
-  test("signatures are the present parties", () => {
-    const sig = text.split("Saxiiyada:")[1] ?? "";
-    expect(sig).toContain("Kireeye");
-    expect(sig).toContain("Kirayste");
-    expect(sig).not.toContain("Damiin");
+  test("there is no signature section; the document ends at the seal", () => {
+    expect(text).not.toContain("Saxiiyada");
+    expect(text).not.toContain("Saxiix");
+    expect(text.trim().endsWith("(Sarkaalka Xafiiska Nootaayada Sharciga ah Ee Daloodho)")).toBe(true);
   });
 });
 
@@ -179,21 +179,20 @@ describe("REVIEW CASE 2 — 1 Kireeye absent via wakiil, Xidhan, deposit yes, da
   });
 
   test("no duplicate or empty landlord line", () => {
-    expect(count(text, "WAKIIL KIREYE")).toBe(2); // party line + signature line
+    expect(count(text, "WAKIIL KIREYE")).toBe(1);
     expect(text).not.toContain("❖ Tell");
   });
 
-  test("the wakiil signs for the absent landlord", () => {
-    const sig = text.split("Saxiiyada:")[1] ?? "";
-    expect(sig).toContain("Wakiilka (oo matalaya Kireey");
-    expect(sig).toContain("WAKIIL KIREYE");
+  test("the wakiil appears next to the absent landlord (no signature section)", () => {
+    // No signature block exists; the representative is named on the row of
+    // the person they stand in for.
+    expect(text).toContain("Wakiilka: WAKIIL KIREYE");
+    expect(text).not.toContain("Saxiiyada");
   });
 
-  test("present tenant signs for itself and has no wakiil block", () => {
-    const sig = text.split("Saxiiyada:")[1] ?? "";
-    expect(sig).toContain("Kirayste");
-    expect(sig).toContain("KIRAYSTE JOOGA");
-    expect(sig).not.toContain("matalaya Kirayst");
+  test("the present tenant needs no wakiil line", () => {
+    expect(text).toContain("KIRAYSTE JOOGA");
+    expect(text).not.toContain("Saxiiyada");
   });
 
   test("Xidhan shows the end date", () => {
@@ -208,9 +207,9 @@ describe("REVIEW CASE 2 — 1 Kireeye absent via wakiil, Xidhan, deposit yes, da
     expect(text).toContain("MUSTAFE CABDI");
   });
 
-  test("damiin signs", () => {
-    const sig = text.split("Saxiiyada:")[1] ?? "";
-    expect(sig).toContain("Damiin");
+  test("damiin section present, no signature section", () => {
+    expect(text).toContain("Saxeexa Damiinka");
+    expect(text).not.toContain("Saxiiyada");
   });
 });
 
@@ -233,18 +232,17 @@ describe("REVIEW CASE 3 — 3 Kireeye (1 present, 2 share wakiil), 2 Kirayste, F
   }));
 
   test("each person is listed once and signed once — no duplicate entries", () => {
-    // Once in the numbered party list, once in their signature block.
-    expect(count(text, "KIREYE JOOGA")).toBe(2);
-    expect(count(text, "KIRAYSTE JOOGA")).toBe(2); // list + own signature
-    expect(count(text, "KIRAYSTE LABAAD")).toBe(2); // list + own signature
+    // No signature section — each person appears exactly once, in the list.
+    expect(count(text, "KIREYE JOOGA")).toBe(1);
+    expect(count(text, "KIRAYSTE JOOGA")).toBe(1);
+    expect(count(text, "KIRAYSTE LABAAD")).toBe(1);
     // The absent landlords have no name of their own — never duplicated.
     expect(text).not.toContain("❖ 1. Tell");
   });
 
   test("the shared wakiil is bound to both absent landlords, stored once", () => {
-    // Stored ONCE, referenced by Kireeye 2 and Kireeye 3: two list lines
-    // plus one signature line, and only one record in the form values.
-    expect(count(text, "WAKIIL SHARED")).toBe(3);
+    // Stored ONCE, referenced by Kireeye 2 and Kireeye 3.
+    expect(count(text, "WAKIIL SHARED")).toBe(2);
     expect(sharedRecords.length).toBe(1);
   });
 
@@ -258,10 +256,10 @@ describe("REVIEW CASE 3 — 3 Kireeye (1 present, 2 share wakiil), 2 Kirayste, F
     expect(text).not.toContain("Taariikhda uu heshiisku ku dhammaanayo waa");
   });
 
-  test("no wakiil signature block for the tenants (all present)", () => {
-    const sig = text.split("Saxiiyada:")[1] ?? "";
-    expect(sig).toContain("Wakiilka (oo matalaya Kireey");
-    expect(sig).not.toContain("matalaya Kirayst");
+  test("tenant wakiil line absent (all present); no signature section", () => {
+    expect(text).toContain("Wakiilka: WAKIIL SHARED");
+    expect(text).not.toContain("matalaya Kirayst");
+    expect(text).not.toContain("Saxiiyada");
   });
 });
 
@@ -286,26 +284,21 @@ describe("REVIEW CASE 4 — 2 Kireeye, 2 Kirayste, different wakiils", () => {
     expect(text).toContain("WAKIIL T-B");
   });
 
-  test("each wakiil appears on its own rows plus one signature line", () => {
-    // K-A represents k1 only: 1 list line + 1 signature line.
-    expect(count(text, "WAKIIL K-A")).toBe(2);
-    // K-B represents k2 only, and the group signature names the first
-    // representative — so K-B is listed once with no extra signature line.
+  test("each wakiil appears only on the rows it covers", () => {
+    expect(count(text, "WAKIIL K-A")).toBe(1);
     expect(count(text, "WAKIIL K-B")).toBe(1);
   });
 
-  test("signatures include BOTH the landlord and tenant representatives", () => {
-    const sig = text.split("Saxiiyada:")[1] ?? "";
-    expect(sig).toContain("matalaya Kireeyada");
-    expect(sig).toContain("matalaya Kiraystada");
-    expect(sig).toContain("WAKIIL K-A");
-    expect(sig).toContain("WAKIIL T-A");
+  test("both representatives appear on the party rows", () => {
+    expect(text).toContain("Wakiilka: WAKIIL K-A");
+    expect(text).toContain("Wakiilka: WAKIIL K-B");
+    expect(text).toContain("Wakiilka: WAKIIL T-A");
+    expect(text).toContain("Wakiilka: WAKIIL T-B");
+    expect(text).not.toContain("Saxiiyada");
   });
 
-  test("no bare party signature blocks (nobody is present)", () => {
-    const sig = text.split("Saxiiyada:")[1] ?? "";
-    expect(sig).not.toMatch(/^Kirayste$/m);
-    expect(sig).not.toMatch(/^Kireeye$/m);
+  test("no signature section exists (nobody is present)", () => {
+    expect(text).not.toContain("Saxiiyada");
   });
 });
 
@@ -336,14 +329,14 @@ describe("Structural guarantees", () => {
     expect(docXml).not.toContain("{{OGAYSIIN_QIIMAHA}}");
   });
 
-  test("Damiin clause and signature share one flag", () => {
+  test("Damiin clause is guarded by one balanced flag", () => {
     const ifCount = docXml.split("{{IF:DAMIIN_HAA}}").length - 1;
     const endCount = docXml.split("{{END:DAMIIN_HAA}}").length - 1;
     expect(ifCount).toBe(endCount);
-    expect(ifCount).toBeGreaterThanOrEqual(2); // clause + signature
+    expect(ifCount).toBeGreaterThanOrEqual(1);
   });
 
-  test("signature blocks are guarded by JOOGA / WAKIIL flags", () => {
+  test("party lines are guarded by JOOGA / WAKIIL flags", () => {
     for (const f of ["KIREEYE_JOOGA", "KIREEYE_WAKIIL", "KIRAYSTE_JOOGA", "KIRAYSTE_WAKIIL"]) {
       expect(`${f}: ${docXml.includes(`{{IF:${f}}}`)}`).toBe(`${f}: true`);
     }
