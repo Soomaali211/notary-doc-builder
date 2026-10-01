@@ -333,9 +333,12 @@ export function buildHeshiisKiroTemplateV2(): Document {
           ),
 
           // Deposit breach clause — only when a deposit is agreed.
+          // The amount is printed as a number AND in Somali words, exactly
+          // like clause 1 does for the rent. {{DEEBAAJI_QIIMAHA_QORAAL}} is
+          // DERIVED from the same form field — the user never types it.
           marker(`{{IF:${N("DEEBAAJI_HAA")}}}`),
           body(
-            `{{CLAUSE_NO}}. ${LEGAL.c5a} ${T("DEEBAAJI_QIIMAHA")}. ${LEGAL.c5b}`,
+            `{{CLAUSE_NO}}. ${LEGAL.c5a} ${T("DEEBAAJI_QIIMAHA")} ${T("DEEBAAJI_QIIMAHA_QORAAL")}. ${LEGAL.c5b}`,
           ),
           marker(`{{END:${N("DEEBAAJI_HAA")}}}`),
 

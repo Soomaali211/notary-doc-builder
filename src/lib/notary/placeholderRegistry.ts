@@ -156,6 +156,16 @@ export const HESHIIS_KIRO_PLACEHOLDERS: PlaceholderSpec[] = [
     aliases: ["DEEBAAJI_AMOUNT"],
     group: "Deebaaji",
   },
+  {
+    // Same derived pattern as KIRADA_QIIMAHA_QORAAL: the deposit amount in
+    // Somali words, computed from deebaaji.lacagta_deebaajiga. The form only
+    // ever asks for the NUMBER — this value is never typed by the user.
+    token: "DEEBAAJI_QIIMAHA_QORAAL",
+    key: "deebaaji.lacagta_deebaajiga",
+    format: "currency_words",
+    label: "Qiimaha Deebaajiga (qoraal)",
+    group: "Deebaaji",
+  },
   { token: "DEEBAAJI_SHURUUDO", key: "deebaaji.shuruudaha_deebaajiga", fallback: "—", label: "Shuruudaha Deebaajiga", group: "Deebaaji" },
 
   /* ---- Damiin (conditional section) ---- */
