@@ -55,7 +55,7 @@ import { generateDocument } from "@/lib/notary/pipeline";
 import { deserializeDraft } from "@/lib/notary/engine";
 import { makeGetter } from "@/lib/notary/conditions";
 import { getPartyRows, stripSkipMarkers } from "@/lib/notary/formValues";
-import { isFieldRequired } from "@/lib/notary/validation";
+import { isFieldRequired, partyDataErrors } from "@/lib/notary/validation";
 import { FIELD_SKIPPED } from "@/lib/notary/types";
 import type {
   AttendanceStatus,
@@ -550,7 +550,12 @@ export default function NewDocumentInterview() {
         if (!sectionId) return false;
         const errs = validateSectionById(config, values, sectionId);
         if (!errs) return false;
-        const partyErrs = errs.partyErrors[partyDef.id] ?? [];
+        // Attendance-status gaps belong to the FOLLOWING attendance step;
+        // they never block or surface on the data step.
+        const partyErrs =
+          currentStep.detail.kind === "party-data"
+            ? partyDataErrors(errs.partyErrors[partyDef.id])
+            : errs.partyErrors[partyDef.id] ?? [];
         const general = errs.general.filter((g) =>
           partyDef.attendance ? true : !g.startsWith("Wakiil"),
         );
@@ -862,10 +867,12 @@ export default function NewDocumentInterview() {
     const sectionId = visibleSections.find((sec) =>
       (sec.parties ?? []).some((p) => p.id === partyDef.id),
     )?.id;
+    // Data step shows only DATA errors — attendance-status gaps are the
+    // next step's responsibility ("dooro xaaladda" lives there).
     const rowErrMap = Object.fromEntries(
-      (sectionId ? (validation[sectionId]?.partyErrors[partyDef.id] ?? []) : []).map(
-        (e) => [e.index, e.errors],
-      ),
+      partyDataErrors(
+        sectionId ? validation[sectionId]?.partyErrors[partyDef.id] : undefined,
+      ).map((e) => [e.index, e.errors]),
     );
     return (
       <PartyListEditor

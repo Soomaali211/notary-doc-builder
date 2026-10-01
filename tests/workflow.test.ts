@@ -567,6 +567,33 @@ describe("Step 1 UI correction (req #10/#11)", () => {
     expect(validateDocument(config, furan)["heshiiska"]).toBeUndefined();
   });
 
+  test("#18 party-data step ignores attendance-status gaps (they belong to the attendance step)", () => {
+    const { validateDocument, partyDataErrors } = require("../src/lib/notary/validation");
+    const { setRepeatableCount, setRepeatableAnswer } = require("../src/lib/notary/engine");
+    const kireeyeDef = config.sections.find((s) => s.id === "kireeyaha")!.parties![0];
+
+    // One fully-named row, NO attendance status chosen yet.
+    let values = setupValues();
+    values = setRepeatableCount(values, kireeyeDef, 1);
+    values = setRepeatableAnswer(values, "kireeyayaal", 0, "magac", "Axmed");
+
+    const raw = validateDocument(config, values)["kireeyaha"]?.partyErrors["kireeyayaal"] ?? [];
+    // The full validator DOES flag the missing attendance status...
+    expect(raw.some((pe) => pe.errors.some((e) => e.fieldId === "attendance"))).toBe(true);
+    // ...but the DATA step split hides it — the status is chosen on the NEXT step.
+    expect(partyDataErrors(raw)).toHaveLength(0);
+
+    // A missing required NAME still blocks the data step after the split
+    // (row must be otherwise-filled, else it is a min-count general error).
+    let bad = setupValues();
+    bad = setRepeatableCount(bad, kireeyeDef, 1);
+    bad = setRepeatableAnswer(bad, "kireeyayaal", 0, "telefoon", "+252 61 0000000");
+    const rawBad = validateDocument(config, bad)["kireeyaha"]?.partyErrors["kireeyayaal"] ?? [];
+    expect(
+      partyDataErrors(rawBad).some((pe) => pe.errors.some((e) => e.fieldId === "magac")),
+    ).toBe(true);
+  });
+
   test("#11 Furan→Xidhan: End Date immediately appears (required); Xidhan→Furan: disappears", () => {
     const { getVisibleFields } = require("../src/lib/notary/engine");
     const { validateDocument } = require("../src/lib/notary/validation");

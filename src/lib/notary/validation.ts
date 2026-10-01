@@ -308,6 +308,23 @@ export function validateAttendanceGroup(
 }
 
 /**
+ * Guided workflow split: attendance-status errors (fieldId "attendance")
+ * belong to the dedicated attendance step that FOLLOWS the data step —
+ * they must never block or surface on the data step. Rows whose errors
+ * are all attendance-related are dropped entirely.
+ */
+export function partyDataErrors(
+  partyErrors: PartyError[] | undefined,
+): PartyError[] {
+  return (partyErrors ?? [])
+    .map((pe) => ({
+      index: pe.index,
+      errors: pe.errors.filter((e) => e.fieldId !== "attendance"),
+    }))
+    .filter((pe) => pe.errors.length > 0);
+}
+
+/**
  * Validate the whole interview against its config.
  * Hidden conditional sections/fields are skipped; `requiredWhen` can make a
  * visible field conditionally required. Returns per-section errors.
