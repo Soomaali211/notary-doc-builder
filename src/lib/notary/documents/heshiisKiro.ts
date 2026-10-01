@@ -1,4 +1,29 @@
-import type { DocumentConfig, SelectOption, TemplateSpec } from "../types";
+import type { DocumentConfig, PlaceholderMapping, SelectOption, TemplateSpec } from "../types";
+import { HESHIIS_KIRO_PLACEHOLDERS } from "../placeholderRegistry";
+
+/**
+ * Phase Template Generator — the placeholder list is BUILT from the central
+ * Placeholder Registry so the token names can never drift apart from the
+ * template the system generates. Every canonical name is emitted first; the
+ * historical aliases stay accepted (older templates keep working) but are
+ * never generated.
+ */
+function registryPlaceholders(specs = HESHIIS_KIRO_PLACEHOLDERS): PlaceholderMapping[] {
+  const out: PlaceholderMapping[] = [];
+  for (const spec of specs) {
+    if (!spec.key) continue;
+    const mapping = {
+      key: spec.key,
+      ...(spec.format ? { format: spec.format } : {}),
+      ...(spec.fallback ? { fallback: spec.fallback } : {}),
+    };
+    out.push({ placeholder: `{{${spec.token}}}`, mapping });
+    for (const alias of spec.aliases ?? []) {
+      out.push({ placeholder: `{{${alias}}}`, mapping });
+    }
+  }
+  return out;
+}
 
 const KIRO_SUBTYPES: SelectOption[] = [
   { value: "guri_xaas", label: "Guri Xaas" },
@@ -313,67 +338,9 @@ export const heshiisKiroConfig: DocumentConfig = {
     },
   ],
 
-  placeholders: [
-    { placeholder: "{{REFERENCE_NUMBER}}", mapping: { key: "heshiiska.reference", fallback: "" } },
-    { placeholder: "{{CONTRACT_DATE}}", mapping: { key: "heshiiska.taariikhda_heshiiska", format: "date" } },
-    { placeholder: "{{SUB_TYPE}}", mapping: { key: "heshiiska.sub_type", format: "text" } },
-    { placeholder: "{{TAARIIKHDA_BILOWGA}}", mapping: { key: "heshiiska.taariikhda_bilowga", format: "date" } },
-    { placeholder: "{{TAARIIKHDA_DHAMMAADKA}}", mapping: { key: "heshiiska.taariikhda_dhammaadka", format: "date" } },
-    { placeholder: "{{SHURUUDAHA_GAARKA_AH}}", mapping: { key: "heshiiska.shuruudaha_gaarka_ah", fallback: "— Ma jiro." } },
-
-    // Phase Document Generation — short aliases for the user's own Word
-    // template. The office names its placeholders however it reads best;
-    // the engine resolves every alias to the SAME form-state value.
-    { placeholder: "{{REF_NUMBER}}", mapping: { key: "heshiiska.reference", fallback: "" } },
-    { placeholder: "{{TAARIIKH}}", mapping: { key: "heshiiska.taariikhda_heshiiska", format: "date" } },
-    { placeholder: "{{NOOCA_KIRADA}}", mapping: { key: "heshiiska.sub_type" } },
-    { placeholder: "{{TAARIIKH_BILOWGA}}", mapping: { key: "heshiiska.taariikhda_bilowga", format: "date" } },
-    { placeholder: "{{TAARIIKH_DHAMMAAD}}", mapping: { key: "heshiiska.taariikhda_dhammaadka", format: "date" } },
-
-    { placeholder: "{{KIREYE_MAGAC}}", mapping: { key: "kireeyayaal.magac", format: "text" } },
-    { placeholder: "{{KIREYE_TELEFOON}}", mapping: { key: "kireeyayaal.telefoon" } },
-    { placeholder: "{{KIREYE_AQOONSI}}", mapping: { key: "kireeyayaal.aqoonsi" } },
-    { placeholder: "{{KIREYE_CINWAAN}}", mapping: { key: "kireeyayaal.cinwaan", fallback: "—" } },
-
-    { placeholder: "{{KIRAYSTE_MAGAC}}", mapping: { key: "kiraystayaal.magac" } },
-    { placeholder: "{{KIRAYSTE_TELEFOON}}", mapping: { key: "kiraystayaal.telefoon" } },
-    { placeholder: "{{KIRAYSTE_AQOONSI}}", mapping: { key: "kiraystayaal.aqoonsi" } },
-    { placeholder: "{{KIRAYSTE_CINWAAN}}", mapping: { key: "kiraystayaal.cinwaan", fallback: "—" } },
-
-    { placeholder: "{{NOOCA_GURIGA}}", mapping: { key: "guriga.nooca_guriga" } },
-    { placeholder: "{{GOOBTA}}", mapping: { key: "guriga.goobta" } },
-    { placeholder: "{{CINWAANKA_GURIGA}}", mapping: { key: "guriga.cinwaanka_guriga" } },
-    { placeholder: "{{SHARRAXAADDA_GURIGA}}", mapping: { key: "guriga.sharraxaad", fallback: "—" } },
-    { placeholder: "{{QOLADA}}", mapping: { key: "guriga.qolada", fallback: "—" } },
-    // Guri aliases for the user-owned template.
-    { placeholder: "{{GURI_NOOCA}}", mapping: { key: "guriga.nooca_guriga" } },
-    { placeholder: "{{GURI_GOOBTA}}", mapping: { key: "guriga.goobta" } },
-    { placeholder: "{{GURI_CINWAAN}}", mapping: { key: "guriga.cinwaanka_guriga" } },
-    { placeholder: "{{GURI_SHARRAXAAD}}", mapping: { key: "guriga.sharraxaad", fallback: "—" } },
-
-    { placeholder: "{{QIIMAHA_KIRADA}}", mapping: { key: "lacagta.qiimaha_bil_ka", format: "currency" } },
-    { placeholder: "{{HABKA_BIXINTA}}", mapping: { key: "lacagta.habka_bixinta" } },
-    { placeholder: "{{TAARIIKHDA_BIXINTA}}", mapping: { key: "lacagta.taariikhda_bixinta" } },
-    { placeholder: "{{BIXINTA_HORE}}", mapping: { key: "lacagta.bixinta_hore" } },
-    { placeholder: "{{FAAHFAAHIN_LACAGTA}}", mapping: { key: "lacagta.faahfaahin_lacagta", fallback: "—" } },
-    // Lacag aliases for the user-owned template.
-    { placeholder: "{{KIRADA_QIIMAHA}}", mapping: { key: "lacagta.qiimaha_bil_ka", format: "currency" } },
-    { placeholder: "{{MUDDADA_BIXINTA}}", mapping: { key: "lacagta.taariikhda_bixinta" } },
-
-    { placeholder: "{{DEEBAAJI_AMOUNT}}", mapping: { key: "deebaaji.lacagta_deebaajiga", format: "currency" } },
-    { placeholder: "{{DEEBAAJI_SHURUUDO}}", mapping: { key: "deebaaji.shuruudaha_deebaajiga", fallback: "—" } },
-
-    { placeholder: "{{DAMIIN_MAGAC}}", mapping: { key: "damiinka.damiin_magac" } },
-    { placeholder: "{{DAMIIN_TELEFOON}}", mapping: { key: "damiinka.damiin_telefoon" } },
-    { placeholder: "{{DAMIIN_AQOONSI}}", mapping: { key: "damiinka.damiin_aqoonsi" } },
-    { placeholder: "{{DAMIIN_CINWAAN}}", mapping: { key: "damiinka.damiin_cinwaan", fallback: "—" } },
-
-    { placeholder: "{{MUDADA_OGAYSIINTA}}", mapping: { key: "ogaysiinta.mudada_ogaysiinta" } },
-    { placeholder: "{{SHURUUDAHA_JOOJINTA}}", mapping: { key: "ogaysiinta.shuruudaha_joojinta" } },
-    { placeholder: "{{FAAHFAAHIN_OGAYSIINTA}}", mapping: { key: "ogaysiinta.faahfaahin_ogaysiinta", fallback: "—" } },
-
-    { placeholder: "{{SHURUUDO_DHEERAAD}}", mapping: { key: "dheeraad.shuruudo_dheeraad", fallback: "—" } },
-  ],
+  // BUILT FROM THE PLACEHOLDER REGISTRY — canonical names first, accepted
+  // aliases after them (never generated, always resolvable).
+  placeholders: registryPlaceholders(),
 
   clauses: [
     {
