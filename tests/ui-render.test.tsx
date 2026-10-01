@@ -19,6 +19,8 @@ import { SetupField } from "../src/components/notary/SetupField";
 import { PartyListEditor } from "../src/components/notary/PartyListEditor";
 import { heshiisKiroConfig as config } from "../src/lib/notary/documents/heshiisKiro";
 import type { FormValues, PartyRow } from "../src/lib/notary/types";
+import { FIELD_SKIPPED } from "../src/lib/notary/types";
+import { FieldRenderer } from "../src/components/notary/FieldRenderer";
 
 /* ------------------------------------------------------------------ */
 /* Fixtures                                                            */
@@ -294,3 +296,55 @@ function html_has(html: string, ...fragments: string[]): boolean {
   }
   return true;
 }
+
+/* ------------------------------------------------------------------ */
+/* req #2/#3 — Guided skip UI: required * / (Optional) / Skip marker   */
+/* ------------------------------------------------------------------ */
+
+function renderGuideField(field: FieldDefOf, value: string): string {
+  return renderToStaticMarkup(
+    <FieldRenderer field={field} value={value} onChange={() => {}} />,
+  );
+}
+
+type FieldDefOf = (typeof kireeyeDef.fields)[number];
+
+describe("guided form skip UI (req #2/#3)", () => {
+  const aqoonsi = kireeyeDef.fields.find((f) => f.id === "aqoonsi")!;
+  const magac = kireeyeDef.fields.find((f) => f.id === "magac")!;
+
+  test("optional + skippable, empty: (Optional) label + Skip link, still an input", () => {
+    const html = renderGuideField(aqoonsi, "");
+    expect(html.includes("(Optional)")).toBe(true);
+    expect(/>\s*Skip\s*<\/button>/.test(html)).toBe(true);
+    expect(html.includes("— Skipped —")).toBe(false);
+    expect(html.includes("Buuxi hadda")).toBe(false);
+    // Empty ≠ skipped: the field stays a real editable input.
+    expect(countInputs(html)).toBe(1);
+  });
+
+  test("skipped: — Skipped — panel + [Buuxi hadda]; input replaced, Skip link gone", () => {
+    const html = renderGuideField(aqoonsi, FIELD_SKIPPED);
+    expect(html.includes("— Skipped —")).toBe(true);
+    expect(html.includes("Buuxi hadda")).toBe(true);
+    // No editable control while skipped (panel takes its place).
+    expect(countInputs(html)).toBe(0);
+    expect(/>\s*Skip\s*<\/button>/.test(html)).toBe(false);
+  });
+
+  test("required field: * shown, no (Optional), never offers Skip", () => {
+    const html = renderGuideField(magac, "");
+    expect(/\*\s*<\/span>/.test(html)).toBe(true);
+    expect(html.includes("(Optional)")).toBe(false);
+    expect(/>\s*Skip\s*<\/button>/.test(html)).toBe(false);
+    expect(html.includes("Buuxi hadda")).toBe(false);
+    expect(countInputs(html)).toBe(1);
+  });
+
+  test("Skip link sits inside the (Optional) field block, right after the input", () => {
+    const html = renderGuideField(aqoonsi, "");
+    const afterLabel = html.slice(html.indexOf("(Optional)"));
+    expect(afterLabel.includes('data-slot="input"')).toBe(true);
+    expect(/>\s*Skip\s*<\/button>/.test(afterLabel)).toBe(true);
+  });
+});
