@@ -240,6 +240,33 @@ describe("Template Compatibility Validator — the real v2 template", () => {
     expect(r.invalidRepeaters).toEqual([]);
     expect(r.blocking).toEqual([]);
     expect(r.canGenerate).toBe(true);
-    expect(r.recognized).toHaveLength(62);
+    // Every token in the shipped template resolves; the exact count grows as
+    // the template gains the annex + clause-number tokens.
+    expect(r.recognized.length).toBeGreaterThan(100);
+    expect(r.unknown).toHaveLength(0);
+    // Nothing invented: every recognized token is a real system name.
+    // Structural markers ({{END:…}}, {{/BLOCK}}) are closers, not data
+    // tokens, so they are checked against the flag/block they close.
+    const known = knownPlaceholderNames(config);
+    const flags = new Set(
+      Object.keys(config.conditionFlags ?? {}).map((f) => f.toUpperCase()),
+    );
+    const blocks = new Set(
+      (config.repeatBlocks ?? []).map((b) => b.blockId.toUpperCase()),
+    );
+    for (const c of r.classifications) {
+      if (c.kind === "structural") {
+        expect(c.status, c.token).toBe("MATCH");
+        continue;
+      }
+      expect(known.has(c.name), c.token).toBe(true);
+    }
+    // Every IF flag the template opens must be one the config declares.
+    for (const c of r.classifications) {
+      if (c.kind !== "flag") continue;
+      const derived = c.name.endsWith("_JOOGA") || c.name.endsWith("_WAKIIL");
+      expect(flags.has(c.name) || known.has(c.name) || derived, c.token).toBe(true);
+    }
+    expect(blocks.size).toBe(5);
   });
 });

@@ -81,7 +81,8 @@ describe("Template v2 — legal-document starter", () => {
   test("carries the legal document skeleton from the reference sample", () => {
     const text = docXml;
     for (const part of [
-      "HESHIIS KIRO GURI XAAS.",
+      // The title is DATA-driven: the subtype token, never hard-coded text.
+      "HESHIIS KIRO {{NOOCA_KIRADA}}.",
       "QODOBADA HESHIISKA",
       "Magaca Kireeysada Guriga",
       "Magaca Kiraystaha Guriga",
@@ -91,10 +92,24 @@ describe("Template v2 — legal-document starter", () => {
     ]) {
       expect(`${part}: ${text.includes(part)}`).toBe(`${part}: true`);
     }
-    // Numbered legal clauses 1..11 must all be present as prose.
-    for (let n = 1; n <= 11; n++) {
-      expect(`clause ${n}: ${text.includes(`>${n}. `)}`).toBe(`clause ${n}: true`);
-    }
+    // The subtype must NOT be hard-coded anywhere — one "Guri Xaas" left in
+    // the prose would title every qol-meherad and jiingad contract wrongly.
+    expect(`hard-coded subtype: ${text.includes("HESHIIS KIRO GURI XAAS.")}`).toBe(
+      "hard-coded subtype: false",
+    );
+    expect(`hard-coded Guri Xaas in body: ${text.includes("Waa Guri Xaas ku yaalla")}`).toBe(
+      "hard-coded Guri Xaas in body: false",
+    );
+    // Clause numbers are SEQUENTIAL and derived ({{CLAUSE_NO}}), not typed
+    // as literal 1..11 — a typed list cannot close the gap when a
+    // conditional clause is removed.
+    const clauseNumbers = text.match(/\{\{CLAUSE_NO\}\}/g) ?? [];
+    expect(`clause number tokens: ${clauseNumbers.length}`).toBe(
+      "clause number tokens: 11",
+    );
+    expect(`literal clause number: ${/>\d+\. /.test(text)}`).toBe(
+      "literal clause number: false",
+    );
   });
 
   test("keeps every reference placeholder name verbatim", () => {

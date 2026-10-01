@@ -322,8 +322,10 @@ function processParagraph(
   }
 
   // 3) Clause marker → resolved lines or complete removal.
+  // {{CLAUSE_NO}} is NOT a clause marker — it is the sequential number token
+  // resolved by the numbering pass below. It must never reach this lookup.
   const clauseMatch = /\{\{(CLAUSE_[A-Z0-9_]+)\}\}/.exec(text);
-  if (clauseMatch) {
+  if (clauseMatch && clauseMatch[1].toUpperCase() !== "CLAUSE_NO") {
     const resolved = clauses.get(clauseMatch[1]);
     if (!resolved || !resolved.included || resolved.lines.length === 0) return [];
     const lines = resolved.lines.map((l) => escapeXml(l));
@@ -337,7 +339,11 @@ function processParagraph(
   // 4) Plain placeholder replacement (case-insensitive). A token with NO
   // data mapping is unknown — it is stripped so no {{…}} ever survives into
   // the final document (validation already warns the template owner).
+  // {{CLAUSE_NO}} is deliberately left alone here: its value depends on
+  // which clauses survive the conditional pass, so the numbering pass below
+  // resolves it once the final paragraph list is known.
   const replaced = text.replace(TOKEN_RE, (token) => {
+    if (/^\{\{CLAUSE_NO\}\}$/i.test(token)) return token;
     const value = lookupReplacement(ctx.replacements, token);
     return value !== undefined ? value : "";
   });
@@ -363,6 +369,33 @@ function expandRepeatInline(
 /* Document processing                                                 */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Pass 5 — sequential clause numbering.
+ *
+ * {{CLAUSE_NO}} becomes 1, 2, 3 … counting ONLY the clauses that are still
+ * present. Because this runs AFTER the conditional pass, a clause removed by
+ * {{IF:DEEBAAJI_HAA}} never consumes a number: the document reads 1..N with
+ * no gap, instead of 1,2,3,5,6,9.
+ *
+ * Paragraphs that held {{CLAUSE_NO}} but were dropped by an earlier pass are
+ * gone by now, so the counter only sees real clauses.
+ */
+function renumberClauses(items: Item[], startAt = 1): Item[] {
+  let n = startAt - 1;
+  return items.map((item) => {
+    if (item.kind !== "p") return item;
+    const text = item.text ?? "";
+    if (!text.includes("{{CLAUSE_NO}}")) return item;
+    n++;
+    const replaced = text.replace(/\{\{CLAUSE_NO\}\}/g, String(n));
+    return {
+      kind: "p" as const,
+      xml: replaceParagraphText(item.xml, escapeXml(replaced)),
+      text: replaced,
+    };
+  });
+}
+
 /** Process one document part's XML through the full block pipeline. */
 export function processDocumentXml(
   xml: string,
@@ -377,7 +410,11 @@ export function processDocumentXml(
     if (item.kind === "p") out.push(...processParagraph(item, ctx, clauses));
     else out.push(item);
   }
-  return itemsToXml(out);
+  // {{CLAUSE_NO}} is a DERIVED token resolved here, not in the replacement
+  // map — it must see the final, post-conditional paragraph list.
+  return itemsToXml(
+    ctx.config.clauseNumbering ? renumberClauses(out) : out,
+  );
 }
 
 const DOCX_MIME =

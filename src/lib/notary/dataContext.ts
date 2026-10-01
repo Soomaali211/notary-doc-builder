@@ -140,15 +140,31 @@ export function computeReplacements(
 
   for (const p of config.placeholders) {
     const { key, format: kind, fallback } = p.mapping;
-    const raw = resolveKey(values, key);
+    const bare = p.placeholder.replace(/[{}]/g, "").toUpperCase();
+    const raw = singularPartyValue(resolveKey(values, key), bare);
     let value = formatValueByKind(raw, kind, format);
     if (!value && fallback) value = fallback;
-    // Selects translate into their Somali wording inside the document.
+    // Selects and stored enums translate into their Somali wording inside
+    // the document — the raw storage value ("xidhan") must never be printed.
     if (value && !kind && value === raw) {
-      const label = selectSomaliLabel(key, String(raw ?? ""));
+      // Order matters: config wording wins, the built-in Somali label map is
+      // the fallback. Both return "" when nothing is declared, so the empty
+      // string — not ?? — decides whether the raw value survives.
+      const label =
+        derivedTextFor(config, key, String(raw ?? "")) ||
+        selectSomaliLabel(key, String(raw ?? ""));
       if (label) value = label;
     }
     map[p.placeholder] = value;
+  }
+
+  // Data annex — form fields the legal wording has no clause for, printed as
+  // neutral "Label: value" lines. See DocumentConfig.annexFields.
+  for (const field of config.annexFields ?? []) {
+    const raw = resolveKey(values, field.key);
+    const first = singularPartyValue(raw, field.token.toUpperCase());
+    const value = formatValueByKind(first, field.format, format);
+    map[`{{${field.token}}}`] = value;
   }
 
   // Joined party lists (legacy Phase 1 placeholders still supported).
@@ -209,6 +225,36 @@ export function computeReplacements(
   });
 
   return map;
+}
+
+/**
+ * A SINGULAR party placeholder ({{KIREYE_MAGAC}}, {{KIRAYSTE_TELEFOON}}, …)
+ * points at a party LIST field, so resolveKey returns string[]. Printing it
+ * raw produced "AHMED CALI,OMAR FARAH,…" on ONE line — several people's names
+ * in a single party slot.
+ *
+ * A singular slot must hold ONE person: the first filled row. List
+ * placeholders ({{KIREEYAYAAL_LIST}}, {{MARAGYO_LIST}}) keep the joined form,
+ * because joining is exactly what they are for.
+ */
+function singularPartyValue(raw: unknown, bareToken: string): unknown {
+  if (!Array.isArray(raw)) return raw;
+  if (bareToken.endsWith("_LIST")) return raw;
+  const first = raw.find((v) => String(v ?? "").trim() !== "");
+  return first ?? "";
+}
+
+/**
+ * Config-driven Somali wording for a stored value. Returns undefined when
+ * the config declares no wording for this field/value pair, so the caller
+ * can fall back to the value itself.
+ */
+function derivedTextFor(
+  config: DocumentConfig,
+  key: string,
+  raw: string,
+): string | undefined {
+  return config.derivedText?.[key]?.[raw];
 }
 
 function selectSomaliLabel(key: string, raw: string): string {
@@ -272,7 +318,30 @@ export function resolveFlags(
     );
     flags[`${group}_JOOGA`] = rows.some((r) => r.attendance?.status === "jooga");
   }
+
+  // Annex group flags. Each annex field belongs to a named group so the
+  // template can wrap a few lines in ONE {{IF:…}} and print nothing at all
+  // when the group has no value. Groups are declared by the annex field's
+  // `key` prefix — never hard-coded per document type.
+  for (const field of config.annexFields ?? []) {
+    const raw = resolveKey(values, field.key);
+    const value = String(Array.isArray(raw) ? (raw[0] ?? "") : (raw ?? "")).trim();
+    if (value) flags[annexGroupFlag(field.group)] = true;
+  }
+  const annexFlags = (config.annexFields ?? [])
+    .map((f) => annexGroupFlag(f.group))
+    .filter((f, i, arr) => arr.indexOf(f) === i);
+  for (const flag of annexFlags) if (flags[flag] === undefined) flags[flag] = false;
+  flags.ANNEX_HAS_VALUES = annexFlags.some((f) => flags[f] === true);
   return flags;
+}
+
+/**
+ * Group flag name for one annex group: "bangiga" → ANNEX_BANGIGA.
+ * Declared in the config, never derived from a form key.
+ */
+export function annexGroupFlag(group: string): string {
+  return `ANNEX_${group.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_")}`;
 }
 
 /**
@@ -426,6 +495,20 @@ export function knownPlaceholderNames(config: DocumentConfig): Set<string> {
   }
   for (const clause of config.clauses) {
     names.add(clause.placeholder.replace(/[{}]/g, "").toUpperCase());
+  }
+  // Sequential clause number — resolved by the renderer after conditionals,
+  // so {{CLAUSE_NO}} is only ever legal when numbering is enabled.
+  if (config.clauseNumbering) names.add("CLAUSE_NO");
+  for (const field of config.annexFields ?? []) {
+    names.add(field.token.toUpperCase());
+  }
+  // Annex group flags — {{IF:ANNEX_BANGIGA}} … {{END:ANNEX_BANGIGA}} and the
+  // umbrella {{IF:ANNEX_HAS_VALUES}} that hides the whole annex when empty.
+  if ((config.annexFields ?? []).length > 0) {
+    names.add("ANNEX_HAS_VALUES");
+    for (const field of config.annexFields ?? []) {
+      names.add(annexGroupFlag(field.group));
+    }
   }
   for (const block of config.repeatBlocks ?? []) {
     const id = block.blockId.toUpperCase();

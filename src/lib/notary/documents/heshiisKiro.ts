@@ -186,6 +186,50 @@ export const heshiisKiroConfig: DocumentConfig = {
     currency: { mode: "symbol", symbol: "$", code: "USD", wordsUnit: "Dollar" },
   },
 
+  // Somali WORDING for stored values. The form stores machine values
+  // ("xidhan", "muqadin"); the contract must read as Somali prose. Keeping
+  // the mapping here means a raw storage value can never reach a signed
+  // document, and adding a sub-type never touches the resolver.
+  derivedText: {
+    "heshiiska.muddada_nooca": {
+      furan: "Kiro Furan (Kiro u Joog)",
+      xidhan: "Kiro Xidhan (Muddo Cad)",
+    },
+    "heshiiska.kireeye_mode": {
+      single: "Kireye Hal",
+      multiple: "Kireeyayaal Badan",
+    },
+    "heshiiska.kirayste_mode": {
+      single: "Kirayste Hal",
+      multiple: "Kiraystayaal Badan",
+    },
+  },
+
+  // Sequential clause numbering: {{CLAUSE_NO}} counts only the clauses that
+  // survived their conditionals, so a removed Deebaaji/Damiin clause closes
+  // the gap instead of leaving 1,2,3,5,6.
+  clauseNumbering: true,
+
+  // Fields the form collects that the reference legal wording has no clause
+  // for. Printed as neutral "Label: value" annex lines — data, never invented
+  // legal prose. Empty values print nothing.
+  annexFields: [
+    { key: "lacagta.bangiga_magaca", token: "BANGIGA_MAGACA", label: "Magaca Bangiga", group: "bangiga" },
+    { key: "lacagta.bangiga_hisaabka", token: "BANGIGA_HISAABKA", label: "Nambarka Xisaabta Bangiga", group: "bangiga" },
+    { key: "lacagta.lacagta_hadhsan", token: "LACAGTA_HADSHAN", label: "Lacagta Hadhsan", format: "currency", group: "hadshan" },
+    { key: "lacagta.taariikhda_bixinta", token: "MUDDADA_BIXINTA", label: "Maalinta Bixinta", group: "bixinta" },
+    { key: "lacagta.bixinta_hore", token: "BIXINTA_HORE", label: "Xaaladda Bixinta", group: "bixinta" },
+    { key: "guriga.cinwaanka_guriga", token: "GURI_CINWAAN", label: "Cinwaanka Guriga", group: "cinwaan" },
+    { key: "guriga.qolada", token: "GURI_QOLADA", label: "Qolada / Faahfaahin La Xiriira", group: "qolada" },
+    { key: "heshiiska.shuruudaha_gaarka_ah", token: "SHURUUDAHA_GAARKA_AH", label: "Shuruudaha Gaarka ah", group: "shuruudaha" },
+    { key: "deebaaji.shuruudaha_deebaajiga", token: "DEEBAAJI_SHURUUDO", label: "Shuruudaha Deebaajiga", group: "deebaaji" },
+    { key: "damiinka.damiin_aqoonsi", token: "DAMIIN_AQOONSI", label: "Aqoonsiga Damiinka", group: "damiin_aqoonsi" },
+    { key: "damiinka.damiin_cinwaan", token: "DAMIIN_CINWAAN", label: "Cinwaanka Damiinka", group: "damiin_cinwaan" },
+    { key: "ogaysiinta.mudada_ogaysiinta", token: "OGAYSIIN_MUDADA", label: "Mudada Ogaysiinta", group: "ogaysiin_mudada" },
+    { key: "ogaysiinta.shuruudaha_joojinta", token: "OGAYSIIN_SHURUUDAH", label: "Shuruudaha Joojinta", group: "ogaysiin_shuruudo" },
+    { key: "ogaysiinta.faahfaahin_ogaysiinta", token: "OGAYSIIN_FAAHFAAHIN", label: "Faahfaahin Ogaysiin", group: "ogaysiin_faahfaahin" },
+  ],
+
   sections: [
     {
       id: "heshiiska",

@@ -205,7 +205,10 @@ export function buildHeshiisKiroTemplateV2(): Document {
             spacing: { after: 160 },
           }),
 
-          docTitle("HESHIIS KIRO GURI XAAS."),
+          // The subtype is DATA, never hard-coded: {{NOOCA_KIRADA}} renders
+          // "Guri Xaas" / "Qol Meherad" / "Jiingad" from the form, so a
+          // qol-meherad contract can never be titled "Guri Xaas".
+          docTitle(`HESHIIS KIRO ${T("NOOCA_KIRADA")}.`),
 
           /* ---- Kireeye: SINGULAR or PLURAL, never both (no duplicate) ----
            {{IF:KIREYE_HAL}}        → one person, singular label
@@ -302,48 +305,50 @@ export function buildHeshiisKiroTemplateV2(): Document {
           marker(`{{/${N("KIRAYSTAYAAL")}}}`),
           marker(`{{END:${N("KIRAYSTAYAAL_BADAN")}}}`),
 
-          // The property — inline sentence, as in the reference.
+          // The property — inline sentence, as in the reference. The property
+          // type comes from {{GURI_NOOCA}} (the guriga section's own field),
+          // so it tracks the same answer without being hard-coded.
           body(
-            `Waa Guri Xaas ku yaalla ${T("GURI_GOOBTA")}, ${T("GURI_SHARRAXAAD")}`,
+            `Waa ${T("GURI_NOOCA")} ku yaalla ${T("GURI_GOOBTA")}, ${T("GURI_SHARRAXAAD")}`,
           ),
 
           /* ---- Numbered legal clauses ---- */
           centredHeading("QODOBADA HESHIISKA"),
 
-          body(`1. ${LEGAL.c1a} ${T("KIRADA_QIIMAHA")} ${T("KIRADA_QIIMAHA_QORAAL")}.`),
+          body(`{{CLAUSE_NO}}. ${LEGAL.c1a} ${T("KIRADA_QIIMAHA")} ${T("KIRADA_QIIMAHA_QORAAL")}.`),
 
-          body(`2. ${LEGAL.c2a} ${T("TAARIIKH_BILOWGA")}.`),
+          body(`{{CLAUSE_NO}}. ${LEGAL.c2a} ${T("TAARIIKH_BILOWGA")}.`),
 
-          body(`3. ${LEGAL.c3a} ${T("XALADDA_KIRADA")}.`),
+          body(`{{CLAUSE_NO}}. ${LEGAL.c3a} ${T("XALADDA_KIRADA")}.`),
 
           // Payment method is NOT conditional — it always prints.
-          body(`4. ${LEGAL.c4a} ${T("HABKA_BIXINTA")}.`),
+          body(`{{CLAUSE_NO}}. ${LEGAL.c4a} ${T("HABKA_BIXINTA")}.`),
           // Only the FIXED-TERM end date depends on Xidhan vs Furan.
           marker(`{{IF:${N("KIRO_XIDHAN")}}}`),
           body(`Taariikhda uu heshiisku ku dhammaanayo waa ${T("TAARIIKH_DHAMMAAD")}.`),
           marker(`{{END:${N("KIRO_XIDHAN")}}}`),
 
           body(
-            `5. ${LEGAL.c4b} ${T("TAARIIKH_BILOWGA")}, lacagta kirada waxaa la qadimay ${T("KIRADA_QIIMAHA")} ${T("KIRADA_QIIMAHA_QORAAL")}. ${T("FAAHFAAHIN_LACAGTA")}`,
+            `{{CLAUSE_NO}}. ${LEGAL.c4b} ${T("TAARIIKH_BILOWGA")}, lacagta kirada waxaa la qadimay ${T("KIRADA_QIIMAHA")} ${T("KIRADA_QIIMAHA_QORAAL")}. ${T("FAAHFAAHIN_LACAGTA")}`,
           ),
 
           // Deposit breach clause — only when a deposit is agreed.
           marker(`{{IF:${N("DEEBAAJI_HAA")}}}`),
           body(
-            `6. ${LEGAL.c5a} ${T("DEEBAAJI_QIIMAHA")}. ${LEGAL.c5b}`,
+            `{{CLAUSE_NO}}. ${LEGAL.c5a} ${T("DEEBAAJI_QIIMAHA")}. ${LEGAL.c5b}`,
           ),
           marker(`{{END:${N("DEEBAAJI_HAA")}}}`),
 
-          body(`7. ${LEGAL.c6}`),
+          body(`{{CLAUSE_NO}}. ${LEGAL.c6}`),
 
-          body(`8. ${LEGAL.c7}`),
+          body(`{{CLAUSE_NO}}. ${LEGAL.c7}`),
 
-          body(`9. ${LEGAL.c8}`),
+          body(`{{CLAUSE_NO}}. ${LEGAL.c8}`),
 
           // Damiin — a legal attestation, not a data row.
           marker(`{{IF:${N("DAMIIN_HAA")}}}`),
           body(
-            `10. DAMIIN MAAL: Anigoo ah ${T("DAMIIN_MAGAC")}, Waxaan Cadaynayaa inaan Damiinta Buuxa ka ahay kiraystaha Gurigan. Haddii Dhinaca laga bilaabo wax Kaso noqdaan ama Lacag Lagu Yesho, Aniga ayaa la iiraacay doonaa.`,
+            `{{CLAUSE_NO}}. DAMIIN MAAL: Anigoo ah ${T("DAMIIN_MAGAC")}, Waxaan Cadaynayaa inaan Damiinta Buuxa ka ahay kiraystaha Gurigan. Haddii Dhinaca laga bilaabo wax Kaso noqdaan ama Lacag Lagu Yesho, Aniga ayaa la iiraacay doonaa.`,
           ),
           new Paragraph({
             tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
@@ -357,10 +362,58 @@ export function buildHeshiisKiroTemplateV2(): Document {
           }),
           marker(`{{END:${N("DAMIIN_HAA")}}}`),
 
-          body(`11. ${LEGAL.c10}`),
+          body(`{{CLAUSE_NO}}. ${LEGAL.c10}`),
 
           /* ---- Extra terms (kept as prose) ---- */
           body(`${T("DHERAAD_SHURUUDO")}`),
+
+          /* ---- Data annex ----
+             Form fields the reference legal wording has no clause for. Printed
+             as neutral "Label: value" lines, never as invented legal prose —
+             and a line with an empty value prints nothing at all. The annex
+             heading is part of the DATA, not static text, so the whole block
+             disappears when no annex field has a value. */
+          marker(`{{IF:${N("ANNEX_HAS_VALUES")}}}`),
+          centredHeading("XOGTA HESHIISKA"),
+          marker(`{{IF:${N("ANNEX_BANGIGA")}}}`),
+          body(`${"Magaca Bangiga"}: ${T("BANGIGA_MAGACA")}`),
+          body(`${"Nambarka Xisaabta"}: ${T("BANGIGA_HISAABKA")}`),
+          marker(`{{END:${N("ANNEX_BANGIGA")}}}`),
+          marker(`{{IF:${N("ANNEX_HADSHAN")}}}`),
+          body(`${"Lacagta Hadhsan"}: ${T("LACAGTA_HADSHAN")}`),
+          marker(`{{END:${N("ANNEX_HADSHAN")}}}`),
+          marker(`{{IF:${N("ANNEX_BIXINTA")}}}`),
+          body(`${"Maalinta Bixinta"}: ${T("MUDDADA_BIXINTA")}`),
+          body(`${"Xaaladda Bixinta"}: ${T("BIXINTA_HORE")}`),
+          marker(`{{END:${N("ANNEX_BIXINTA")}}}`),
+          marker(`{{IF:${N("ANNEX_CINWAAN")}}}`),
+          body(`${"Cinwaanka Guriga"}: ${T("GURI_CINWAAN")}`),
+          marker(`{{END:${N("ANNEX_CINWAAN")}}}`),
+          marker(`{{IF:${N("ANNEX_QOLADA")}}}`),
+          body(`${"Qolada"}: ${T("GURI_QOLADA")}`),
+          marker(`{{END:${N("ANNEX_QOLADA")}}}`),
+          marker(`{{IF:${N("ANNEX_SHURUUDAHA")}}}`),
+          body(`${"Shuruudaha Gaarka ah"}: ${T("SHURUUDAHA_GAARKA_AH")}`),
+          marker(`{{END:${N("ANNEX_SHURUUDAHA")}}}`),
+          marker(`{{IF:${N("ANNEX_DEEBAAJI")}}}`),
+          body(`${"Shuruudaha Deebaajiga"}: ${T("DEEBAAJI_SHURUUDO")}`),
+          marker(`{{END:${N("ANNEX_DEEBAAJI")}}}`),
+          marker(`{{IF:${N("ANNEX_DAMIIN_AQOONSI")}}}`),
+          body(`${"Aqoonsiga Damiinka"}: ${T("DAMIIN_AQOONSI")}`),
+          marker(`{{END:${N("ANNEX_DAMIIN_AQOONSI")}}}`),
+          marker(`{{IF:${N("ANNEX_DAMIIN_CINWAAN")}}}`),
+          body(`${"Cinwaanka Damiinka"}: ${T("DAMIIN_CINWAAN")}`),
+          marker(`{{END:${N("ANNEX_DAMIIN_CINWAAN")}}}`),
+          marker(`{{IF:${N("ANNEX_OGAYSIIN_MUDADA")}}}`),
+          body(`${"Mudada Ogaysiinta"}: ${T("OGAYSIIN_MUDADA")}`),
+          marker(`{{END:${N("ANNEX_OGAYSIIN_MUDADA")}}}`),
+          marker(`{{IF:${N("ANNEX_OGAYSIIN_SHURUUDO")}}}`),
+          body(`${"Shuruudaha Joojinta"}: ${T("OGAYSIIN_SHURUUDAH")}`),
+          marker(`{{END:${N("ANNEX_OGAYSIIN_SHURUUDO")}}}`),
+          marker(`{{IF:${N("ANNEX_OGAYSIIN_FAAHFAAHIN")}}}`),
+          body(`${"Faahfaahin Ogaysiin"}: ${T("OGAYSIIN_FAAHFAAHIN")}`),
+          marker(`{{END:${N("ANNEX_OGAYSIIN_FAAHFAAHIN")}}}`),
+          marker(`{{END:${N("ANNEX_HAS_VALUES")}}}`),
 
           /* ---- Witnesses — repeatable, prose style ---- */
           centredHeading("Maragyo Goob Joogayaala."),

@@ -246,6 +246,53 @@ export type FormatKind =
   | "yes_no"
   | "number";
 
+/**
+ * Config-driven Somali WORDING for a raw stored value.
+ *
+ * A stored value is machine data ("xidhan", "muqadin", "cash"); the contract
+ * needs Somali prose ("Kiro Xidhan", "MUQADIN …"). The wording therefore
+ * lives in the document CONFIG, never in the resolver and never in the
+ * template — so a raw storage value can never leak into a signed document.
+ *
+ *   derivedText: {
+ *     "heshiiska.muddada_nooca": { furan: "…", xidhan: "…" },
+ *   }
+ */
+export type DerivedText = Record<string, Record<string, string>>;
+
+/**
+ * One field of the optional DATA ANNEX.
+ *
+ * Real notary wording covers only the clauses the office actually reads
+ * aloud. Fields the form collects but the reference wording has no home
+ * for (bank details, notice period, termination terms…) are printed in a
+ * neutral "XOGTA HESHIISKA" annex as `Label: value` — data, not invented
+ * legal prose. A line is omitted entirely when its value is empty.
+ */
+export interface AnnexFieldDef {
+  /** Form-state path, e.g. "lacagta.bangiga_hisaabka". */
+  key: string;
+  /** Canonical placeholder token, e.g. "BANGIGA_HISAABKA". */
+  token: string;
+  /** Somali label printed before the value. */
+  label: string;
+  /**
+   * Group name — the template wraps a group in ONE {{IF:ANNEX_<GROUP>}} so
+   * the line disappears when the field has no value. Declared here
+   * explicitly; never derived from the key, so renaming a form field can
+   * never silently move an annex line.
+   *
+   * Use ONE group per printed LINE (default) so an empty field never leaves
+   * a dangling "Label:" in the document. Only group several fields together
+   * when they are always filled together.
+   */
+  group: string;
+  /** Format applied to the value (currency/date/… ). */
+  format?: FormatKind;
+  /** Print the line only when this rule holds (e.g. bank transfer only). */
+  when?: Condition;
+}
+
 export interface FieldMapping {
   /** Form value key: a scalar path ("heshiiska.reference") or a
    *  party-derived key ("kireeyayaal.names", "maragyo.joined"). */
@@ -315,6 +362,27 @@ export interface DocumentConfig {
   conditionFlags?: Record<string, Condition>;
   /** Phase 3 — configurable document formatting (dates, currency). */
   format?: DocumentFormatConfig;
+  /**
+   * Somali wording for stored values (see DerivedText). Consulted by the
+   * data context whenever a placeholder's raw value has no dedicated
+   * FormatKind — keeps raw values such as "xidhan" out of the document.
+   */
+  derivedText?: DerivedText;
+  /**
+   * Optional data-annex fields — collected by the form, printed as neutral
+   * `Label: value` lines where the legal wording has no clause for them.
+   * Empty values print nothing.
+   */
+  annexFields?: AnnexFieldDef[];
+  /**
+   * Sequential clause numbering.
+   *
+   * When true the renderer replaces every {{CLAUSE_NO}} with the next
+   * number (1, 2, 3 …) counting ONLY the clauses that survived their
+   * {{IF:FLAG}} sections, so removing a conditional clause closes the gap
+   * instead of leaving 1,2,3,5,6.
+   */
+  clauseNumbering?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
