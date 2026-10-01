@@ -370,54 +370,6 @@ export function buildHeshiisKiroTemplateV2(): Document {
           /* ---- Extra terms (kept as prose) ---- */
           body(`${T("DHERAAD_SHURUUDO")}`),
 
-          /* ---- Data annex ----
-             Form fields the reference legal wording has no clause for. Printed
-             as neutral "Label: value" lines, never as invented legal prose —
-             and a line with an empty value prints nothing at all. The annex
-             heading is part of the DATA, not static text, so the whole block
-             disappears when no annex field has a value. */
-          marker(`{{IF:${N("ANNEX_HAS_VALUES")}}}`),
-          centredHeading("XOGTA HESHIISKA"),
-          marker(`{{IF:${N("ANNEX_BANGIGA")}}}`),
-          body(`${"Magaca Bangiga"}: ${T("BANGIGA_MAGACA")}`),
-          body(`${"Nambarka Xisaabta"}: ${T("BANGIGA_HISAABKA")}`),
-          marker(`{{END:${N("ANNEX_BANGIGA")}}}`),
-          marker(`{{IF:${N("ANNEX_HADSHAN")}}}`),
-          body(`${"Lacagta Hadhsan"}: ${T("LACAGTA_HADSHAN")}`),
-          marker(`{{END:${N("ANNEX_HADSHAN")}}}`),
-          marker(`{{IF:${N("ANNEX_BIXINTA")}}}`),
-          body(`${"Maalinta Bixinta"}: ${T("MUDDADA_BIXINTA")}`),
-          body(`${"Xaaladda Bixinta"}: ${T("BIXINTA_HORE")}`),
-          marker(`{{END:${N("ANNEX_BIXINTA")}}}`),
-          marker(`{{IF:${N("ANNEX_CINWAAN")}}}`),
-          body(`${"Cinwaanka Guriga"}: ${T("GURI_CINWAAN")}`),
-          marker(`{{END:${N("ANNEX_CINWAAN")}}}`),
-          marker(`{{IF:${N("ANNEX_QOLADA")}}}`),
-          body(`${"Qolada"}: ${T("GURI_QOLADA")}`),
-          marker(`{{END:${N("ANNEX_QOLADA")}}}`),
-          marker(`{{IF:${N("ANNEX_SHURUUDAHA")}}}`),
-          body(`${"Shuruudaha Gaarka ah"}: ${T("SHURUUDAHA_GAARKA_AH")}`),
-          marker(`{{END:${N("ANNEX_SHURUUDAHA")}}}`),
-          marker(`{{IF:${N("ANNEX_DEEBAAJI")}}}`),
-          body(`${"Shuruudaha Deebaajiga"}: ${T("DEEBAAJI_SHURUUDO")}`),
-          marker(`{{END:${N("ANNEX_DEEBAAJI")}}}`),
-          marker(`{{IF:${N("ANNEX_DAMIIN_AQOONSI")}}}`),
-          body(`${"Aqoonsiga Damiinka"}: ${T("DAMIIN_AQOONSI")}`),
-          marker(`{{END:${N("ANNEX_DAMIIN_AQOONSI")}}}`),
-          marker(`{{IF:${N("ANNEX_DAMIIN_CINWAAN")}}}`),
-          body(`${"Cinwaanka Damiinka"}: ${T("DAMIIN_CINWAAN")}`),
-          marker(`{{END:${N("ANNEX_DAMIIN_CINWAAN")}}}`),
-          marker(`{{IF:${N("ANNEX_OGAYSIIN_MUDADA")}}}`),
-          body(`${"Mudada Ogaysiinta"}: ${T("OGAYSIIN_MUDADA")}`),
-          marker(`{{END:${N("ANNEX_OGAYSIIN_MUDADA")}}}`),
-          marker(`{{IF:${N("ANNEX_OGAYSIIN_SHURUUDO")}}}`),
-          body(`${"Shuruudaha Joojinta"}: ${T("OGAYSIIN_SHURUUDAH")}`),
-          marker(`{{END:${N("ANNEX_OGAYSIIN_SHURUUDO")}}}`),
-          marker(`{{IF:${N("ANNEX_OGAYSIIN_FAAHFAAHIN")}}}`),
-          body(`${"Faahfaahin Ogaysiin"}: ${T("OGAYSIIN_FAAHFAAHIN")}`),
-          marker(`{{END:${N("ANNEX_OGAYSIIN_FAAHFAAHIN")}}}`),
-          marker(`{{END:${N("ANNEX_HAS_VALUES")}}}`),
-
           /* ---- Witnesses — repeatable, prose style ---- */
           centredHeading("Maragyo Goob Joogayaala."),
           marker(`{{#${N("MARAGYO")}}}`),

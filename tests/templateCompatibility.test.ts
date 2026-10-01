@@ -240,9 +240,10 @@ describe("Template Compatibility Validator — the real v2 template", () => {
     expect(r.invalidRepeaters).toEqual([]);
     expect(r.blocking).toEqual([]);
     expect(r.canGenerate).toBe(true);
-    // Every token in the shipped template resolves; the exact count grows as
-    // the template gains the annex + clause-number tokens.
-    expect(r.recognized.length).toBeGreaterThan(100);
+    // Every token in the shipped template resolves. The exact count is the
+    // template owner's choice — the validator checks that NOTHING is unknown,
+    // not how many tokens the design happens to use.
+    expect(r.recognized.length).toBeGreaterThan(60);
     expect(r.unknown).toHaveLength(0);
     // Nothing invented: every recognized token is a real system name.
     // Structural markers ({{END:…}}, {{/BLOCK}}) are closers, not data

@@ -468,14 +468,19 @@ describe("GATE 5 — scenarios A..N, end to end", () => {
     expect(doc(v)).toContain("Taariikhda uu heshiisku ku dhammaanayo waa 01/10/2027");
   });
 
-  test("H. Deebaaji Haa — section and fields present", () => {
+  test("H. Deebaaji Haa — the legal clause prints the amount", () => {
     const v = base();
     merge(v, "heshiiska", { deebaaji_haa: "yes" });
     v.deebaaji = { lacagta_deebaajiga: "50", shuruudaha_deebaajiga: "Miitarka 9911." };
     const text = doc(v);
     expect(text).toContain("$50");
-    expect(text).toContain("Miitarka 9911.");
+    expect(text).toContain("Konton oo Dollar");
     expect(clauseNos(v)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    // The meter condition is STORED; the template does not name it, so it is
+    // not printed. A stored field is not a printing obligation.
+    const ctx = buildDataContext(C, v);
+    expect(ctx.replacements["{{DEEBAAJI_SHURUUDO}}"]).toBe("Miitarka 9911.");
+    expect(text).not.toContain("Miitarka 9911.");
   });
 
   test("I. Deebaaji Maya — section gone, sequence closes", () => {
@@ -486,7 +491,7 @@ describe("GATE 5 — scenarios A..N, end to end", () => {
     expect(clauseNos(v)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
-  test("J. Damiin Haa — every damiin field reaches the document", () => {
+  test("J. Damiin Haa — the legal clause prints name + phone", () => {
     const v = base();
     merge(v, "heshiiska", { damiin_haa: "yes" });
     v.damiinka = {
@@ -498,9 +503,15 @@ describe("GATE 5 — scenarios A..N, end to end", () => {
     const text = doc(v);
     expect(text).toContain("MAXAMED ALI");
     expect(text).toContain("0611000000");
-    expect(text).toContain("ID-D99");
-    expect(text).toContain("PLACE-D99");
     expect(clauseNos(v)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    // AQOONSI and CINWAAN are stored and resolvable, but the template does
+    // not name them — so they stay off the page. This is the design rule,
+    // not a missing route.
+    const ctx = buildDataContext(C, v);
+    expect(ctx.replacements["{{DAMIIN_AQOONSI}}"]).toBe("ID-D99");
+    expect(ctx.replacements["{{DAMIIN_CINWAAN}}"]).toBe("PLACE-D99");
+    expect(text).not.toContain("ID-D99");
+    expect(text).not.toContain("PLACE-D99");
   });
 
   test("K. Damiin Maya — section gone, sequence closes", () => {

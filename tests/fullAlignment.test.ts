@@ -226,7 +226,7 @@ describe("A–N — full alignment matrix", () => {
     expect(clauseNos(v)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
-  test("J. Damiin Haa — name, phone and ID all reach the document", () => {
+  test("J. Damiin Haa — the legal clause prints name + phone", () => {
     const v = base();
     merge(v, "heshiiska", { damiin_haa: "yes" });
     v.damiinka = {
@@ -239,10 +239,18 @@ describe("A–N — full alignment matrix", () => {
     expect(text).toContain("DAMIIN MAAL");
     expect(text).toContain("MAXAMED ALI");
     expect(text).toContain("0611000000");
-    expect(text).toContain("ID-99");
-    expect(text).toContain("Hargeisa");
     // The guarantor clause is present, so the contract has 10 clauses.
     expect(clauseNos(v)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+    // AQOONSI / CINWAAN are STORED, not printed. The template owner decides
+    // what reaches the page: a field the template does not name is kept in
+    // the data model and simply does not appear. That is the rule — a form
+    // field existing is not a reason to print it.
+    const ctx = buildDataContext(C, v);
+    expect(ctx.replacements["{{DAMIIN_AQOONSI}}"]).toBe("ID-99");
+    expect(ctx.replacements["{{DAMIIN_CINWAAN}}"]).toBe("Hargeisa");
+    // …and because the template does not name them, the page stays clean.
+    expect(text).not.toContain("ID-99");
   });
 
   test("K. Damiin Maya — the whole section is gone", () => {
@@ -333,16 +341,20 @@ describe("Singular party slots hold ONE person", () => {
   });
 });
 
-describe("Data annex — form fields that used to stop at the form", () => {
-  test("a required field with no legal clause still reaches the document", () => {
+describe("Form data is kept; printing is the template owner's choice", () => {
+  test("a required field with no template placeholder is stored, not printed", () => {
     const v = base();
     merge(v, "lacagta", {
       bangiga_magaca: "SOMALI BANK",
       bangiga_hisaabka: "1-2-3-4",
     });
-    const text = doc(v);
-    expect(text).toContain("Magaca Bangiga: SOMALI BANK");
-    expect(text).toContain("Nambarka Xisaabta: 1-2-3-4");
+    // Stored and resolvable…
+    const ctx = buildDataContext(C, v);
+    expect(ctx.replacements["{{BANGIGA_MAGACA}}"]).toBe("SOMALI BANK");
+    expect(ctx.replacements["{{BANGIGA_HISAABKA}}"]).toBe("1-2-3-4");
+    // …but the shipped template does not name them, so they do not print.
+    // This is CORRECT behaviour, not a missing field.
+    expect(doc(v)).not.toContain("SOMALI BANK");
   });
 
   test("every annex field declared in the config has a placeholder value", () => {
@@ -357,6 +369,44 @@ describe("Data annex — form fields that used to stop at the form", () => {
     const v = base();
     const text = doc(v);
     expect(text).not.toMatch(/\n\s*[A-Za-z]+:\s*$/m);
+  });
+
+  test("the annex is NOT in the template — the design is the owner's", () => {
+    // The document contains no annex section and no ANNEX_* markers.
+    const v = base();
+    const text = doc(v);
+    expect(text).not.toContain("XOGTA HESHIISKA");
+    for (const flag of [
+      "ANNEX_HAS_VALUES",
+      "ANNEX_BANGIGA",
+      "ANNEX_HADSHAN",
+      "ANNEX_BIXINTA",
+      "ANNEX_CINWAAN",
+      "ANNEX_QOLADA",
+      "ANNEX_SHURUUDAHA",
+      "ANNEX_DEEBAAJI",
+      "ANNEX_DAMIIN_AQOONSI",
+      "ANNEX_DAMIIN_CINWAAN",
+      "ANNEX_OGAYSIIN_MUDADA",
+      "ANNEX_OGAYSIIN_SHURUUDO",
+      "ANNEX_OGAYSIIN_FAAHFAAHIN",
+    ]) {
+      expect(text, flag).not.toContain(flag);
+    }
+  });
+
+  test("a form field with no template placeholder is KEPT, not deleted", () => {
+    // The rule: form field stores data · template placeholder decides print.
+    // So an unprinted field must still exist in the model and still resolve.
+    const v = base();
+    merge(v, "lacagta", { bangiga_magaca: "SOMALI BANK", bangiga_hisaabka: "1-2-3-4" });
+    const ctx = buildDataContext(C, v);
+    expect(ctx.replacements["{{BANGIGA_MAGACA}}"]).toBe("SOMALI BANK");
+    expect(ctx.replacements["{{BANGIGA_HISAABKA}}"]).toBe("1-2-3-4");
+    // Present in the model…
+    expect(v.lacagta).toHaveProperty("bangiga_magaca");
+    // …not on the page, because the template does not ask for it.
+    expect(doc(v)).not.toContain("SOMALI BANK");
   });
 
   test("the whole annex disappears when no annex field has a value", () => {
