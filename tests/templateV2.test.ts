@@ -126,10 +126,14 @@ describe("Template v2 — legal-document starter", () => {
   });
 
   test("has balanced repeatable blocks and conditionals", () => {
+    // A block may legitimately appear more than once (e.g. KIREYEYAYAAL is
+    // used once to list the parties and once to collect their signatures);
+    // what must hold is that every open has a matching close.
     for (const b of ["KIREYEYAYAAL", "KIRAYSTAYAAL", "MARAGYO"]) {
       const open = docXml.split(`{{#${b}}}`).length - 1;
       const close = docXml.split(`{{/${b}}}`).length - 1;
-      expect(`${b} ${open}/${close}`).toBe(`${b} 1/1`);
+      expect(`${b} balanced: ${open === close}`).toBe(`${b} balanced: true`);
+      expect(`${b} present: ${open > 0}`).toBe(`${b} present: true`);
     }
     for (const f of ["KIRO_XIDHAN", "DEEBAAJI_HAA", "DAMIIN_HAA"]) {
       const open = docXml.split(`{{IF:${f}}}`).length - 1;

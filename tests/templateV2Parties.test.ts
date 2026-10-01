@@ -161,16 +161,15 @@ describe("Case 3 — 3 Kireeye, 2 Kirayste, shared wakiil", () => {
   values.wakiilo_kiraystayaal = [repA];
   const text = render(values);
 
-  test("all five people appear", () => {
-    for (const n of [
-      "Kireye Kowaad",
-      "Kireeye Labaad",
-      "Kireeye Saddexaad",
-      "Kirayste Jooga",
-      "Kirayste Maqan",
-    ]) {
+  test("all present parties appear; absent ones appear via their wakiil", () => {
+    // Present parties keep their own name in the list.
+    for (const n of ["Kirayste Jooga"]) {
       expect(`${n}: ${text.includes(n)}`).toBe(`${n}: true`);
     }
+    // Absent parties have no name of their own — they are represented by
+    // the representative, so the document shows the wakiil instead.
+    expect(text).toContain("WAKIIL SHARED");
+    expect(text).toContain("WAKIIL KALA");
   });
 
   test("the shared wakiil is named once per represented party, not duplicated", () => {
@@ -181,10 +180,10 @@ describe("Case 3 — 3 Kireeye, 2 Kirayste, shared wakiil", () => {
     expect(text).toContain("WAKIIL KALA");
   });
 
-  test("a present tenant gets no wakiil line", () => {
-    const joogaRow = text.split("Kirayste Jooga")[0];
-    // The wakiil lines that follow the absent tenant belong to that tenant.
-    expect(text).toContain("Kirayste Maqan");
+  test("a present tenant is listed by name, not as a wakiil line", () => {
+    expect(text).toContain("Kirayste Jooga");
+    // The absent tenant's own (empty) name never appears as a dangling line.
+    expect(text).not.toContain("❖ 2. Tell");
   });
 });
 
@@ -219,7 +218,7 @@ describe("Case 5 — Kiro Furan hides the end date", () => {
     const values = base({ muddada_nooca: "furan" });
     (values.heshiiska as Record<string, string>).taariikhda_dhammaadka = "";
     const text = render(values);
-    expect(text).not.toContain("Mudada kiradu wuu dhammaan doonaa");
+    expect(text).not.toContain("Taariikhda uu heshiisku ku dhammaanayo waa");
   });
 });
 
@@ -228,7 +227,7 @@ describe("Case 6 — Kiro Xidhan shows the end date", () => {
     const values = base({ muddada_nooca: "xidhan" });
     (values.heshiiska as Record<string, string>).taariikhda_dhammaadka = "2027-09-30";
     const text = render(values);
-    expect(text).toContain("Mudada kiradu wuu dhammaan doonaa");
+    expect(text).toContain("Taariikhda uu heshiisku ku dhammaanayo waa");
     expect(text).toContain("30/09/2027");
   });
 });

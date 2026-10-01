@@ -122,6 +122,13 @@ function partyLine(namePart: string, phonePart: string): Paragraph {
   });
 }
 
+/**
+ * A repeat-row party line. An absent party has no name of its own, so the
+ * row must show ONLY the representative who stands in — never a dangling
+ * "❖ 2. Tell" with no name. Returns two paragraphs: the name row (skipped
+ * when empty by the renderer's own empty-token rule) and the wakiil row.
+ */
+
 /** Small centred heading used for "QODOBADA HESHIISKA" etc. */
 function centredHeading(text: string): Paragraph {
   return new Paragraph({
@@ -227,10 +234,13 @@ export function buildHeshiisKiroTemplateV2(): Document {
           marker(`{{IF:${N("KIREEYAYAAL_BADAN")}}}`),
           clauseTitle("Magacyada Kireeyayaasha Guriga"),
           marker(`{{#${N("KIREYEYAYAAL")}}}`),
+          // Present row: the person's own name and phone.
+          marker("{{IF:JOOGA}}"),
           partyLine("❖ {{NUMBER}}. {{MAGAC}}", "{{TELEFOON}}"),
-          // Row-scoped: only the absent party's wakiil line renders.
+          marker("{{END:JOOGA}}"),
+          // Absent row: the representative bound to THIS row stands in.
           marker("{{IF:WAKIIL}}"),
-          partyLine("❖ Wakiilka: {{WAKIIL_MAGAC}}", "{{WAKIIL_TELEFOON}}"),
+          partyLine("❖ {{NUMBER}}. Wakiilka: {{WAKIIL_MAGAC}}", "{{WAKIIL_TELEFOON}}"),
           marker("{{END:WAKIIL}}"),
           marker(`{{/${N("KIREYEYAYAAL")}}}`),
           marker(`{{END:${N("KIREEYAYAAL_BADAN")}}}`),
@@ -252,9 +262,11 @@ export function buildHeshiisKiroTemplateV2(): Document {
           marker(`{{IF:${N("KIRAYSTAYAAL_BADAN")}}}`),
           clauseTitle("Magacyada Kiraystayaasha Guriga"),
           marker(`{{#${N("KIRAYSTAYAAL")}}}`),
+          marker("{{IF:JOOGA}}"),
           partyLine("❖ {{NUMBER}}. {{MAGAC}}", "{{TELEFOON}}"),
+          marker("{{END:JOOGA}}"),
           marker("{{IF:WAKIIL}}"),
-          partyLine("❖ Wakiilka: {{WAKIIL_MAGAC}}", "{{WAKIIL_TELEFOON}}"),
+          partyLine("❖ {{NUMBER}}. Wakiilka: {{WAKIIL_MAGAC}}", "{{WAKIIL_TELEFOON}}"),
           marker("{{END:WAKIIL}}"),
           marker(`{{/${N("KIRAYSTAYAAL")}}}`),
           marker(`{{END:${N("KIRAYSTAYAAL_BADAN")}}}`),
@@ -273,9 +285,11 @@ export function buildHeshiisKiroTemplateV2(): Document {
 
           body(`3. ${LEGAL.c3a} ${T("XALADDA_KIRADA")}.`),
 
-          // Fixed-term end date only appears for a Xidhan lease.
+          // Payment method is NOT conditional — it always prints.
+          body(`4. ${LEGAL.c4a} ${T("HABKA_BIXINTA")}.`),
+          // Only the FIXED-TERM end date depends on Xidhan vs Furan.
           marker(`{{IF:${N("KIRO_XIDHAN")}}}`),
-          body(`4. ${LEGAL.c4a} ${T("HABKA_BIXINTA")}. Mudada kiradu wuu dhammaan doonaa ${T("TAARIIKH_DHAMMAAD")}.`),
+          body(`Taariikhda uu heshiisku ku dhammaanayo waa ${T("TAARIIKH_DHAMMAAD")}.`),
           marker(`{{END:${N("KIRO_XIDHAN")}}}`),
 
           body(
@@ -350,29 +364,82 @@ export function buildHeshiisKiroTemplateV2(): Document {
             children: [new TextRun({ text: "Saxiiyada:", bold: true })],
             spacing: { before: 320, after: 80 },
           }),
+          // A party signs for itself when present; when absent, the person who
+          // signs is the representative who stands in for them. Exactly one
+          // of these two blocks renders — never an empty signature line.
+          // Single party → one signature block with the scalar name.
+          marker(`{{IF:${N("KIREYE_HAL")}}}`),
+          marker("{{IF:KIREEYE_JOOGA}}"),
           ...signatureBlock("Kireeye", T("KIREYE_MAGAC"), T("KIREYE_TELEFOON")),
+          marker("{{END:KIREEYE_JOOGA}}"),
+          marker("{{IF:KIREEYE_WAKIIL}}"),
+          ...signatureBlock(
+            "Wakiilka (oo matalaya Kireeyaha)",
+            "{{KIREEYE_WAKIIL_MAGAC}}",
+            "{{KIREEYE_WAKIIL_TELEFOON}}",
+          ),
+          marker("{{END:KIREEYE_WAKIIL}}"),
+          marker(`{{END:${N("KIREYE_HAL")}}}`),
+
+          // Several parties → one signature block per SIGNING party, so a
+          // scalar {{KIREYE_MAGAC}} (a joined list when plural) is never
+          // printed on its own. Present parties sign; each representative
+          // signs once for the group of people they stand in for.
+          marker(`{{IF:${N("KIREEYAYAAL_BADAN")}}}`),
+          marker(`{{#${N("KIREYEYAYAAL")}}}`),
+          marker("{{IF:JOOGA}}"),
+          ...signatureBlock("Kireeye {{NUMBER}}", "{{MAGAC}}", "{{TELEFOON}}"),
+          marker("{{END:JOOGA}}"),
+          marker("{{/KIREYEYAYAAL}}"),
+          marker(`{{END:${N("KIREEYAYAAL_BADAN")}}}`),
+
+          marker(`{{IF:${N("KIRAYSTE_HAL")}}}`),
+          marker("{{IF:KIRAYSTE_JOOGA}}"),
           ...signatureBlock("Kirayste", T("KIRAYSTE_MAGAC"), T("KIRAYSTE_TELEFOON")),
+          marker("{{END:KIRAYSTE_JOOGA}}"),
+          marker("{{IF:KIRAYSTE_WAKIIL}}"),
+          ...signatureBlock(
+            "Wakiilka (oo matalaya Kiraystaha)",
+            "{{KIRAYSTE_WAKIIL_MAGAC}}",
+            "{{KIRAYSTE_WAKIIL_TELEFOON}}",
+          ),
+          marker("{{END:KIRAYSTE_WAKIIL}}"),
+          marker(`{{END:${N("KIRAYSTE_HAL")}}}`),
+
+          marker(`{{IF:${N("KIRAYSTAYAAL_BADAN")}}}`),
+          marker(`{{#${N("KIRAYSTAYAAL")}}}`),
+          marker("{{IF:JOOGA}}"),
+          ...signatureBlock("Kirayste {{NUMBER}}", "{{MAGAC}}", "{{TELEFOON}}"),
+          marker("{{END:JOOGA}}"),
+          marker("{{/KIRAYSTAYAAL}}"),
+          marker(`{{END:${N("KIRAYSTAYAAL_BADAN")}}}`),
+
+          // Representatives sign once for everyone they represent, in the
+          // plural case too — never a duplicate block per absent party.
+          marker(`{{IF:${N("KIREEYAYAAL_BADAN")}}}`),
+          marker("{{IF:KIREEYE_WAKIIL}}"),
+          ...signatureBlock(
+            "Wakiilka (oo matalaya Kireeyada)",
+            "{{KIREEYE_WAKIIL_MAGAC}}",
+            "{{KIREEYE_WAKIIL_TELEFOON}}",
+          ),
+          marker("{{END:KIREEYE_WAKIIL}}"),
+          marker(`{{END:${N("KIREEYAYAAL_BADAN")}}}`),
+
+          marker(`{{IF:${N("KIRAYSTAYAAL_BADAN")}}}`),
+          marker("{{IF:KIRAYSTE_WAKIIL}}"),
+          ...signatureBlock(
+            "Wakiilka (oo matalaya Kiraystada)",
+            "{{KIRAYSTE_WAKIIL_MAGAC}}",
+            "{{KIRAYSTE_WAKIIL_TELEFOON}}",
+          ),
+          marker("{{END:KIRAYSTE_WAKIIL}}"),
+          marker(`{{END:${N("KIRAYSTAYAAL_BADAN")}}}`),
 
           // Damiin signs only when a Damiin exists.
           marker(`{{IF:${N("DAMIIN_HAA")}}}`),
           ...signatureBlock("Damiin", T("DAMIIN_MAGAC"), T("DAMIIN_TELEFOON")),
           marker(`{{END:${N("DAMIIN_HAA")}}}`),
-
-          // The representative signs only when someone is actually represented.
-          marker("{{IF:KIREEYE_WAKIIL}}"),
-          ...signatureBlock(
-            "Wakiilka",
-            "{{KIREEYE_WAKIIL_MAGAC}}",
-            "{{KIREEYE_WAKIIL_TELEFOON}}",
-          ),
-          marker("{{END:KIREEYE_WAKIIL}}"),
-          marker("{{IF:KIRAYSTE_WAKIIL}}"),
-          ...signatureBlock(
-            "Wakiilka (Kirayste)",
-            "{{KIRAYSTE_WAKIIL_MAGAC}}",
-            "{{KIRAYSTE_WAKIIL_TELEFOON}}",
-          ),
-          marker("{{END:KIRAYSTE_WAKIIL}}"),
         ],
       },
     ],

@@ -53,10 +53,21 @@ function partyRows(values: FormValues, partyId: string): PartyRow[] {
   return Array.isArray(v) ? (v as PartyRow[]) : [];
 }
 
-/** Filled rows only — empty optional rows never reach the document. */
+/**
+ * Filled rows only — empty optional rows never reach the document.
+ *
+ * A party that is ABSENT but REPRESENTED still belongs in the document: the
+ * row carries no data of its own, but the representative linked to it must
+ * be listed, otherwise the wakiil silently disappears and the parties it
+ * stands for are dropped from the count. Attendance is therefore part of
+ * "filled" (data mapping only — the renderer is untouched).
+ */
 function filledRows(rows: PartyRow[]): PartyRow[] {
-  return rows.filter((r) =>
-    Object.values(r.values ?? {}).some((v) => (v ?? "").trim() !== ""),
+  return rows.filter(
+    (r) =>
+      Object.values(r.values ?? {}).some((v) => (v ?? "").trim() !== "") ||
+      !!r.attendance?.status ||
+      !!r.attendance?.representativeId,
   );
 }
 
