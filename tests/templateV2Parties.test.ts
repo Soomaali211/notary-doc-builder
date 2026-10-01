@@ -193,7 +193,9 @@ describe("Case 4 — 1 Kireeye absent, represented by a wakiil", () => {
     id: "krep",
     values: { magac: "WAKIILKA", telefoon: "0655" },
   };
-  values.kireeyayaal = [att("k1", { magac: "" }, "wakiil", rep.id)];
+  values.kireeyayaal = [
+    att("k1", { magac: "XASAN AHMED", telefoon: "063444" }, "wakiil", rep.id),
+  ];
   values.kiraystayaal = [att("t1", { magac: "Kirayste Jooga", telefoon: "0671" }, "jooga")];
   values.wakiilo_kireeyayaal = [rep];
   const text = render(values);

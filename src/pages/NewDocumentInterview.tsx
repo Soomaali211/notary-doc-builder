@@ -22,6 +22,7 @@ import {
 import { FieldRenderer } from "@/components/notary/FieldRenderer";
 import { PartyListEditor } from "@/components/notary/PartyListEditor";
 import { PartyStatusEditor } from "@/components/notary/PartyStatusEditor";
+import { RepresentativeGroupingEditor } from "@/components/notary/RepresentativeGroupingEditor";
 import { StepperProgress } from "@/components/notary/StepperProgress";
 import { SetupField } from "@/components/notary/SetupField";
 import { SetupSummaryCard } from "@/components/notary/SetupSummaryCard";
@@ -1109,6 +1110,33 @@ export default function NewDocumentInterview() {
     return created ? linkPartyRepresentative(next, partyDef.id, rowIndex, created.id) : next;
   };
 
+  /**
+   * Representative GROUPING — the checkbox panel.
+   *
+   * Ticking a person links them to that representative (one stored record,
+   * one reference per person). Unticking only drops THIS person's link; the
+   * representative and every other person they cover are untouched. A
+   * present person is never linkable — the panel disables them, and this
+   * guard keeps that true even if state arrives from a draft.
+   */
+  const toggleRepMember = (
+    v: FormValues,
+    partyDef: PartyDef,
+    repId: string,
+    rowIndex: number,
+    member: boolean,
+  ): FormValues => {
+    const rows = (v[partyDef.id] ?? []) as import("@/lib/notary/types").PartyRow[];
+    if (rows[rowIndex]?.attendance?.status === "jooga") return v;
+    if (member) return linkPartyRepresentative(v, partyDef.id, rowIndex, repId);
+    // Drop this link, keep the person on the list as absent.
+    return setPartyAttendance(v, partyDef.id, rowIndex, "ma_joogo");
+  };
+
+  /** New, empty representative — not yet attached to anybody. */
+  const createEmptyRep = (v: FormValues, partyDef: PartyDef): FormValues =>
+    createRepresentative(v, partyDef);
+
   const renderPartyStatusStep = (partyDef: PartyDef) => {
     const sectionId = visibleSections.find((sec) =>
       (sec.parties ?? []).some((p) => p.id === partyDef.id),
@@ -1140,6 +1168,22 @@ export default function NewDocumentInterview() {
       />
     );
   };
+
+  /** The grouping panel itself — one checkbox per person per wakiil. */
+  const renderRepGrouping = (partyDef: PartyDef) => (
+    <RepresentativeGroupingEditor
+      partyDef={partyDef}
+      values={values}
+      onTogglePerson={(repId, rowIndex, member) =>
+        setValues((v) => toggleRepMember(v!, partyDef, repId, rowIndex, member))
+      }
+      onCreateRep={() => setValues((v) => createEmptyRep(v!, partyDef))}
+      onUpdateRep={(repId, fieldId, value) =>
+        setValues((v) => setRepresentativeField(v!, partyDef, repId, fieldId, value))
+      }
+      onRemoveRep={(repId) => setValues((v) => deleteRepresentative(v!, partyDef, repId))}
+    />
+  );
 
   const renderPartyDataStep = (partyDef: PartyDef) => {
     const rows = (values[partyDef.id] as FormValues[keyof FormValues]) ?? [];
@@ -1352,7 +1396,12 @@ export default function NewDocumentInterview() {
                 )}
 
                 {currentStep.detail.kind === "party-data" && renderPartyDataStep(currentStep.detail.partyDef)}
-                {currentStep.detail.kind === "party-status" && renderPartyStatusStep(currentStep.detail.partyDef)}
+                {currentStep.detail.kind === "party-status" && (
+                  <>
+                    {renderPartyStatusStep(currentStep.detail.partyDef)}
+                    <div className="mt-4">{renderRepGrouping(currentStep.detail.partyDef)}</div>
+                  </>
+                )}
 
                 {stepErrors && currentStep.detail.kind === "section" && (() => {
                   const section = currentStep.detail.section;

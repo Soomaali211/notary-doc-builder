@@ -222,12 +222,19 @@ export function buildHeshiisKiroTemplateV2(): Document {
           marker(`{{IF:KIREEYE_JOOGA}}`),
           partyLine(`❖ ${T("KIREYE_MAGAC")}`, T("KIREYE_TELEFOON")),
           marker("{{END:KIREEYE_JOOGA}}"),
-          // Absent → the wakiil stands in.
+          // Absent → the person is STILL named, with the representative who
+          // acts for them on the next line.
           marker("{{IF:KIREEYE_WAKIIL}}"),
-          partyLine(
-            "❖ Wakiilka: {{KIREEYE_WAKIIL_MAGAC}}",
-            "{{KIREEYE_WAKIIL_TELEFOON}}",
-          ),
+          partyLine(`❖ ${T("KIREYE_MAGAC")}`, T("KIREYE_TELEFOON")),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "    Wakiilka: " }),
+              new TextRun({ text: "{{KIREEYE_WAKIIL_MAGAC}}", bold: true }),
+              new TextRun({ children: [new Tab()] }),
+              new TextRun({ text: "Tell {{KIREEYE_WAKIIL_TELEFOON}}" }),
+            ],
+            spacing: { after: 60 },
+          }),
           marker("{{END:KIREEYE_WAKIIL}}"),
           marker(`{{END:${N("KIREYE_HAL")}}}`),
 
@@ -240,7 +247,18 @@ export function buildHeshiisKiroTemplateV2(): Document {
           marker("{{END:JOOGA}}"),
           // Absent row: the representative bound to THIS row stands in.
           marker("{{IF:WAKIIL}}"),
-          partyLine("❖ {{NUMBER}}. Wakiilka: {{WAKIIL_MAGAC}}", "{{WAKIIL_TELEFOON}}"),
+          // The person keeps their OWN name; the representative who acts
+          // for them is printed on its own line and NEVER replaces them.
+          partyLine("❖ {{NUMBER}}. {{MAGAC}}", ""),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "    Wakiilka: " }),
+              new TextRun({ text: "{{WAKIIL_MAGAC}}", bold: true }),
+              new TextRun({ children: [new Tab()] }),
+              new TextRun({ text: "Tell {{WAKIIL_TELEFOON}}" }),
+            ],
+            spacing: { after: 60 },
+          }),
           marker("{{END:WAKIIL}}"),
           marker(`{{/${N("KIREYEYAYAAL")}}}`),
           marker(`{{END:${N("KIREEYAYAAL_BADAN")}}}`),
@@ -252,10 +270,17 @@ export function buildHeshiisKiroTemplateV2(): Document {
           partyLine(`❖ ${T("KIRAYSTE_MAGAC")}`, T("KIRAYSTE_TELEFOON")),
           marker("{{END:KIRAYSTE_JOOGA}}"),
           marker("{{IF:KIRAYSTE_WAKIIL}}"),
-          partyLine(
-            "❖ Wakiilka: {{KIRAYSTE_WAKIIL_MAGAC}}",
-            "{{KIRAYSTE_WAKIIL_TELEFOON}}",
-          ),
+          // The person is STILL named; the representative appears below.
+          partyLine(`❖ ${T("KIRAYSTE_MAGAC")}`, T("KIRAYSTE_TELEFOON")),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "    Wakiilka: " }),
+              new TextRun({ text: "{{KIRAYSTE_WAKIIL_MAGAC}}", bold: true }),
+              new TextRun({ children: [new Tab()] }),
+              new TextRun({ text: "Tell {{KIRAYSTE_WAKIIL_TELEFOON}}" }),
+            ],
+            spacing: { after: 60 },
+          }),
           marker("{{END:KIRAYSTE_WAKIIL}}"),
           marker(`{{END:${N("KIRAYSTE_HAL")}}}`),
 
@@ -266,7 +291,18 @@ export function buildHeshiisKiroTemplateV2(): Document {
           partyLine("❖ {{NUMBER}}. {{MAGAC}}", "{{TELEFOON}}"),
           marker("{{END:JOOGA}}"),
           marker("{{IF:WAKIIL}}"),
-          partyLine("❖ {{NUMBER}}. Wakiilka: {{WAKIIL_MAGAC}}", "{{WAKIIL_TELEFOON}}"),
+          // The person keeps their OWN name; the representative who acts
+          // for them is printed on its own line and NEVER replaces them.
+          partyLine("❖ {{NUMBER}}. {{MAGAC}}", ""),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "    Wakiilka: " }),
+              new TextRun({ text: "{{WAKIIL_MAGAC}}", bold: true }),
+              new TextRun({ children: [new Tab()] }),
+              new TextRun({ text: "Tell {{WAKIIL_TELEFOON}}" }),
+            ],
+            spacing: { after: 60 },
+          }),
           marker("{{END:WAKIIL}}"),
           marker(`{{/${N("KIRAYSTAYAAL")}}}`),
           marker(`{{END:${N("KIRAYSTAYAAL_BADAN")}}}`),

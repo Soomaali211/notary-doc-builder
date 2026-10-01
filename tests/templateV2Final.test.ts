@@ -165,7 +165,9 @@ describe("REVIEW CASE 2 — 1 Kireeye absent via wakiil, Xidhan, deposit yes, da
   const text = render(values({
     kireeye_mode: "single", kirayste_mode: "single", muddada_nooca: "xidhan",
     deebaaji_haa: "yes", damiin_haa: "yes",
-    kireeyayaal: [maqan("k1", krep.id)],
+    // An absent party still has THEIR OWN name — it must never be replaced
+    // by the representative's.
+    kireeyayaal: [{ ...maqan("k1", krep.id), values: { magac: "XASAN AHMED", telefoon: "063444", aqoonsi: "", cinwaan: "" } }],
     kiraystayaal: [jooga("t1", { magac: "KIRAYSTE JOOGA", telefoon: "0622222" })],
     wakiilo_kireeyayaal: [krep],
   }));
