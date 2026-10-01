@@ -171,6 +171,13 @@ export const heshiisKiroConfig: DocumentConfig = {
     MUAKHIR: { op: "equals", field: "lacagta.bixinta_hore", value: "muakhir" },
     KIRO_XIDHAN: { op: "equals", field: "heshiiska.muddada_nooca", value: "xidhan" },
     KIRO_FURAN: { op: "equals", field: "heshiiska.muddada_nooca", value: "furan" },
+    // Singular vs plural for Kireeye / Kirayste. Step 1's radio (single vs
+    // multiple) is the source of truth — the template uses these to render a
+    // single-person block OR the repeatable block, never both (no duplicate).
+    KIREYE_HAL: { op: "equals", field: "heshiiska.kireeye_mode", value: "single" },
+    KIREEYAYAAL_BADAN: { op: "equals", field: "heshiiska.kireeye_mode", value: "multiple" },
+    KIRAYSTE_HAL: { op: "equals", field: "heshiiska.kirayste_mode", value: "single" },
+    KIRAYSTAYAAL_BADAN: { op: "equals", field: "heshiiska.kirayste_mode", value: "multiple" },
   },
 
   // Phase 3 — configurable document formatting (29/09/2026, $500 …).

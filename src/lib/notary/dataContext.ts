@@ -247,6 +247,20 @@ export function resolveFlags(
   for (const [name, condition] of Object.entries(config.conditionFlags ?? {})) {
     flags[name.toUpperCase()] = evaluateCondition(condition, get);
   }
+
+  // Attendance-derived document flags. These answer "does THIS group have a
+  // party represented by a wakiil?", which the declarative conditionFlags
+  // cannot express (it reads form fields, not per-party attendance status).
+  // Added as data mapping only — the condition engine is untouched.
+  for (const partyDef of config.sections.flatMap((s) => s.parties ?? [])) {
+    if (!partyDef.attendance) continue;
+    const group = partyDef.singular.toUpperCase().replace(/[^A-Z0-9_]/g, "");
+    const rows = partyRows(values, partyDef.id);
+    flags[`${group}_WAKIIL`] = rows.some(
+      (r) => r.attendance?.status === "wakiil" && !!r.attendance.representativeId,
+    );
+    flags[`${group}_JOOGA`] = rows.some((r) => r.attendance?.status === "jooga");
+  }
   return flags;
 }
 

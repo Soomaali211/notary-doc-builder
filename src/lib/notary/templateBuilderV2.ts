@@ -22,6 +22,7 @@ import {
   PageNumber,
   Packer,
   Paragraph,
+  Tab,
   TextRun,
   TabStopType,
   TabStopPosition,
@@ -108,6 +109,19 @@ function docTitle(text: string): Paragraph {
   });
 }
 
+/**
+ * One party line: "❖ <name>" left, "Tell <phone>" right-tabbed — the shape
+ * used by the reference document. Both halves stay in one text run group so
+ * the scanner sees each token whole.
+ */
+function partyLine(namePart: string, phonePart: string): Paragraph {
+  return new Paragraph({
+    tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+    children: [new TextRun({ text: namePart }), new TextRun({ children: [new Tab()] }), new TextRun({ text: `Tell ${phonePart}` })],
+    spacing: { after: 60 },
+  });
+}
+
 /** Small centred heading used for "QODOBADA HESHIISKA" etc. */
 function centredHeading(text: string): Paragraph {
   return new Paragraph({
@@ -181,9 +195,9 @@ export function buildHeshiisKiroTemplateV2(): Document {
             ],
             children: [
               new TextRun({ text: `Ref/Dpn/HK/${T("REF_NUMBER")}` }),
-              new TextRun({ text: "\t" }),
+              new TextRun({ children: [new Tab()] }),
               new TextRun({ text: T("MAALINTA") }),
-              new TextRun({ text: "\t" }),
+              new TextRun({ children: [new Tab()] }),
               new TextRun({ text: `Taariikh: ${T("TAARIIKH")}` }),
             ],
             spacing: { after: 160 },
@@ -191,71 +205,59 @@ export function buildHeshiisKiroTemplateV2(): Document {
 
           docTitle("HESHIIS KIRO GURI XAAS."),
 
-          /* ---- Parties (prose, matching the reference) ---- */
+          /* ---- Kireeye: SINGULAR or PLURAL, never both (no duplicate) ----
+           {{IF:KIREYE_HAL}}        → one person, singular label
+           {{IF:KIREEYAYAAL_BADAN}}  → repeat block, plural label */
+          marker(`{{IF:${N("KIREYE_HAL")}}}`),
           clauseTitle("Magaca Kireeysada Guriga"),
-          new Paragraph({
-            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-            children: [
-              new TextRun({ text: "❖ " }),
-              new TextRun({ text: T("KIREYE_MAGAC") }),
-              new TextRun({ text: "\tTell " }),
-              new TextRun({ text: T("KIREYE_TELEFOON") }),
-            ],
-            spacing: { after: 100 },
-          }),
-          // Repeatable landlords — keeps the legal shape, one unit per row.
+          // Present → print the person. Absent → the line is skipped entirely
+          // (no empty "❖ Tell" remnant).
+          marker(`{{IF:KIREEYE_JOOGA}}`),
+          partyLine(`❖ ${T("KIREYE_MAGAC")}`, T("KIREYE_TELEFOON")),
+          marker("{{END:KIREEYE_JOOGA}}"),
+          // Absent → the wakiil stands in.
+          marker("{{IF:KIREEYE_WAKIIL}}"),
+          partyLine(
+            "❖ Wakiilka: {{KIREEYE_WAKIIL_MAGAC}}",
+            "{{KIREEYE_WAKIIL_TELEFOON}}",
+          ),
+          marker("{{END:KIREEYE_WAKIIL}}"),
+          marker(`{{END:${N("KIREYE_HAL")}}}`),
+
+          marker(`{{IF:${N("KIREEYAYAAL_BADAN")}}}`),
+          clauseTitle("Magacyada Kireeyayaasha Guriga"),
           marker(`{{#${N("KIREYEYAYAAL")}}}`),
-          new Paragraph({
-            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-            children: [
-              new TextRun({ text: "❖ {{NUMBER}}. {{MAGAC}}" }),
-              new TextRun({ text: "\tTell {{TELEFOON}}" }),
-            ],
-            spacing: { after: 60 },
-          }),
+          partyLine("❖ {{NUMBER}}. {{MAGAC}}", "{{TELEFOON}}"),
+          // Row-scoped: only the absent party's wakiil line renders.
           marker("{{IF:WAKIIL}}"),
-          new Paragraph({
-            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-            children: [
-              new TextRun({ text: "❖ Wakiilka: {{WAKIIL_MAGAC}}" }),
-              new TextRun({ text: "\tTell: {{WAKIIL_TELEFOON}}" }),
-            ],
-            spacing: { after: 60 },
-          }),
+          partyLine("❖ Wakiilka: {{WAKIIL_MAGAC}}", "{{WAKIIL_TELEFOON}}"),
           marker("{{END:WAKIIL}}"),
           marker(`{{/${N("KIREYEYAYAAL")}}}`),
+          marker(`{{END:${N("KIREEYAYAAL_BADAN")}}}`),
 
+          /* ---- Kirayste: same singular/plural rule ---- */
+          marker(`{{IF:${N("KIRAYSTE_HAL")}}}`),
           clauseTitle("Magaca Kiraystaha Guriga"),
-          new Paragraph({
-            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-            children: [
-              new TextRun({ text: "❖ " }),
-              new TextRun({ text: T("KIRAYSTE_MAGAC") }),
-              new TextRun({ text: "\tTell " }),
-              new TextRun({ text: T("KIRAYSTE_TELEFOON") }),
-            ],
-            spacing: { after: 100 },
-          }),
+          marker("{{IF:KIRAYSTE_JOOGA}}"),
+          partyLine(`❖ ${T("KIRAYSTE_MAGAC")}`, T("KIRAYSTE_TELEFOON")),
+          marker("{{END:KIRAYSTE_JOOGA}}"),
+          marker("{{IF:KIRAYSTE_WAKIIL}}"),
+          partyLine(
+            "❖ Wakiilka: {{KIRAYSTE_WAKIIL_MAGAC}}",
+            "{{KIRAYSTE_WAKIIL_TELEFOON}}",
+          ),
+          marker("{{END:KIRAYSTE_WAKIIL}}"),
+          marker(`{{END:${N("KIRAYSTE_HAL")}}}`),
+
+          marker(`{{IF:${N("KIRAYSTAYAAL_BADAN")}}}`),
+          clauseTitle("Magacyada Kiraystayaasha Guriga"),
           marker(`{{#${N("KIRAYSTAYAAL")}}}`),
-          new Paragraph({
-            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-            children: [
-              new TextRun({ text: "❖ {{NUMBER}}. {{MAGAC}}" }),
-              new TextRun({ text: "\tTell {{TELEFOON}}" }),
-            ],
-            spacing: { after: 60 },
-          }),
+          partyLine("❖ {{NUMBER}}. {{MAGAC}}", "{{TELEFOON}}"),
           marker("{{IF:WAKIIL}}"),
-          new Paragraph({
-            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-            children: [
-              new TextRun({ text: "❖ Wakiilka: {{WAKIIL_MAGAC}}" }),
-              new TextRun({ text: "\tTell: {{WAKIIL_TELEFOON}}" }),
-            ],
-            spacing: { after: 60 },
-          }),
+          partyLine("❖ Wakiilka: {{WAKIIL_MAGAC}}", "{{WAKIIL_TELEFOON}}"),
           marker("{{END:WAKIIL}}"),
           marker(`{{/${N("KIRAYSTAYAAL")}}}`),
+          marker(`{{END:${N("KIRAYSTAYAAL_BADAN")}}}`),
 
           // The property — inline sentence, as in the reference.
           body(
@@ -303,8 +305,8 @@ export function buildHeshiisKiroTemplateV2(): Document {
             children: [
               new TextRun({ text: "❖ Saxeexa Damiinka: " }),
               new TextRun({ text: T("DAMIIN_MAGAC"), bold: true, underline: {} }),
-              new TextRun({ text: "\tTell " }),
-              new TextRun({ text: T("DAMIIN_TELEFOON") }),
+              new TextRun({ children: [new Tab()] }),
+              new TextRun({ text: `Tell ${T("DAMIIN_TELEFOON")}` }),
             ],
             spacing: { before: 100, after: 100 },
           }),
@@ -322,7 +324,8 @@ export function buildHeshiisKiroTemplateV2(): Document {
             tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
             children: [
               new TextRun({ text: "{{NUMBER}}- {{MAGAC}}" }),
-              new TextRun({ text: "\tTell {{PHONE}}" }),
+              new TextRun({ children: [new Tab()] }),
+              new TextRun({ text: "Tell {{PHONE}}" }),
             ],
             spacing: { after: 60 },
           }),
@@ -355,10 +358,21 @@ export function buildHeshiisKiroTemplateV2(): Document {
           ...signatureBlock("Damiin", T("DAMIIN_MAGAC"), T("DAMIIN_TELEFOON")),
           marker(`{{END:${N("DAMIIN_HAA")}}}`),
 
-          // Wakiil signs for any landlord or tenant he represents.
-          marker("{{IF:WAKIIL}}"),
-          ...signatureBlock("Wakiilka", "{{WAKIIL_MAGAC}}", "{{WAKIIL_TELEFOON}}"),
-          marker("{{END:WAKIIL}}"),
+          // The representative signs only when someone is actually represented.
+          marker("{{IF:KIREEYE_WAKIIL}}"),
+          ...signatureBlock(
+            "Wakiilka",
+            "{{KIREEYE_WAKIIL_MAGAC}}",
+            "{{KIREEYE_WAKIIL_TELEFOON}}",
+          ),
+          marker("{{END:KIREEYE_WAKIIL}}"),
+          marker("{{IF:KIRAYSTE_WAKIIL}}"),
+          ...signatureBlock(
+            "Wakiilka (Kirayste)",
+            "{{KIRAYSTE_WAKIIL_MAGAC}}",
+            "{{KIRAYSTE_WAKIIL_TELEFOON}}",
+          ),
+          marker("{{END:KIRAYSTE_WAKIIL}}"),
         ],
       },
     ],
