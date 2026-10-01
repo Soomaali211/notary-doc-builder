@@ -242,6 +242,7 @@ export type FormatKind =
   | "currency"
   | "currency_words"
   | "date"
+  | "month"
   | "yes_no"
   | "number";
 

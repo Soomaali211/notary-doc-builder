@@ -1,0 +1,394 @@
+/**
+ * TEMPLATE v2 — heshiis Kiro Guri Xaas oo dhab ah.
+ *
+ * Qaabka wuxuu ka yimid tusaalaha dhab ee Daloodho Public Notary Office:
+ * waa DUKUMEENTI SARA SHARCIYEED, ma aha database report. Miis ma jiro
+ * qaybta xogta — xogtu waxay ku dhex jirtaa QORAALKA heshiiska, oo qodobado
+ * sharciyeed lagu qabtay (1., 2., 3. …).
+ *
+ * Qoraalka sharciyeed ee joogtada ah waa STATIC text; xogga isbedbedesha
+ * oo keliya ayaa placeholder ({{...}}). Laakiin MUHIIM: aan la abla marin
+ * qoraal sharci cusub — waxaa la soo qaatay tusaalaha dhabta ah sidaa.
+ *
+ * Do NOT rename any placeholder — names come from placeholderRegistry.
+ * Repeat {{#BLOCK}}…{{/BLOCK}} and conditional {{IF:FLAG}}…{{END:FLAG}}
+ * markers sit ALONE so the engine can expand or remove whole sections.
+ */
+
+import {
+  AlignmentType,
+  Document,
+  Footer,
+  PageNumber,
+  Packer,
+  Paragraph,
+  TextRun,
+  TabStopType,
+  TabStopPosition,
+} from "docx";
+import { HESHIIS_KIRO_PLACEHOLDERS, tokenString } from "./placeholderRegistry";
+
+/** {{NAME}} for a registry token — typo-proof by construction. */
+const T = (token: string): string => tokenString(token);
+
+/** Strip braces from a token so it can sit inside {{IF:...}} / {{#...}}. */
+const N = (token: string): string => tokenString(token).replace(/[{}]/g, "");
+
+/* ------------------------------------------------------------------ */
+/* Legal wording — lifted from the reference document, NOT invented.    */
+/* ------------------------------------------------------------------ */
+
+const LEGAL = {
+  // Reference item 1
+  c1a: "Qiimaha Bishii Gurigu waa",
+  // Reference item 2
+  c2a: "Taariikhda kiradu ka bilaabantay waa",
+  // Reference item 3
+  c3a: "Mudada Heshiiska Wejiga Koowaad waa",
+  // Reference item 4
+  c4a: "Habka bixinta kiradu waa",
+  c4b: "Bil walbana Lacagta kirada waxaa uu qadimayaa bisha",
+  // Reference item 5 — damage clause
+  c5a:
+    "Haddii Kiraysadu Guriga u baahato, Waxay Kiraystaha siinaysaa 2 Bilood Ogaysiisa,",
+  c5b:
+    "Waxaa shardi u ah in kiraystuhu fuliyo dhammaan qodobada heshiiska. Sidoo kale, haddii kiraystuhu iskii uga maarmo guriga, wuxuu ogeysiinta bixinayaa bil ka hor.",
+  // Reference item 6 — non-division clause
+  c6:
+    "Kireystuhu Gurigan masii kireyn karo Qayb ahaan iyo gebi ahaan toona, waxaana ka reeban in lagu sameeyo Guriga Dhexdisa waxaabaha dintooda suuban, oo loo reebtay lamana dhigi karo Wax Hub ah, Walxo qarxa iyo Qalab Ciidan aan sharciyaysnayn, iyo inaanay jaarku kasoo cabanin.",
+  // Reference item 7 — landlord declaration
+  c7:
+    "Haddii aan ahay Kireystaha guriga, wuxaan cadaynayaa in aan heshiiskan raali ka ahay, Masuulka ka ahay wixii khasaare soo gaadha mudada aan ku jiro Guriga, anigoo diyaar u ah in aan sameeyo sidistina ka dhigo marka laga reebo masibbooyinka dabiciiga ah biyaha iyo laydhka wixii aan isticmaalo. Aniga ayaa iska bixinay bill kasta, markaan ka baxayana waxaan balanqaadayaa inaan lacagta laydhka sii bixin doono.",
+  // Reference item 8 — effective date
+  c8:
+    "Heshiiskani Waxaa uu Dhaqan galaya isla Maanta, Dhina-cyada Midkoodna Kama Bixi karo iyada oo aan la dabaaqin qodobada Heshiiskan.",
+  // Reference item 10 — closing
+  c10:
+    "Sidana waxaanu ku saxeexnay xafiiska nootaayada sharciga ah hortisa, anagoo miyir iyo maan ba qabna, xiskayaguna dhan yahay.",
+  // Reference closing paragraph
+  closing:
+    "Cadaynta Xafiiska: Xafiisku waxa uu cadaynayaa in heshiiskani-kirada ahi u dhacay sifo sharciga waafaqsan, waafqaan laguna hor saxeexay laguna camal-fali doono.",
+} as const;
+
+/* ------------------------------------------------------------------ */
+/* Small builders                                                      */
+/* ------------------------------------------------------------------ */
+
+/** A marker-only paragraph ({{#BLOCK}}, {{/BLOCK}}, {{IF:…}}, {{END:…}}). */
+function marker(text: string): Paragraph {
+  return new Paragraph({ children: [new TextRun({ text, bold: true })], spacing: { after: 80 } });
+}
+
+/**
+ * A body paragraph: STATIC legal text with {{PLACEHOLDERS}} embedded.
+ * Tokens always live inside ONE text run so the scanner finds them whole.
+ */
+function body(text: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text })],
+    alignment: AlignmentType.JUSTIFIED,
+    spacing: { after: 120, line: 300 },
+  });
+}
+
+/** An underlined, bold section title (matches the reference's styling). */
+function clauseTitle(text: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text, bold: true, underline: {} })],
+    spacing: { before: 160, after: 100 },
+  });
+}
+
+/** Document title — centred, bold, underlined. */
+function docTitle(text: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text, bold: true, underline: {}, size: 32 })],
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 200 },
+  });
+}
+
+/** Small centred heading used for "QODOBADA HESHIISKA" etc. */
+function centredHeading(text: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text, bold: true, underline: {}, size: 24 })],
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 200, after: 140 },
+  });
+}
+
+/** A signature block: name label, rule, then the typed name/phone. */
+function signatureBlock(label: string, nameToken: string, phoneToken: string): Paragraph[] {
+  return [
+    new Paragraph({
+      children: [new TextRun({ text: label, bold: true })],
+      spacing: { before: 240, after: 60 },
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: "Saxiix: ____________________" })],
+      spacing: { after: 60 },
+    }),
+    new Paragraph({ children: [new TextRun({ text: "Magac: " }), new TextRun({ text: nameToken })] }),
+    new Paragraph({ children: [new TextRun({ text: "Tell: " }), new TextRun({ text: phoneToken })] }),
+  ];
+}
+
+/* ------------------------------------------------------------------ */
+/* The template                                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Heshiis Kiro Guri Xaas — v2 legal-document template.
+ * Continuous prose with numbered clauses; no data tables anywhere.
+ */
+export function buildHeshiisKiroTemplateV2(): Document {
+  return new Document({
+    creator: "Notary Doc Builder",
+    title: "Heshiis Kiro Guri Xaas — Template",
+    description:
+      "Word template u eeg qoraal sharciyeed oo joogto. {{PLACEHOLDER}} tokens ha iska beddelin.",
+    styles: {
+      default: {
+        document: {
+          run: { font: "Times New Roman", size: 22 },
+          paragraph: { spacing: { line: 300 } },
+        },
+      },
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 },
+          },
+        },
+        footers: {
+          default: new Footer({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ children: [PageNumber.CURRENT] })]
+              }),
+            ],
+          }),
+        },
+        children: [
+          /* ---- Reference header (Ref | month | date) ---- */
+          new Paragraph({
+            tabStops: [
+              { type: TabStopType.CENTER, position: TabStopPosition.MAX / 2 },
+              { type: TabStopType.RIGHT, position: TabStopPosition.MAX },
+            ],
+            children: [
+              new TextRun({ text: `Ref/Dpn/HK/${T("REF_NUMBER")}` }),
+              new TextRun({ text: "\t" }),
+              new TextRun({ text: T("MAALINTA") }),
+              new TextRun({ text: "\t" }),
+              new TextRun({ text: `Taariikh: ${T("TAARIIKH")}` }),
+            ],
+            spacing: { after: 160 },
+          }),
+
+          docTitle("HESHIIS KIRO GURI XAAS."),
+
+          /* ---- Parties (prose, matching the reference) ---- */
+          clauseTitle("Magaca Kireeysada Guriga"),
+          new Paragraph({
+            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+            children: [
+              new TextRun({ text: "❖ " }),
+              new TextRun({ text: T("KIREYE_MAGAC") }),
+              new TextRun({ text: "\tTell " }),
+              new TextRun({ text: T("KIREYE_TELEFOON") }),
+            ],
+            spacing: { after: 100 },
+          }),
+          // Repeatable landlords — keeps the legal shape, one unit per row.
+          marker(`{{#${N("KIREYEYAYAAL")}}}`),
+          new Paragraph({
+            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+            children: [
+              new TextRun({ text: "❖ {{NUMBER}}. {{MAGAC}}" }),
+              new TextRun({ text: "\tTell {{TELEFOON}}" }),
+            ],
+            spacing: { after: 60 },
+          }),
+          marker("{{IF:WAKIIL}}"),
+          new Paragraph({
+            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+            children: [
+              new TextRun({ text: "❖ Wakiilka: {{WAKIIL_MAGAC}}" }),
+              new TextRun({ text: "\tTell: {{WAKIIL_TELEFOON}}" }),
+            ],
+            spacing: { after: 60 },
+          }),
+          marker("{{END:WAKIIL}}"),
+          marker(`{{/${N("KIREYEYAYAAL")}}}`),
+
+          clauseTitle("Magaca Kiraystaha Guriga"),
+          new Paragraph({
+            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+            children: [
+              new TextRun({ text: "❖ " }),
+              new TextRun({ text: T("KIRAYSTE_MAGAC") }),
+              new TextRun({ text: "\tTell " }),
+              new TextRun({ text: T("KIRAYSTE_TELEFOON") }),
+            ],
+            spacing: { after: 100 },
+          }),
+          marker(`{{#${N("KIRAYSTAYAAL")}}}`),
+          new Paragraph({
+            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+            children: [
+              new TextRun({ text: "❖ {{NUMBER}}. {{MAGAC}}" }),
+              new TextRun({ text: "\tTell {{TELEFOON}}" }),
+            ],
+            spacing: { after: 60 },
+          }),
+          marker("{{IF:WAKIIL}}"),
+          new Paragraph({
+            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+            children: [
+              new TextRun({ text: "❖ Wakiilka: {{WAKIIL_MAGAC}}" }),
+              new TextRun({ text: "\tTell: {{WAKIIL_TELEFOON}}" }),
+            ],
+            spacing: { after: 60 },
+          }),
+          marker("{{END:WAKIIL}}"),
+          marker(`{{/${N("KIRAYSTAYAAL")}}}`),
+
+          // The property — inline sentence, as in the reference.
+          body(
+            `Waa Guri Xaas ku yaalla ${T("GURI_GOOBTA")}, ${T("GURI_SHARRAXAAD")}`,
+          ),
+
+          /* ---- Numbered legal clauses ---- */
+          centredHeading("QODOBADA HESHIISKA"),
+
+          body(`1. ${LEGAL.c1a} ${T("KIRADA_QIIMAHA")} ${T("KIRADA_QIIMAHA_QORAAL")}.`),
+
+          body(`2. ${LEGAL.c2a} ${T("TAARIIKH_BILOWGA")}.`),
+
+          body(`3. ${LEGAL.c3a} ${T("XALADDA_KIRADA")}.`),
+
+          // Fixed-term end date only appears for a Xidhan lease.
+          marker(`{{IF:${N("KIRO_XIDHAN")}}}`),
+          body(`4. ${LEGAL.c4a} ${T("HABKA_BIXINTA")}. Mudada kiradu wuu dhammaan doonaa ${T("TAARIIKH_DHAMMAAD")}.`),
+          marker(`{{END:${N("KIRO_XIDHAN")}}}`),
+
+          body(
+            `5. ${LEGAL.c4b} ${T("TAARIIKH_BILOWGA")}, lacagta kirada waxaa la qadimay ${T("KIRADA_QIIMAHA")} ${T("KIRADA_QIIMAHA_QORAAL")}. ${T("FAAHFAAHIN_LACAGTA")}`,
+          ),
+
+          // Deposit breach clause — only when a deposit is agreed.
+          marker(`{{IF:${N("DEEBAAJI_HAA")}}}`),
+          body(
+            `6. ${LEGAL.c5a} ${T("DEEBAAJI_QIIMAHA")}. ${LEGAL.c5b}`,
+          ),
+          marker(`{{END:${N("DEEBAAJI_HAA")}}}`),
+
+          body(`7. ${LEGAL.c6}`),
+
+          body(`8. ${LEGAL.c7}`),
+
+          body(`9. ${LEGAL.c8}`),
+
+          // Damiin — a legal attestation, not a data row.
+          marker(`{{IF:${N("DAMIIN_HAA")}}}`),
+          body(
+            `10. DAMIIN MAAL: Anigoo ah ${T("DAMIIN_MAGAC")}, Waxaan Cadaynayaa inaan Damiinta Buuxa ka ahay kiraystaha Gurigan. Haddii Dhinaca laga bilaabo wax Kaso noqdaan ama Lacag Lagu Yesho, Aniga ayaa la iiraacay doonaa.`,
+          ),
+          new Paragraph({
+            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+            children: [
+              new TextRun({ text: "❖ Saxeexa Damiinka: " }),
+              new TextRun({ text: T("DAMIIN_MAGAC"), bold: true, underline: {} }),
+              new TextRun({ text: "\tTell " }),
+              new TextRun({ text: T("DAMIIN_TELEFOON") }),
+            ],
+            spacing: { before: 100, after: 100 },
+          }),
+          marker(`{{END:${N("DAMIIN_HAA")}}}`),
+
+          body(`11. ${LEGAL.c10}`),
+
+          /* ---- Extra terms (kept as prose) ---- */
+          body(`${T("DHERAAD_SHURUUDO")}`),
+
+          /* ---- Witnesses — repeatable, prose style ---- */
+          centredHeading("Maragyo Goob Joogayaala."),
+          marker(`{{#${N("MARAGYO")}}}`),
+          new Paragraph({
+            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+            children: [
+              new TextRun({ text: "{{NUMBER}}- {{MAGAC}}" }),
+              new TextRun({ text: "\tTell {{PHONE}}" }),
+            ],
+            spacing: { after: 60 },
+          }),
+          marker(`{{/${N("MARAGYO")}}}`),
+
+          /* ---- Closing attestation ---- */
+          new Paragraph({
+            children: [new TextRun({ text: LEGAL.closing, bold: true })],
+            alignment: AlignmentType.LEFT,
+            spacing: { before: 240, after: 120 },
+          }),
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new TextRun({ text: "(Sarkaalka Xafiiska Nootaayada Sharciga ah Ee Daloodho)", bold: true, underline: {} }),
+            ],
+            spacing: { before: 200 },
+          }),
+
+          /* ---- Signatures (prose blocks, not a table) ---- */
+          new Paragraph({
+            children: [new TextRun({ text: "Saxiiyada:", bold: true })],
+            spacing: { before: 320, after: 80 },
+          }),
+          ...signatureBlock("Kireeye", T("KIREYE_MAGAC"), T("KIREYE_TELEFOON")),
+          ...signatureBlock("Kirayste", T("KIRAYSTE_MAGAC"), T("KIRAYSTE_TELEFOON")),
+
+          // Damiin signs only when a Damiin exists.
+          marker(`{{IF:${N("DAMIIN_HAA")}}}`),
+          ...signatureBlock("Damiin", T("DAMIIN_MAGAC"), T("DAMIIN_TELEFOON")),
+          marker(`{{END:${N("DAMIIN_HAA")}}}`),
+
+          // Wakiil signs for any landlord or tenant he represents.
+          marker("{{IF:WAKIIL}}"),
+          ...signatureBlock("Wakiilka", "{{WAKIIL_MAGAC}}", "{{WAKIIL_TELEFOON}}"),
+          marker("{{END:WAKIIL}}"),
+        ],
+      },
+    ],
+  });
+}
+
+/** Bytes of the v2 editable starter template (real .docx). */
+export async function buildHeshiisKiroTemplateV2Bytes(): Promise<Uint8Array> {
+  return await Packer.toBuffer(buildHeshiisKiroTemplateV2());
+}
+
+/** Browser download of the v2 starter template. */
+export async function buildHeshiisKiroTemplateV2Blob(): Promise<Blob> {
+  return await Packer.toBlob(buildHeshiisKiroTemplateV2());
+}
+
+/** Canonical tokens the v2 template is expected to carry. */
+export function requiredTemplateTokensV2(): string[] {
+  return HESHIIS_KIRO_PLACEHOLDERS.filter(
+    (s) => s.kind === "placeholder" || s.kind === "computed" || s.kind === "block",
+  ).map((s) => s.token);
+}
+
+/** Suggested file name of the v2 legal-document template. */
+export const TEMPLATE_FILE_NAME_V2 = "heshiis_kiro_template_v2.docx";
+
+/**
+ * No-overwrite guard for v2 — identical policy to v1: the file is only
+ * written when missing, or when the operator explicitly passes --force.
+ */
+export function canWriteTemplateV2(fileExists: boolean, force = false): boolean {
+  return !fileExists || force;
+}

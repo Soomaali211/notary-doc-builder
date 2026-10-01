@@ -87,6 +87,22 @@ export const HESHIIS_KIRO_PLACEHOLDERS: PlaceholderSpec[] = [
     label: "Shuruudaha Gaarka ah",
     group: "Heshiiska",
   },
+  {
+    // Reference document header: "Ismin" (month word) beside the date.
+    // Same source value as TAARIIKH, rendered as the Somali month name.
+    token: "MAALINTA",
+    key: "heshiiska.taariikhda_heshiiska",
+    format: "month",
+    label: "Bishii (sida qoraal)",
+    group: "Heshiiska",
+  },
+  {
+    // Reference clause 3 — duration wording ("mid furan Oo Waa Kiro u Joog").
+    token: "XALADDA_KIRADA",
+    key: "heshiiska.muddada_nooca",
+    label: "Mudada Kirada (qoraal)",
+    group: "Heshiiska",
+  },
 
   /* ---- Kireeyaha (single-row view; the full list is a repeat block) ---- */
   { token: "KIREYE_MAGAC", key: "kireeyayaal.magac", format: "text", label: "Magaca Kireeyaha", group: "Kireeyaha" },
@@ -118,6 +134,14 @@ export const HESHIIS_KIRO_PLACEHOLDERS: PlaceholderSpec[] = [
 
   /* ---- Lacagta ---- */
   { token: "KIRADA_QIIMAHA", key: "lacagta.qiimaha_bil_ka", format: "currency", label: "Qiimaha Kirada Bishii", aliases: ["QIIMAHA_KIRADA"], group: "Lacagta" },
+  {
+    // Reference clause 1: "$200 LABA BOQOL OO DOLLAR" — the amount in words.
+    token: "KIRADA_QIIMAHA_QORAAL",
+    key: "lacagta.qiimaha_bil_ka",
+    format: "currency_words",
+    label: "Qiimaha Kirada (qoraal)",
+    group: "Lacagta",
+  },
   { token: "HABKA_BIXINTA", key: "lacagta.habka_bixinta", label: "Habka Bixinta", group: "Lacagta" },
   { token: "MUDDADA_BIXINTA", key: "lacagta.taariikhda_bixinta", label: "Muddada Bixinta", aliases: ["TAARIIKHDA_BIXINTA"], group: "Lacagta" },
   { token: "BIXINTA_HORE", key: "lacagta.bixinta_hore", label: "Bixinta Horay / Dambe", group: "Lacagta" },

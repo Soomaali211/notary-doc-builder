@@ -26,6 +26,10 @@ import {
   TEMPLATE_FILE_NAME,
   buildHeshiisKiroTemplateBlob,
 } from "@/lib/notary/templateBuilder";
+import {
+  TEMPLATE_FILE_NAME_V2,
+  buildHeshiisKiroTemplateV2Blob,
+} from "@/lib/notary/templateBuilderV2";
 
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -73,6 +77,28 @@ export default function Templates() {
       toast.error("Template-ka lama soo celin karo — isku day mar kale.");
     } finally {
       setBuilding(false);
+    }
+  };
+
+  /** v2 — the legal-document starter (continuous clauses, no data tables). */
+  const [buildingV2, setBuildingV2] = useState(false);
+  const downloadStarterV2 = async () => {
+    setBuildingV2(true);
+    try {
+      const blob = await buildHeshiisKiroTemplateV2Blob();
+      const a = window.document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = TEMPLATE_FILE_NAME_V2;
+      window.document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+      toast.success("Template-ka v2 waa la soo celiyay — qodobado sharciyeed buuxa.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Template-ka v2 lama soo celin karo — isku day mar kale.");
+    } finally {
+      setBuildingV2(false);
     }
   };
 
@@ -219,9 +245,43 @@ export default function Templates() {
           )}
         </div>
 
+        {/* v2 — the legal-document starter, modelled on the real notary sample */}
+        <div className="neu-raised border-primary/40 p-6">
+          <h2 className="text-base font-bold">
+            Template-ka v2 — Heshiis Kiro (qoraal sharciyeed){" "}
+            <span className="ml-1 rounded-full bg-pen-green/10 px-2 py-0.5 text-[10px] font-semibold text-pen-green">
+              WAA LA TAAGEERAA
+            </span>
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Waa <strong>heshiis nootaayo oo dhab ah</strong>: qoraal continuous,
+            qodobado sharciyeed (1., 2., 3. …), saxiixaho iyo maragyo — miis
+            xog ma jiro. Qoraalka joogtada ah waa qoraal sharci; xogga
+            isbedbedesha waxay ku dhex jirtaa <code className="rounded bg-muted px-1">{"{{PLACEHOLDER}}"}</code>{" "}
+            token-yada canonical-ka, oo la ilaaliyo.
+          </p>
+          <Button
+            type="button"
+            className="glow-primary-sm mt-3 gap-2"
+            disabled={buildingV2}
+            onClick={() => void downloadStarterV2()}
+          >
+            {buildingV2 ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Download className="size-4" />
+            )}
+            Soo celi heshiis_kiro_template_v2.docx
+          </Button>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Furi Word-ka, qaab-dhismeedka, font-ka, logo-ga, sharciga iyo meelaha
+            saxiixada adigaa beddelaysaa — placeholder-yadana <strong>haba seyn</strong>.
+          </p>
+        </div>
+
         {/* Starter template builder — the user's Word template starts here */}
         <div className="neu-raised p-6">
-          <h2 className="text-base font-bold">Template-ka nidaamka (system)</h2>
+          <h2 className="text-base font-bold">Template-ka nidaamka v1 (miis xog leh)</h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             System-ku wuxuu abuuraa Word .docx template-ka La{" "}
             <code className="rounded bg-muted px-1">{TEMPLATE_FILE_NAME}</code>{" "}
