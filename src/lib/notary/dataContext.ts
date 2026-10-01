@@ -413,6 +413,17 @@ export function knownPlaceholderNames(config: DocumentConfig): Set<string> {
   for (const flag of Object.keys(config.conditionFlags ?? {})) {
     names.add(flag.toUpperCase());
   }
+  // Attendance-derived flags. resolveFlags() ALWAYS produces a <GROUP>_JOOGA
+  // and a <GROUP>_WAKIIL for every attendance party, so the Template Manager
+  // must accept them even when the current answers make them false — they are
+  // valid {{IF:}} flags, not typos. (Without this, an uploaded template using
+  // them was wrongly reported as "placeholder aan system-ku aqoon".)
+  for (const partyDef of config.sections.flatMap((s) => s.parties ?? [])) {
+    if (!partyDef.attendance) continue;
+    const group = partyDef.singular.toUpperCase().replace(/[^A-Z0-9_]/g, "");
+    names.add(`${group}_JOOGA`);
+    names.add(`${group}_WAKIIL`);
+  }
   for (const clause of config.clauses) {
     names.add(clause.placeholder.replace(/[{}]/g, "").toUpperCase());
   }

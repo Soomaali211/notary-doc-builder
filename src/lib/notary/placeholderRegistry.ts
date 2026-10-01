@@ -203,14 +203,22 @@ export const HESHIIS_KIRO_PLACEHOLDERS: PlaceholderSpec[] = [
     token: "KIREYEYAYAAL",
     kind: "block",
     label: "Kireeyayaal (kasta hal unug)",
-    bodyTokens: ["NUMBER", "MAGAC", "TELEFOON", "AQOONSI", "CINWAAN", "FAAHFAAHIN_DHEERAAD", "WAKIIL", "JOOGA", "WAKIIL_MAGAC", "WAKIIL_TELEFOON"],
+    bodyTokens: [
+      "NUMBER", "MAGAC", "TELEFOON", "AQOONSI", "CINWAAN", "FAAHFAAHIN_DHEERAAD",
+      "WAKIIL", "JOOGA", "MATALAYA",
+      "WAKIIL_MAGAC", "WAKIIL_TELEFOON", "WAKIIL_AQOONSI", "WAKIIL_CINWAAN",
+    ],
     group: "Kireeyayaal",
   },
   {
     token: "KIRAYSTAYAAL",
     kind: "block",
     label: "Kiraystayaal (kasta hal unug)",
-    bodyTokens: ["NUMBER", "MAGAC", "TELEFOON", "AQOONSI", "CINWAAN", "FAAHFAAHIN_DHEERAAD", "WAKIIL", "JOOGA", "WAKIIL_MAGAC", "WAKIIL_TELEFOON"],
+    bodyTokens: [
+      "NUMBER", "MAGAC", "TELEFOON", "AQOONSI", "CINWAAN", "FAAHFAAHIN_DHEERAAD",
+      "WAKIIL", "JOOGA", "MATALAYA",
+      "WAKIIL_MAGAC", "WAKIIL_TELEFOON", "WAKIIL_AQOONSI", "WAKIIL_CINWAAN",
+    ],
     group: "Kiraystayaal",
   },
   {
@@ -248,6 +256,20 @@ export const HESHIIS_KIRO_PLACEHOLDERS: PlaceholderSpec[] = [
   { token: "WAKIIL", kind: "flag", label: "Wakiil (hal unug gudihiisa)", group: "Wakiil" },
   { token: "JOOGA", kind: "flag", label: "Jooga (hal unug gudihiisa)", group: "Wakiil" },
 
+  /* ---- Hal / badan (party-count mode) ---- */
+  { token: "KIREYE_HAL", kind: "flag", label: "Kireeye hal oo keliya", group: "Kireeyaha" },
+  { token: "KIREEYAYAAL_BADAN", kind: "flag", label: "Kireeyayaal badan", group: "Kireeyayaal" },
+  { token: "KIRAYSTE_HAL", kind: "flag", label: "Kirayste hal oo keliya", group: "Kiraystaha" },
+  { token: "KIRAYSTAYAAL_BADAN", kind: "flag", label: "Kiraystayaal badan", group: "Kiraystayaal" },
+
+  /* ---- Attendance-derived flags (resolveFlags(): <GROUP>_JOOGA /
+         <GROUP>_WAKIIL). Declared here so the Template Manager, the
+         audit script and the validator all read the SAME list. ---- */
+  { token: "KIREEYE_JOOGA", kind: "flag", label: "Waxaa jooga kireeye", group: "Kireeyayaal" },
+  { token: "KIREEYE_WAKIIL", kind: "flag", label: "Waxaa jooga kireeye u wakiil", group: "Kireeyayaal" },
+  { token: "KIRAYSTE_JOOGA", kind: "flag", label: "Waxaa jooga kirayste", group: "Kiraystayaal" },
+  { token: "KIRAYSTE_WAKIIL", kind: "flag", label: "Waxaa jooga kirayste u wakiil", group: "Kiraystayaal" },
+
   /* ---- Clause markers (optional engine-provided wording) ---- */
   { token: "CLAUSE_DEEBAAJI", kind: "clause", label: "Sharciga deebaajiga", group: "Deebaaji" },
   { token: "CLAUSE_DAMIIN", kind: "clause", label: "Sharciga damiinka", group: "Damiin" },
@@ -283,6 +305,28 @@ export function registryTokenNames(specs: PlaceholderSpec[]): Set<string> {
 /** Canonical token for a form-state key (first match wins). */
 export function canonicalTokenForKey(specs: PlaceholderSpec[], key: string): string | undefined {
   return specs.find((s) => s.key === key && s.kind !== "block")?.token;
+}
+
+/**
+ * THE single source of truth for "which canonical token does this name
+ * mean?". Accepts a canonical name (returns it unchanged) or any alias
+ * (returns the canonical token). Returns undefined for names the system
+ * does not know at all — used by the Template Compatibility Validator to
+ * tell MATCH from ALIAS from UNKNOWN.
+ *
+ * No other module may build an alias map: an alias only exists here.
+ */
+export function canonicalNameFor(
+  specs: PlaceholderSpec[],
+  name: string,
+): string | undefined {
+  const n = name.replace(/[{}]/g, "").trim().toUpperCase();
+  const spec = specs.find(
+    (s) =>
+      s.token.toUpperCase() === n ||
+      (s.aliases ?? []).some((a) => a.toUpperCase() === n),
+  );
+  return spec ? spec.token.toUpperCase() : undefined;
 }
 
 /** Label shown to the user for a token (canonical or alias). */

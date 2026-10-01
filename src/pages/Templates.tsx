@@ -214,33 +214,97 @@ export default function Templates() {
             </div>
           </div>
 
-          {/* Scan report of the last upload */}
+          {/* Template Compatibility Validator — report of the last upload */}
           {lastReport && (
-            <div className="neu-inset mt-4 space-y-2 p-4 text-sm">
+            <div className="neu-inset mt-4 space-y-3 p-4 text-sm">
               <p className="font-semibold">{lastReport.name}</p>
-              {lastReport.report.syntaxErrors.length > 0 && (
-                <div className="text-destructive">
-                  <p className="flex items-center gap-1.5 font-medium">
-                    <AlertTriangle className="size-4" /> Qalado syntax ah (waa in lagu saxo template-ka):
-                  </p>
-                  <ul className="ml-6 list-disc">
-                    {lastReport.report.syntaxErrors.map((s) => (
-                      <li key={s}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {lastReport.report.unknown.length > 0 && (
-                <p className="text-pen-orange">
-                  ⚠ Template-ku wuxuu leeyahay placeholder aan system-ku aqoon:{" "}
-                  {lastReport.report.unknown.map((u) => `{{${u}}}`).join(", ")}
-                  {" "}— generation ma joojinayo, token-kana ayaa document-ka ka saaraysa.
-                </p>
-              )}
-              <p className="flex items-center gap-1.5 text-pen-green">
-                <CheckCircle2 className="size-4" />
-                Placeholder-yada la aqoonsan: {lastReport.report.recognized.length}
-              </p>
+              {(() => {
+                const r = lastReport.report.report;
+                return (
+                  <>
+                    <p
+                      className={`flex items-center gap-1.5 font-medium ${
+                        r.canGenerate ? "text-pen-green" : "text-destructive"
+                      }`}
+                    >
+                      {r.canGenerate ? (
+                        <CheckCircle2 className="size-4" />
+                      ) : (
+                        <AlertTriangle className="size-4" />
+                      )}
+                      {r.canGenerate
+                        ? "Template-ku waafaqaa nidaamka — document-ka waa la buuxin karaa."
+                        : "Template-ku ma waafaqno nidaamka — qaladahan la saxo template-ka."}
+                    </p>
+
+                    {/* Structural problems — the only blocking ones */}
+                    {(r.invalidConditionals.length > 0 ||
+                      r.invalidRepeaters.length > 0) && (
+                      <div className="text-destructive">
+                        <p className="flex items-center gap-1.5 font-medium">
+                          <AlertTriangle className="size-4" /> Qalado qaab-dhismeed ah:
+                        </p>
+                        <ul className="ml-6 list-disc">
+                          {[...r.invalidConditionals, ...r.invalidRepeaters].map((s) => (
+                            <li key={s}>{s}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Unknown names — warning, stripped not fatal */}
+                    {r.unknown.length > 0 && (
+                      <p className="text-pen-orange">
+                        ⚠ Template-ku wuxuu leeyahay placeholder aan system-ku
+                        aqoon: <strong>{r.unknown.join(", ")}</strong> —
+                        generation ma joojinayo, token-kii ayaa document-ka ka
+                        saaraysa.
+                      </p>
+                    )}
+
+                    {/* Aliases — old names that still resolve */}
+                    {r.aliasMappings.length > 0 && (
+                      <p className="text-muted-foreground">
+                        Magacyo duub ah oo hadda la heli karo:{" "}
+                        {r.aliasMappings
+                          .map((m) => `${m.token} → ${m.canonical}`)
+                          .join(", ")}
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full bg-pen-green/10 px-2 py-0.5 font-semibold text-pen-green">
+                        La aqoonsan: {r.recognized.length}
+                      </span>
+                      {r.aliasMappings.length > 0 && (
+                        <span className="rounded-full bg-muted px-2 py-0.5 font-semibold">
+                          Alias: {r.aliasMappings.length}
+                        </span>
+                      )}
+                      <span className="rounded-full bg-muted px-2 py-0.5 font-semibold">
+                        Ma aqoon: {r.unknown.length}
+                      </span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 font-semibold">
+                        Isticmaal ma san: {r.unused.length}
+                      </span>
+                    </div>
+
+                    {r.unused.length > 0 && (
+                      <details className="text-xs text-muted-foreground">
+                        <summary className="cursor-pointer font-semibold">
+                          Magacyo system-ku yaqaan laakiin template-ku isticmaali
+                          maaha ({r.unused.length})
+                        </summary>
+                        <p className="mt-2 leading-relaxed">
+                          Tan waa xoog gaar ah oo aad qaad karo: haddii aad u
+                          isticmaasho, template-ka ayaa la buuxinayaa.{" "}
+                          {r.unused.map((u) => u.token).join(" · ")}
+                        </p>
+                      </details>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>

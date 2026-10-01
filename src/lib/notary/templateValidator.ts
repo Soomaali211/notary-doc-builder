@@ -203,11 +203,16 @@ export async function validateTemplate(
 }
 
 /**
- * Scan a .docx for every {{…}} placeholder token (document + headers +
- * footers). Used by the Template Manager to show the user exactly which
- * placeholders their own template contains.
+ * Every {{…}} token in document order, WITH duplicates and WITHOUT dedup.
+ *
+ * The Compatibility Validator needs the raw order because a token's meaning
+ * depends on where it sits: {{WAKIIL}} is a legal row-scoped flag inside
+ * {{#KIREYEYAYAAL}} but an unknown name in plain body text. Deduping would
+ * destroy that context, so this function keeps the stream intact.
  */
-export async function listTemplateTokens(bytes: ArrayBuffer): Promise<string[]> {
+export async function extractTemplateTokenStream(
+  bytes: ArrayBuffer,
+): Promise<string[]> {
   const tokens: string[] = [];
   const zip = await JSZip.loadAsync(bytes);
   const partNames = Object.keys(zip.files).filter((n) =>
@@ -217,13 +222,24 @@ export async function listTemplateTokens(bytes: ArrayBuffer): Promise<string[]> 
     const xml = await zip.file(name)!.async("string");
     tokens.push(...extractTokens(xml));
   }
+  // Bare names ("KIREYE_MAGAC"), the shape every existing caller expects.
+  return tokens.map((t) => t.trim());
+}
+
+/**
+ * Scan a .docx for every {{…}} placeholder token (document + headers +
+ * footers). Used by the Template Manager to show the user exactly which
+ * placeholders their own template contains.
+ */
+export async function listTemplateTokens(bytes: ArrayBuffer): Promise<string[]> {
+  const stream = await extractTemplateTokenStream(bytes);
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const t of tokens) {
-    const key = t.trim().toUpperCase();
+  for (const t of stream) {
+    const key = t.toUpperCase();
     if (!seen.has(key)) {
       seen.add(key);
-      out.push(t.trim());
+      out.push(t);
     }
   }
   return out;
