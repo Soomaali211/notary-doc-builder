@@ -63,6 +63,14 @@ export interface BaseField {
   placeholder?: string;
   /** Field is never required. */
   optional?: boolean;
+  /**
+   * Guided-form metadata: the user may explicitly skip this field
+   * ("Xog aan hadda la hayn laakiin dambe la heli karo"). A skipped field
+   * is never a validation error and never blocks navigation; it is stored
+   * as a skip marker so it stays distinct from a plain empty value
+   * (empty ≠ skipped) and is stripped before document generation.
+   */
+  skippable?: boolean;
   /** For select/radio/multiselect. */
   options?: SelectOption[];
   /** Applied when creating a fresh interview (checkbox: "yes"/"no"). */
@@ -372,6 +380,13 @@ export interface PartyRow {
 export interface FormValues {
   [key: string]: Record<string, string> | PartyRow[] | undefined;
 }
+
+/**
+ * Guided form — stored marker for a field the user explicitly skipped.
+ * Lives INSIDE the existing string state (empty ≠ skipped), survives
+ * Back/Next navigation, and is stripped before review/generation.
+ */
+export const FIELD_SKIPPED = "__skipped__";
 
 /* ------------------------------------------------------------------ */
 /* Archive record                                                      */

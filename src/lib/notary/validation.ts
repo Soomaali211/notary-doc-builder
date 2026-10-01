@@ -9,6 +9,21 @@ import type {
 import { evaluateCondition, makeGetter } from "./conditions";
 import { formatValueByKind, resolveKey } from "./format";
 import { getRepresentatives, representedByRep, representativeNameFor } from "./formValues";
+import { FIELD_SKIPPED } from "./types";
+
+/**
+ * Effective requiredness of one field for the CURRENT answers — the single
+ * source the interview's guided pre-check and the validator both use.
+ * `requiredWhen` wins over `optional` (conditional requiredness).
+ */
+export function isFieldRequired(
+  field: FieldDef,
+  values: FormValues,
+  get: (key: string) => unknown,
+): boolean {
+  if (field.requiredWhen && evaluateCondition(field.requiredWhen, get)) return true;
+  return !field.optional && field.validation?.required !== false;
+}
 
 const PHONE_RE = /^[0-9()+\-\s]{6,20}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -61,6 +76,15 @@ export function validateField(field: FieldDef, value: string): string | null {
   const text = (value ?? "").trim();
   const rules = field.validation ?? {};
   const required = !field.optional && rules.required !== false;
+
+  // Guided form: an explicitly skipped field behaves like a deliberate
+  // empty optional value — never a format/pattern error. A marker on a
+  // NON-skippable field is invalid bookkeeping: required fields surface
+  // their error, optional ones degrade to empty.
+  if (text === FIELD_SKIPPED) {
+    if (field.skippable) return null;
+    return required ? `Fadlan buuxi: ${field.label}` : null;
+  }
 
   if (text === "") {
     if (required) return `Fadlan buuxi: ${field.label}`;
@@ -312,15 +336,23 @@ export function validateDocument(
         if (field.visibleWhen && !evaluateCondition(field.visibleWhen, get)) {
           continue; // hidden conditional field → not validated
         }
+        const raw = record[field.id] ?? "";
+        // Guided form: a field the user explicitly SKIPPED (skippable in
+        // config) is a deliberate "empty", never an error. A stale marker
+        // on a non-skippable field falls through to validateField, which
+        // surfaces the required error (or treats it as empty if optional).
+        if (raw === FIELD_SKIPPED && field.skippable) {
+          continue;
+        }
         if (
           field.requiredWhen &&
           evaluateCondition(field.requiredWhen, get) &&
-          (record[field.id] ?? "").trim() === ""
+          raw.trim() === ""
         ) {
           fieldErrors[field.id] = `Fadlan buuxi: ${field.label}`;
           continue;
         }
-        const err = validateField(field, record[field.id] ?? "");
+        const err = validateField(field, raw);
         if (err) fieldErrors[field.id] = err;
       }
 

@@ -5,7 +5,7 @@ import type {
   PartyRow,
   SectionDef,
 } from "./types";
-import { representativesKeyFor } from "./types";
+import { FIELD_SKIPPED, representativesKeyFor } from "./types";
 
 /* ------------------------------------------------------------------ */
 /* Draft migration (back-compat)                                       */
@@ -381,8 +381,72 @@ export function representedByRep(
 }
 
 /* ------------------------------------------------------------------ */
-/* Party summary (drafts + archive)                                    */
+/* Guided form — skip markers (empty ≠ skipped)                        */
 /* ------------------------------------------------------------------ */
+
+/** Whether one scalar value is the skip marker. */
+export function isSkippedValue(value: string | undefined): boolean {
+  return value === FIELD_SKIPPED;
+}
+
+/** Strip every skip marker from a section's scalar values. */
+function stripSectionSkips(record: Record<string, string>): Record<string, string> {
+  let changed = false;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(record)) {
+    if (v === FIELD_SKIPPED) {
+      out[k] = "";
+      changed = true;
+    } else {
+      out[k] = v;
+    }
+  }
+  return changed ? out : record;
+}
+
+/**
+ * A copy of the answers with every skip marker replaced by an empty value.
+ * Used by REVIEW and DOCUMENT GENERATION so a skipped field renders like
+ * any other empty optional value ("—" via fallback) — never a marker.
+ */
+export function stripSkipMarkers(config: DocumentConfig, values: FormValues): FormValues {
+  const out: FormValues = {};
+  let changed = false;
+  for (const section of config.sections) {
+    if (section.parties && section.parties.length > 0) {
+      for (const partyDef of section.parties) {
+        const rows = values[partyDef.id];
+        if (!Array.isArray(rows)) continue;
+        const newRows = rows.map((row) => ({
+          ...row,
+          values: stripSectionSkips(row.values ?? {}),
+        }));
+        out[partyDef.id] = newRows as PartyRow[];
+        if (newRows !== rows) changed = true;
+      }
+      // Shared representative lists too.
+      for (const partyDef of section.parties) {
+        const key = representativesKeyFor(partyDef);
+        const reps = values[key];
+        if (!Array.isArray(reps)) continue;
+        const newReps = reps.map((row) => ({
+          ...row,
+          values: stripSectionSkips(row.values ?? {}),
+        }));
+        out[key] = newReps as PartyRow[];
+        if (newReps !== reps) changed = true;
+      }
+    } else {
+      const v = values[section.id];
+      if (v && !Array.isArray(v)) {
+        const stripped = stripSectionSkips(v as Record<string, string>);
+        out[section.id] = stripped;
+        if (stripped !== v) changed = true;
+      }
+    }
+  }
+  return changed ? { ...values, ...out } : values;
+}
 
 /** Build the party summary saved into drafts/archive records. */
 export function buildPartySummary(
@@ -397,6 +461,8 @@ export function buildPartySummary(
   representative?: string;
   representing?: string;
 }[] {
+  // Skip markers are UI bookkeeping — they never reach the archive summary.
+  values = stripSkipMarkers(config, values);
   const summary: {
     role: string;
     name: string;

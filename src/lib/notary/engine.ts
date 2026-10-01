@@ -39,6 +39,7 @@ import {
   getPartyRows,
   getSectionValues,
   removePartyRow,
+  stripSkipMarkers,
   updatePartyField,
   updateSectionField,
 } from "./formValues";
@@ -373,9 +374,13 @@ export function deserializeDraft(
 /* Review                                                              */
 /* ------------------------------------------------------------------ */
 
-/** get_review_data(): per-section review rows for the review page. */
+/**
+ * get_review_data(): per-section review rows for the review page.
+ * Skip markers are stripped first: a skipped field shows like any other
+ * unfilled optional ("—"), never the internal marker string.
+ */
 export function getReviewData(config: DocumentConfig, values: FormValues) {
-  return collectFilledValues(config, values);
+  return collectFilledValues(config, stripSkipMarkers(config, values));
 }
 
 /** Party summary rows (also stored with drafts/archive records). */

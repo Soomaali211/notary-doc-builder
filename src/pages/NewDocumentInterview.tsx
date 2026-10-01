@@ -53,13 +53,19 @@ import { getAnswer } from "@/lib/notary/engine";
 import { buildFileBaseName } from "@/lib/notary/archiver";
 import { generateDocument } from "@/lib/notary/pipeline";
 import { deserializeDraft } from "@/lib/notary/engine";
+import { makeGetter } from "@/lib/notary/conditions";
+import { getPartyRows, stripSkipMarkers } from "@/lib/notary/formValues";
+import { isFieldRequired } from "@/lib/notary/validation";
+import { FIELD_SKIPPED } from "@/lib/notary/types";
 import type {
   AttendanceStatus,
+  FieldDef,
   FormValues,
   PartyDef,
   SectionDef,
 } from "@/lib/notary/types";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -273,6 +279,16 @@ export default function NewDocumentInterview() {
     label: string;
     next: FormValues;
   }>(null);
+  /**
+   * Guided form — pre-check before leaving a step: what is missing,
+   * optional-empty, or skipped. The user decides "Buuxi hadda" or
+   * "Skip oo sii wad"; required fields always block (never auto-skip).
+   */
+  const [guidedChoice, setGuidedChoice] = useState<null | {
+    fields: { label: string; status: "required-missing" | "optional-empty" | "skipped" }[];
+  }>(null);
+  /** Steps the user already chose "Skip oo sii wad" for — no re-prompt. */
+  const confirmedStepsRef = useRef<Set<string>>(new Set());
   const hydratedRef = useRef(false);
   const savedRef = useRef(false);
   const lastSavedJsonRef = useRef("");
@@ -543,6 +559,58 @@ export default function NewDocumentInterview() {
     }
   };
 
+  /**
+   * Guided form — what is missing on the CURRENT step, split by status:
+   *  – required-missing: blocks navigation until filled (or business rule)
+   *  – optional-empty: shown in the summary, never blocks
+   *  – skipped: explicitly skipped, shown for transparency
+   * "Not applicable" (hidden conditional fields) is NEVER included —
+   * N/A ≠ empty. Entirely-empty rows beyond the party minimum are ignored,
+   * mirroring the validator.
+   */
+  const collectStepGuidance = () => {
+    if (!values || !config || !currentStep) return null;
+    const fields: { label: string; status: "required-missing" | "optional-empty" | "skipped" }[] = [];
+    const get = makeGetter(values);
+    const isReq = (field: FieldDef) => isFieldRequired(field, values, get);
+
+    const step = currentStep.detail;
+    if (step.kind === "section") {
+      const sectionId = step.section.id;
+      for (const field of getVisibleFields(step.section, values)) {
+        const v = getAnswer(values, sectionId, field.id);
+        if (v === FIELD_SKIPPED) {
+          fields.push({ label: field.label, status: "skipped" });
+        } else if (v.trim() === "") {
+          fields.push({
+            label: field.label,
+            status: isReq(field) ? "required-missing" : "optional-empty",
+          });
+        }
+      }
+    } else if (step.kind === "party-data" || step.kind === "attendance") {
+      const partyDef = step.partyDef;
+      getPartyRows(values, partyDef.id).forEach((row, rowIndex) => {
+        const rowHasAny = Object.values(row.values ?? {}).some((x) => (x ?? "").trim() !== "");
+        if (!rowHasAny && rowIndex >= partyDef.min) return; // ignored empty row
+        for (const field of partyDef.fields) {
+          const raw = row.values?.[field.id] ?? "";
+          if (raw === FIELD_SKIPPED) {
+            fields.push({ label: `${partyDef.singular} ${rowIndex + 1}: ${field.label}`, status: "skipped" });
+          } else if (raw.trim() === "") {
+            fields.push({
+              label: `${partyDef.singular} ${rowIndex + 1}: ${field.label}`,
+              status: isReq(field) ? "required-missing" : "optional-empty",
+            });
+          }
+        }
+      });
+    } else {
+      return null; // count step always has a value
+    }
+    return fields.length > 0 ? { fields } : null;
+  };
+
   const tryContinue = () => {
     if (!values || !config) return;
     if (!currentStep) {
@@ -555,9 +623,51 @@ export default function NewDocumentInterview() {
       toast.error("Waxaa jira xog aan dhammaystirnayn. Fadlan sax meelaha lagu calaamadeeyay.");
       return;
     }
+    // Guided pre-check (CASE B/C/D): required-missing blocks; optional/skip
+    // items get an informed choice — "Buuxi hadda" or "Skip oo sii wad".
+    const guidance = collectStepGuidance();
+    const hasBlocking = guidance?.fields.some((f) => f.status === "required-missing") ?? false;
+    if (guidance && (hasBlocking || !confirmedStepsRef.current.has(currentStep.key))) {
+      setGuidedChoice(guidance);
+      if (hasBlocking) setStepErrors(true);
+      return;
+    }
     setStepErrors(false);
     persist(values);
     setStep((s) => Math.min(s + 1, totalSteps - 1));
+  };
+
+  /** Guided choice: continue with the skipped/optional gaps as they are. */
+  const applyGuidedChoice = (mode: "fill" | "skip") => {
+    if (guidedChoice) {
+      if (mode === "skip" && currentStep) {
+        confirmedStepsRef.current.add(currentStep.key);
+      } else {
+        confirmedStepsRef.current.delete(currentStep?.key ?? "");
+      }
+    }
+    setGuidedChoice(null);
+    if (mode !== "skip") return; // stay on the step to fill
+    setStepErrors(false);
+    persist(values!);
+    setStep((s) => Math.min(s + 1, totalSteps - 1));
+  };
+
+  /** Guided form — does this step hold any explicit skip markers (⚠)? */
+  const hasStepSkips = (s: InterviewStep): boolean => {
+    if (!values) return false;
+    const d = s.detail;
+    if (d.kind === "section") {
+      return d.section.fields.some(
+        (f) => getAnswer(values, d.section.id, f.id) === FIELD_SKIPPED,
+      );
+    }
+    if (d.kind === "party-data" || d.kind === "attendance") {
+      return getPartyRows(values, d.partyDef.id).some((row) =>
+        Object.values(row.values ?? {}).some((v) => v === FIELD_SKIPPED),
+      );
+    }
+    return false;
   };
 
   const handleGenerate = async () => {
@@ -607,9 +717,11 @@ export default function NewDocumentInterview() {
       // Full Phase 3 pipeline: validate answers → registry template →
       // validate template → data context → conditions → clauses →
       // repeaters → placeholders → DOCX → validate output → PDF (best effort).
+      // Skip markers are stripped first: a skipped field renders like any
+      // other empty optional value (template fallback), never a marker.
       const out = await generateDocument({
         config,
-        values,
+        values: stripSkipMarkers(config, values),
         referenceNumber,
         subTypeLabel,
       });
@@ -642,7 +754,7 @@ export default function NewDocumentInterview() {
           subTypeLabel,
           referenceNumber,
           fileBaseName: out.result.fileName.replace(/\.docx$/, ""),
-          parties: getPartySummary(config, values),
+          parties: getPartySummary(config, stripSkipMarkers(config, values)),
           valuesJson: serializeDraft(values),
         },
         metadata: {
@@ -895,6 +1007,17 @@ export default function NewDocumentInterview() {
                         >
                           {done ? <Check className="size-3" /> : String(i + 1).padStart(2, "0")}
                         </span>
+                        {/* Guided form: ⚠ = incomplete/skipped fields — visible
+                            but never blocking (req #11). */}
+                        {done && hasStepSkips(s) && (
+                          <span
+                            title="Waxaa jira fields la skip-gareeyay"
+                            className="ml-auto text-pen-orange"
+                            aria-label="Waxaa jira fields la skip-gareeyay"
+                          >
+                            ⚠
+                          </span>
+                        )}
                         {s.short}
                       </button>
                     </li>
@@ -1136,6 +1259,52 @@ export default function NewDocumentInterview() {
             <AlertDialogCancel onClick={() => applyHiddenDataChoice("cancel")}>
               Cancel
             </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Guided form — pre-check summary before leaving a step. The user
+          decides: fill now, or continue with optional/skippable gaps.
+          Required-missing items always block (never auto-skipped). */}
+      <AlertDialog
+        open={guidedChoice !== null}
+        onOpenChange={(open) => !open && setGuidedChoice(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-4 text-pen-orange" />
+              Qaar ka mid ah xogta weli lama buuxin
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-1.5">
+                {guidedChoice?.fields.map((f) => (
+                  <p key={f.label} className="text-[13px] leading-5">
+                    {f.status === "required-missing" ? (
+                      <span className="font-medium text-destructive">• {f.label} — waa waajib</span>
+                    ) : f.status === "skipped" ? (
+                      <span className="text-muted-foreground">— {f.label} — Skipped</span>
+                    ) : (
+                      <span className="text-muted-foreground">⚠ {f.label} — Madhan (Optional)</span>
+                    )}
+                  </p>
+                ))}
+                {guidedChoice?.fields.some((f) => f.status === "required-missing") && (
+                  <p className="pt-1 text-[13px] font-medium text-foreground">
+                    Fadlan buuxi xogta waajibka ah ka hor intaadan sii wadin.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+            <AlertDialogCancel>Dib ugu noqo oo buuxi</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={guidedChoice?.fields.some((f) => f.status === "required-missing")}
+              onClick={() => applyGuidedChoice("skip")}
+            >
+              Skip oo sii wad
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -513,6 +513,60 @@ describe("Step 1 UI correction (req #10/#11)", () => {
     expect(errors["damiinka"]).toBeUndefined();
   });
 
+  test("#17 guided form: required / optional / skip — empty ≠ skipped ≠ N/A", () => {
+    const { validateDocument, isFieldRequired } = require("../src/lib/notary/validation");
+    const { FIELD_SKIPPED } = require("../src/lib/notary/types");
+    const { stripSkipMarkers } = require("../src/lib/notary/formValues");
+    const { makeGetter } = require("../src/lib/notary/conditions");
+    const kireeyeDef = config.sections.find((s) => s.id === "kireeyaha")!.parties![0];
+    const { setRepeatableCount, setRepeatableAnswer, getReviewData, setPartyAttendance, serializeDraft } = require("../src/lib/notary/engine");
+
+    // Metadata: Magac REQUIRED; Telefoon optional; Aqoonsi skippable.
+    expect(isFieldRequired(kireeyeDef.fields[0], setupValues(), makeGetter(setupValues()))).toBe(true);
+    expect(isFieldRequired(kireeyeDef.fields[1], setupValues(), makeGetter(setupValues()))).toBe(false);
+    expect(kireeyeDef.fields[2].skippable).toBe(true);
+    expect(kireeyeDef.fields[0].skippable).toBeUndefined(); // required never skippable
+
+    // CASE C: aqoonsi skipped → no error; telefoon optional-empty → no error.
+    let values = setupValues();
+    values = setRepeatableCount(values, kireeyeDef, 2);
+    values = setRepeatableAnswer(values, "kireeyayaal", 0, "magac", "Axmed");
+    values = setRepeatableAnswer(values, "kireeyayaal", 0, "telefoon", "+252 61 0000000");
+    values = setRepeatableAnswer(values, "kireeyayaal", 0, "aqoonsi", FIELD_SKIPPED); // skipped
+    values = setRepeatableAnswer(values, "kireeyayaal", 1, "magac", "Faadumo");
+    values = setRepeatableAnswer(values, "kireeyayaal", 1, "telefoon", ""); // optional empty
+    // Attendance is part of the flow (required per party).
+    values = setPartyAttendance(values, "kireeyayaal", 0, "jooga");
+    values = setPartyAttendance(values, "kireeyayaal", 1, "jooga");
+    const errors = validateDocument(config, values);
+    expect(errors["kireeyaha"]).toBeUndefined(); // no errors at all
+
+    // Marker survives draft round-trip (empty ≠ skipped in storage).
+    const restored = deserializeDraft(config, serializeDraft(values));
+    expect((restored.kireeyayaal as { values: Record<string, string> }[])[0].values.aqoonsi).toBe(FIELD_SKIPPED);
+
+    // Review + generation see CLEAN values — never the marker.
+    const review = getReviewData(config, values);
+    expect(JSON.stringify(review)).not.toContain("__skipped__");
+    const clean = stripSkipMarkers(config, values);
+    expect((clean.kireeyayaal as { values: Record<string, string> }[])[0].values.aqoonsi).toBe("");
+
+    // CASE D: required (magac) skipped-like marker → still required error.
+    let bad = setupValues();
+    bad = setRepeatableCount(bad, kireeyeDef, 1);
+    bad = setRepeatableAnswer(bad, "kireeyayaal", 0, "magac", FIELD_SKIPPED);
+    const badErrors = validateDocument(config, bad);
+    expect(
+      (badErrors["kireeyaha"]?.partyErrors["kireeyayaal"] ?? []).some((e) =>
+        e.errors.some((x) => x.message.includes("Magaca Buuxa")),
+      ),
+    ).toBe(true);
+
+    // CASE E: conditional N/A never validated (End Date absent under Furan).
+    const furan = setupValues({ muddada_nooca: "furan", taariikhda_dhammaadka: "" });
+    expect(validateDocument(config, furan)["heshiiska"]).toBeUndefined();
+  });
+
   test("#11 Furan→Xidhan: End Date immediately appears (required); Xidhan→Furan: disappears", () => {
     const { getVisibleFields } = require("../src/lib/notary/engine");
     const { validateDocument } = require("../src/lib/notary/validation");
