@@ -120,11 +120,15 @@ export const heshiisKiroConfig: DocumentConfig = {
 
   // Phase 3 — named boolean flags for {{IF:FLAG}}…{{ENDIF}} blocks.
   // Step 1 (Dejinta Heshiiska) is the source of truth for these decisions.
+  // Phase Document Generation — KIRO_XIDHAN / KIRO_FURAN let the user's own
+  // Word template wrap the End-Date line ({{IF:KIRO_XIDHAN}} … {{END:KIRO_XIDHAN}}).
   conditionFlags: {
     DEEBAAJI_HAA: { op: "is_true", field: "heshiiska.deebaaji_haa" },
     DAMIIN_HAA: { op: "is_true", field: "heshiiska.damiin_haa" },
     MUQADIN: { op: "equals", field: "lacagta.bixinta_hore", value: "muqadin" },
     MUAKHIR: { op: "equals", field: "lacagta.bixinta_hore", value: "muakhir" },
+    KIRO_XIDHAN: { op: "equals", field: "heshiiska.muddada_nooca", value: "xidhan" },
+    KIRO_FURAN: { op: "equals", field: "heshiiska.muddada_nooca", value: "furan" },
   },
 
   // Phase 3 — configurable document formatting (29/09/2026, $500 …).
@@ -317,6 +321,15 @@ export const heshiisKiroConfig: DocumentConfig = {
     { placeholder: "{{TAARIIKHDA_DHAMMAADKA}}", mapping: { key: "heshiiska.taariikhda_dhammaadka", format: "date" } },
     { placeholder: "{{SHURUUDAHA_GAARKA_AH}}", mapping: { key: "heshiiska.shuruudaha_gaarka_ah", fallback: "— Ma jiro." } },
 
+    // Phase Document Generation — short aliases for the user's own Word
+    // template. The office names its placeholders however it reads best;
+    // the engine resolves every alias to the SAME form-state value.
+    { placeholder: "{{REF_NUMBER}}", mapping: { key: "heshiiska.reference", fallback: "" } },
+    { placeholder: "{{TAARIIKH}}", mapping: { key: "heshiiska.taariikhda_heshiiska", format: "date" } },
+    { placeholder: "{{NOOCA_KIRADA}}", mapping: { key: "heshiiska.sub_type", format: "text" } },
+    { placeholder: "{{TAARIIKH_BILOWGA}}", mapping: { key: "heshiiska.taariikhda_bilowga", format: "date" } },
+    { placeholder: "{{TAARIIKH_DHAMMAAD}}", mapping: { key: "heshiiska.taariikhda_dhammaadka", format: "date" } },
+
     { placeholder: "{{KIREYE_MAGAC}}", mapping: { key: "kireeyayaal.magac", format: "text" } },
     { placeholder: "{{KIREYE_TELEFOON}}", mapping: { key: "kireeyayaal.telefoon" } },
     { placeholder: "{{KIREYE_AQOONSI}}", mapping: { key: "kireeyayaal.aqoonsi" } },
@@ -332,12 +345,20 @@ export const heshiisKiroConfig: DocumentConfig = {
     { placeholder: "{{CINWAANKA_GURIGA}}", mapping: { key: "guriga.cinwaanka_guriga" } },
     { placeholder: "{{SHARRAXAADDA_GURIGA}}", mapping: { key: "guriga.sharraxaad", fallback: "—" } },
     { placeholder: "{{QOLADA}}", mapping: { key: "guriga.qolada", fallback: "—" } },
+    // Guri aliases for the user-owned template.
+    { placeholder: "{{GURI_NOOCA}}", mapping: { key: "guriga.nooca_guriga" } },
+    { placeholder: "{{GURI_GOOBTA}}", mapping: { key: "guriga.goobta" } },
+    { placeholder: "{{GURI_CINWAAN}}", mapping: { key: "guriga.cinwaanka_guriga" } },
+    { placeholder: "{{GURI_SHARRAXAAD}}", mapping: { key: "guriga.sharraxaad", fallback: "—" } },
 
     { placeholder: "{{QIIMAHA_KIRADA}}", mapping: { key: "lacagta.qiimaha_bil_ka", format: "currency" } },
     { placeholder: "{{HABKA_BIXINTA}}", mapping: { key: "lacagta.habka_bixinta" } },
     { placeholder: "{{TAARIIKHDA_BIXINTA}}", mapping: { key: "lacagta.taariikhda_bixinta" } },
     { placeholder: "{{BIXINTA_HORE}}", mapping: { key: "lacagta.bixinta_hore" } },
     { placeholder: "{{FAAHFAAHIN_LACAGTA}}", mapping: { key: "lacagta.faahfaahin_lacagta", fallback: "—" } },
+    // Lacag aliases for the user-owned template.
+    { placeholder: "{{KIRADA_QIIMAHA}}", mapping: { key: "lacagta.qiimaha_bil_ka", format: "currency" } },
+    { placeholder: "{{MUDDADA_BIXINTA}}", mapping: { key: "lacagta.taariikhda_bixinta" } },
 
     { placeholder: "{{DEEBAAJI_AMOUNT}}", mapping: { key: "deebaaji.lacagta_deebaajiga", format: "currency" } },
     { placeholder: "{{DEEBAAJI_SHURUUDO}}", mapping: { key: "deebaaji.shuruudaha_deebaajiga", fallback: "—" } },

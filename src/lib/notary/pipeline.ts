@@ -26,6 +26,7 @@ import { convertToPdf } from "./pdfRenderer";
 import {
   buildFileBaseName,
   buildOutputFolder,
+  uniqueBaseName,
   type GenerationResult,
 } from "./archiver";
 
@@ -39,6 +40,11 @@ export interface PipelineInput {
   templateBytes?: ArrayBuffer;
   /** Injected for tests; skips the fetch-based template validation. */
   spec?: TemplateSpec;
+  /**
+   * Caller-owned set of already-issued file names (no-overwrite): when a
+   * generation reuses a base name, a unique -2, -3 … suffix is appended.
+   */
+  issuedFileNames?: Set<string>;
 }
 
 export interface PipelineOutput {
@@ -142,8 +148,13 @@ export async function generateDocument(input: PipelineInput): Promise<PipelineOu
     );
   }
 
-  // 11. Archive metadata (paths + template version + snapshot).
-  const baseName = buildFileBaseName(config, referenceNumber, input.subTypeLabel);
+  // 11. Archive metadata (paths + template version + snapshot). The base
+  // name gets a unique suffix when this reference was generated before —
+  // an existing file is never overwritten.
+  const baseName = uniqueBaseName(
+    buildFileBaseName(config, referenceNumber, input.subTypeLabel),
+    input.issuedFileNames,
+  );
   const folder = buildOutputFolder(config, subTypeOf(config, values));
   const metadata: GeneratedDocumentMetadata = {
     templateId: spec.templateId,

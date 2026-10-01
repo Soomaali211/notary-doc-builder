@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
+import JSZip from "jszip";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -49,8 +51,14 @@ import {
 import { validateDocument } from "@/lib/notary/validation";
 import { getVisibleFields } from "@/lib/notary/engine";
 import { getAnswer } from "@/lib/notary/engine";
-import { buildFileBaseName } from "@/lib/notary/archiver";
+import { buildFileBaseName, uniqueBaseName } from "@/lib/notary/archiver";
 import { generateDocument } from "@/lib/notary/pipeline";
+import { paragraphText } from "@/lib/notary/docxRenderer";
+import {
+  fetchTemplateBytes,
+  toTemplateSpec,
+  type UserTemplateRecord,
+} from "@/lib/notary/userTemplate";
 import { deserializeDraft } from "@/lib/notary/engine";
 import { makeGetter } from "@/lib/notary/conditions";
 import { getPartyRows, getRepresentatives, stripSkipMarkers } from "@/lib/notary/formValues";
@@ -68,10 +76,13 @@ import {
   ArrowRight,
   Check,
   ClipboardList,
+  Eye,
+  FileDown,
   FileText,
   Loader2,
   Save,
   PenLine,
+  Star,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -355,6 +366,58 @@ export default function NewDocumentInterview() {
   const generateUploadUrl = useMutation(api.notaryDocuments.generateUploadUrl);
   const commitGenerated = useMutation(api.notaryDocuments.commitGenerated);
 
+  /* -------------------------------------------------------------- */
+  /* Phase Document Generation — user template + generation state    */
+  /* -------------------------------------------------------------- */
+
+  // The user's OWN Word templates (Template Manager). Empty selection →
+  // the registry sample template is used.
+  const myTemplates = useQuery(
+    api.notaryTemplates.listMyTemplates,
+    document ? { documentType: document.documentType } : "skip",
+  );
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const selectedTemplate = useMemo(
+    () =>
+      selectedTemplateId
+        ? (myTemplates ?? []).find((t) => t._id === selectedTemplateId)
+        : undefined,
+    [myTemplates, selectedTemplateId],
+  );
+  const templateUrl = useQuery(
+    api.notaryTemplates.getTemplateUrl,
+    selectedTemplateId
+      ? { templateId: selectedTemplateId as Id<"notary_templates"> }
+      : "skip",
+  );
+
+  /** [Preview] state — the generated document TEXT before final commit. */
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewLines, setPreviewLines] = useState<string[]>([]);
+  const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
+
+  /** Generation error card — data is never lost; [Try Again] re-runs. */
+  const [generationError, setGenerationError] = useState<string | null>(null);
+
+  /** No-overwrite: session-wide issued file names (unique -2, -3 …). */
+  const issuedFileNamesRef = useRef<Set<string>>(new Set());
+
+  /** Set when the user opens an edit from REVIEW — Next returns to review. */
+  const editReturnRef = useRef(false);
+
+  // Auto-select the user's DEFAULT template once the list loads (only once —
+  // an explicit choice by the user is never overridden).
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (autoSelectedRef.current || selectedTemplateId) return;
+    const def = (myTemplates ?? []).find((t) => t.isDefault);
+    if (def) {
+      autoSelectedRef.current = true;
+      setSelectedTemplateId(def._id);
+    }
+  }, [myTemplates, selectedTemplateId]);
+
   const visibleSections: SectionDef[] = useMemo(
     () => (values && config ? getSections(config, values) : []),
     [config, values],
@@ -482,6 +545,76 @@ export default function NewDocumentInterview() {
     () => (values && config ? validateDocument(config, values) : {}),
     [values, config],
   );
+
+  /* -------------------------------------------------------------- */
+  /* Review → step navigation (VALIDATION before generate)           */
+  /* -------------------------------------------------------------- */
+
+  /**
+   * Map a review block (sectionId) to the workflow step the user edits it
+   * in. Party sections (Kireeyaha/Kiraystaha) have NO section step — their
+   * data lives in the combined party-status step; Maragyada lives in its
+   * party-data step. Falls back to the section step, then -1.
+   */
+  const stepTargetForSection = useCallback(
+    (sectionId: string): number => {
+      const section = visibleSections.find((s) => s.id === sectionId);
+      const partyId = section?.parties?.[0]?.id;
+      return steps.findIndex((s) => {
+        if (
+          partyId &&
+          (s.detail.kind === "party-status" || s.detail.kind === "party-data")
+        ) {
+          return s.detail.partyDef.id === partyId;
+        }
+        return s.detail.kind === "section" && s.detail.section.id === sectionId;
+      });
+    },
+    [steps, visibleSections],
+  );
+
+  /**
+   * Missing REQUIRED data before generate — field + step + reason.
+   * Optional/skipped fields NEVER appear here (the validator only reports
+   * required violations), so they can never block generation.
+   */
+  const missingRequired = useMemo(() => {
+    if (!values || !config) return [];
+    const out: { label: string; stepName: string; stepIndex: number; reason: string }[] = [];
+    const stepName = (idx: number) => (idx >= 0 ? `Tallaabada ${idx + 1}: ${steps[idx]?.short ?? ""}` : "");
+    for (const [sectionId, errs] of Object.entries(validation)) {
+      const section = config.sections.find((s) => s.id === sectionId);
+      const idx = stepTargetForSection(sectionId);
+      const name = stepName(idx);
+      for (const [fieldId, message] of Object.entries(errs.fieldErrors)) {
+        const label = section?.fields.find((f) => f.id === fieldId)?.label ?? fieldId;
+        out.push({ label, stepName: name, stepIndex: idx, reason: message });
+      }
+      for (const [partyId, partyErrs] of Object.entries(errs.partyErrors)) {
+        const partyDef = section?.parties?.find((p) => p.id === partyId);
+        for (const pe of partyErrs) {
+          for (const e of pe.errors) {
+            const fieldLabel =
+              e.fieldId === "attendance"
+                ? "Ma Joogaa Heshiiska?"
+                : (partyDef?.fields.find((f) => f.id === e.fieldId)?.label ??
+                    partyDef?.representativeFields?.find((f) => f.id === e.fieldId)?.label ??
+                    e.fieldId);
+            out.push({
+              label: `${partyDef?.singular ?? partyId} ${pe.index + 1}: ${fieldLabel}`,
+              stepName: name,
+              stepIndex: idx,
+              reason: e.message,
+            });
+          }
+        }
+      }
+      for (const g of errs.general) {
+        out.push({ label: g, stepName: name, stepIndex: idx, reason: section?.title ?? sectionId });
+      }
+    }
+    return out;
+  }, [config, steps, stepTargetForSection, validation, values]);
 
   const completedSteps = useMemo(
     () =>
@@ -650,6 +783,16 @@ export default function NewDocumentInterview() {
       toast.error("Waxaa jira xog aan dhammaystirnayn. Fadlan sax meelaha lagu calaamadeeyay.");
       return;
     }
+    // Review edit flow: the user jumped here from "Wax ka beddel" — once
+    // the step validates, return straight back to the review page where
+    // the updated form state is re-read (Review = FINAL FORM STATE).
+    if (editReturnRef.current) {
+      editReturnRef.current = false;
+      setStepErrors(false);
+      persist(values);
+      setStep(steps.length);
+      return;
+    }
     // Guided pre-check (CASE B/C/D): required-missing blocks; optional/skip
     // items get an informed choice — "Buuxi hadda" or "Skip oo sii wad".
     const guidance = collectStepGuidance();
@@ -700,6 +843,7 @@ export default function NewDocumentInterview() {
   const handleGenerate = async () => {
     if (!values || !config || !document) return;
     setGenerating(true);
+    setGenerationError(null);
     try {
       const allErrors = validateDocument(config, values);
       const errorSections = Object.keys(allErrors);
@@ -741,16 +885,34 @@ export default function NewDocumentInterview() {
       const subType = getAnswer(values, "heshiiska", "sub_type") || document.subType;
       const subTypeLabel = getSubTypeLabel(config, subType);
 
-      // Full Phase 3 pipeline: validate answers → registry template →
-      // validate template → data context → conditions → clauses →
-      // repeaters → placeholders → DOCX → validate output → PDF (best effort).
-      // Skip markers are stripped first: a skipped field renders like any
-      // other empty optional value (template fallback), never a marker.
+      // Phase Document Generation — the USER'S OWN template wins. Its bytes
+      // are fetched from file storage; the pipeline validates the
+      // placeholders against the FINAL FORM STATE and fills them without
+      // touching the user's design. No user template → registry template.
+      let userBytes: ArrayBuffer | undefined;
+      let userSpec;
+      if (selectedTemplateId) {
+        if (!selectedTemplate || !templateUrl) {
+          throw new Error("Template-ka la doortay lama helin — dooro template mar kale.");
+        }
+        userBytes = await fetchTemplateBytes(templateUrl);
+        userSpec = toTemplateSpec(selectedTemplate);
+      }
+
+      // Full Phase 3 pipeline: validate answers → template (user or
+      // registry) → validate template → data context → conditions →
+      // clauses → repeaters → placeholders → DOCX → validate output →
+      // PDF (best effort). Skip markers are stripped first: a skipped
+      // field renders like any other empty optional value (template
+      // fallback), never a marker.
       const out = await generateDocument({
         config,
         values: stripSkipMarkers(config, values),
         referenceNumber,
         subTypeLabel,
+        templateBytes: userBytes,
+        spec: userSpec,
+        issuedFileNames: issuedFileNamesRef.current,
       });
 
       // Hand the generated DOCX to the user immediately.
@@ -804,13 +966,76 @@ export default function NewDocumentInterview() {
     } catch (err) {
       console.error(err);
       const msg = err instanceof Error ? err.message : "";
+      // Document-ka lama samayn karin — form state-ku weli wuu jiraa;
+      // [Try Again] wuxuu ku noqdaa isla xogtaas.
+      setGenerationError(
+        msg.startsWith("Template Error") || msg.startsWith("Output Error")
+          ? msg
+          : msg || "Abuuritaanku wuu fashilmay.",
+      );
       toast.error(
         msg.startsWith("Template Error") || msg.startsWith("Output Error")
           ? msg
-          : "Abuuritaanku wuu fashilmay — xogtaada weli way kaydsan tahay. Fadlan isku day mar kale.",
+          : "Document-ka lama samayn karin — xogtaada way kaydsan tahay. Isku day mar kale.",
       );
     } finally {
       setGenerating(false);
+    }
+  };
+
+  /**
+   * [Preview] — run the REAL generation pipeline against the selected
+   * template and show the resulting document text, WITHOUT committing or
+   * downloading. The user sees exactly what their template produces from
+   * the final form state before pressing Generate.
+   */
+  const runPreview = async () => {
+    if (!values || !config || !document) return;
+    setPreviewLoading(true);
+    try {
+      const referenceNumber =
+        (getAnswer(values, "heshiiska", "reference") || document.referenceNumber || "PREVIEW").trim() ||
+        "PREVIEW";
+      let userBytes: ArrayBuffer | undefined;
+      let userSpec;
+      if (selectedTemplateId) {
+        if (!selectedTemplate || !templateUrl) {
+          throw new Error("Template-ka la doortay lama helin — dooro template mar kale.");
+        }
+        userBytes = await fetchTemplateBytes(templateUrl);
+        userSpec = toTemplateSpec(selectedTemplate);
+      }
+      const out = await generateDocument({
+        config,
+        values: stripSkipMarkers(config, values),
+        referenceNumber,
+        subTypeLabel: getSubTypeLabel(
+          config,
+          getAnswer(values, "heshiiska", "sub_type") || document.subType,
+        ),
+        templateBytes: userBytes,
+        spec: userSpec,
+      });
+      const zip = await JSZip.loadAsync(await out.result.blob.arrayBuffer());
+      const xml = (await zip.file("word/document.xml")!.async("string")) ?? "";
+      const lines: string[] = [];
+      for (const m of xml.matchAll(/<w:p\b[^>]*\/>|<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)) {
+        lines.push(paragraphText(m[0]));
+      }
+      setPreviewLines(lines);
+      setPreviewWarnings([
+        ...(out.templateValidation?.issues
+          .filter((i) => i.level === "warning")
+          .map((i) => i.message) ?? []),
+        ...out.warnings,
+      ]);
+      setPreviewOpen(true);
+    } catch (err) {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : "";
+      toast.error(msg || "Preview-gu wuu fashilmay — isku day mar kale.");
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -1166,11 +1391,9 @@ export default function NewDocumentInterview() {
                 )}
                 <div className="space-y-4">
                   {reviewBlocks.map((block) => {
-                    const idx = steps.findIndex((s) =>
-                      s.detail.kind === "section" ? s.detail.section.id === block.sectionId : false,
-                    );
-                    const fallbackIdx = visibleSections.findIndex((s) => s.id === block.sectionId);
-                    const target = idx >= 0 ? idx : fallbackIdx;
+                    // Party sections (Kireeyaha/Kiraystaha/Maragyada) have no
+                    // section step — edit lands in their party-status/data step.
+                    const target = stepTargetForSection(block.sectionId);
                     return (
                       <div key={block.sectionId} className="neu-inset p-4">
                         <div className="mb-2 flex items-center justify-between gap-2">
@@ -1182,6 +1405,7 @@ export default function NewDocumentInterview() {
                               size="sm"
                               className="h-7 gap-1 px-2 text-xs"
                               onClick={() => {
+                                editReturnRef.current = true; // Next returns to review
                                 setStep(target);
                                 setStepErrors(false);
                               }}
@@ -1206,6 +1430,170 @@ export default function NewDocumentInterview() {
                   Markaad gujiso "Abuur Dukumeenti" waxaa la abuurayaa DOCX ka template-kaaga
                   Word-ka, ka dibna waa la kaydinayaa kaydka.
                 </p>
+
+                {/* VALIDATION — missing REQUIRED data (field + step + reason).
+                    Optional/skipped fields never appear here and never block. */}
+                {missingRequired.length > 0 && (
+                  <div className="neu-raised mt-6 border-l-4 border-destructive p-4">
+                    <p className="flex items-center gap-2 text-sm font-bold text-destructive">
+                      <AlertTriangle className="size-4" />
+                      Qaar ka mid ah xogta muhiimka ah weli lama buuxin.
+                    </p>
+                    <ul className="mt-3 space-y-2">
+                      {missingRequired.map((m, i) => (
+                        <li
+                          key={`${m.label}-${i}`}
+                          className="neu-inset flex flex-wrap items-center justify-between gap-2 p-3 text-sm"
+                        >
+                          <div>
+                            <p className="font-medium">⚠ {m.label}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {m.stepName}
+                              {m.reason && m.reason !== m.label ? ` — ${m.reason}` : ""}
+                            </p>
+                          </div>
+                          {m.stepIndex >= 0 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1 px-2 text-xs"
+                              onClick={() => {
+                                editReturnRef.current = true;
+                                setStep(m.stepIndex);
+                                setStepErrors(false);
+                              }}
+                            >
+                              Wax ka beddel
+                            </Button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Optional / skipped fields ma xannibaan generation-ka — kaliya xogta waajibka ah ayaa joojisa.
+                    </p>
+                  </div>
+                )}
+
+                {/* SELECT WORD TEMPLATE — the user's own design wins. */}
+                <div className="neu-raised mt-6 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-bold">Dooro Word Template</h3>
+                    <a
+                      href="/templates"
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      + Soo geli / Maaree template-yada
+                    </a>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Template-ka waa iska leh USER-KA — system-ku wuxuu kaliya buuxinayaa
+                    placeholder-yada, isaga oo ilaalinaya qaab-dhismeedkaaga.
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {(myTemplates ?? []).length === 0 && (
+                      <p className="neu-inset p-3 text-xs text-muted-foreground">
+                        Weli template user ah lama soo gelin — tusaalaha registry-ga ayaa la isticmaalayaa.
+                      </p>
+                    )}
+                    {(myTemplates ?? []).map((t) => (
+                      <label
+                        key={t._id}
+                        className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all ${
+                          selectedTemplateId === t._id
+                            ? "neu-inset font-semibold text-primary"
+                            : "hover:bg-muted/40"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="word-template"
+                          className="accent-primary"
+                          checked={selectedTemplateId === t._id}
+                          onChange={() => setSelectedTemplateId(t._id)}
+                        />
+                        <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                        {t.isDefault && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-pen-green/10 px-2 py-0.5 text-[10px] font-semibold text-pen-green">
+                            <Star className="size-3" /> Default
+                          </span>
+                        )}
+                      </label>
+                    ))}
+                    <label
+                      className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all ${
+                        selectedTemplateId === ""
+                          ? "neu-inset font-semibold text-primary"
+                          : "hover:bg-muted/40"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="word-template"
+                        className="accent-primary"
+                        checked={selectedTemplateId === ""}
+                        onChange={() => setSelectedTemplateId("")}
+                      />
+                      <span>Tusaalaha nidaamka (registry)</span>
+                    </label>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => void runPreview()}
+                      disabled={previewLoading || generating}
+                    >
+                      {previewLoading ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Eye className="size-4" />
+                      )}
+                      Preview
+                    </Button>
+                  </div>
+                </div>
+
+                {/* GENERATION ERROR — data preserved, retry available. */}
+                {generationError && (
+                  <div className="neu-raised mt-6 border-l-4 border-destructive p-4">
+                    <p className="text-sm font-bold text-destructive">
+                      Document-ka lama samayn karin.
+                    </p>
+                    <p className="mt-1 break-words text-xs text-muted-foreground">
+                      {generationError}
+                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Xogtaada way kaydsan tahay — sax qalada haddii jiro oo isku day mar kale.
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="gap-2"
+                        onClick={tryContinue}
+                        disabled={generating}
+                      >
+                        {generating ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <FileDown className="size-4" />
+                        )}
+                        Try Again
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGenerationError(null)}
+                      >
+                        Xir
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -1227,8 +1615,13 @@ export default function NewDocumentInterview() {
                 <Button
                   type="button"
                   onClick={tryContinue}
-                  disabled={generating}
+                  disabled={generating || missingRequired.length > 0}
                   className="glow-primary-sm gap-2"
+                  title={
+                    missingRequired.length > 0
+                      ? "Xog muhiim ah weli lama buuxin — eeg liiska xogta maqan."
+                      : undefined
+                  }
                 >
                   {generating ? (
                     <>
@@ -1291,6 +1684,36 @@ export default function NewDocumentInterview() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* [Preview] — the generated document text from the user's own
+          template + the FINAL FORM STATE, before any commit. */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Preview — Dukumeentiga la abuuray</DialogTitle>
+            <DialogDescription>
+              Qoraalka template-kaaga WADADAaga Word-ka kadib marka xogta lagu
+              buuxiyay. Formatting-ka asalka ah (font, tables, logo) ayaa la ilaaliyaa.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[55vh] space-y-1 overflow-auto rounded-md bg-muted/40 p-4 text-[13px] leading-6">
+            {previewLines.filter((l) => l.trim() !== "").length === 0 ? (
+              <p className="text-muted-foreground">(Weli wax qoraal ah lama samayn.)</p>
+            ) : (
+              previewLines
+                .filter((l) => l.trim() !== "")
+                .map((l, i) => (
+                  <p key={i} className="whitespace-pre-wrap break-words">
+                    {l}
+                  </p>
+                ))
+            )}
+          </div>
+          {previewWarnings.length > 0 && (
+            <p className="text-xs text-pen-orange">⚠ {previewWarnings.join(" · ")}</p>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Guided form — pre-check summary before leaving a step. The user
           decides: fill now, or continue with optional/skippable gaps.

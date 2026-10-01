@@ -95,8 +95,13 @@ export async function validateTemplate(
   if (syntaxOk) {
     add(true, "File readable");
 
-    // Token syntax
-    const malformed = tokens.filter((t) => !/^(IF:[A-Za-z0-9_]+|ENDIF|#[A-Za-z0-9_]+|\/[A-Za-z0-9_]+|[A-Za-z0-9_.]+)$/.test(t.trim()));
+    // Token syntax — {{ENDIF}} and the alias {{END:NAME}} both close an IF.
+    const malformed = tokens.filter(
+      (t) =>
+        !/^(IF:[A-Za-z0-9_]+|ENDIF|END:[A-Za-z0-9_]+|#[A-Za-z0-9_]+|\/[A-Za-z0-9_]+|[A-Za-z0-9_.]+)$/.test(
+          t.trim(),
+        ),
+    );
     add(
       malformed.length === 0,
       "Placeholders valid",
@@ -105,46 +110,72 @@ export async function validateTemplate(
         : "Dhammaan placeholders-ka waxay sax yihiin.",
     );
 
-    // Known mappings
+    // Known mappings. Block-context aware: tokens INSIDE a repeat block
+    // may legally be that block's row tokens (e.g. {{WAKIIL_MAGAC}} inside
+    // {{#KIREYEYAYAAL}}) and row-scoped IF flags ({{IF:WAKIIL}}) — they are
+    // checked against the block's row data, not the global placeholders.
     const unknown: string[] = [];
     const repeatBlocks = new Set(
       [...ctx.repeatBlocks.keys()].map((k) => `#${k}`),
     );
+    const rowNamesFor = (blockId: string): Set<string> => {
+      const info = ctx.repeatBlocks.get(blockId.replace(/^#/, ""));
+      const names = new Set<string>();
+      if (info) {
+        for (const row of info.rows) {
+          for (const token of Object.keys(row)) names.add(token.toUpperCase());
+        }
+      }
+      return names;
+    };
+    const blockStack: string[] = [];
     for (const t of tokens) {
       const name = tokenName(t);
-      if (name === "ENDIF") continue; // structural marker, balance-checked below
+      if (name === "ENDIF" || name.startsWith("END:")) continue; // structural marker, balance-checked below
+      const currentRows =
+        blockStack.length > 0 ? rowNamesFor(`#${blockStack[blockStack.length - 1]}`) : new Set<string>();
       if (name.startsWith("IF:")) {
         const flag = name.slice(3);
-        if (!(flag in ctx.flags)) {
+        // Inside a repeat block a row-scoped flag (a row token like WAKIIL)
+        // is valid even when it is not a global condition flag.
+        if (!(flag in ctx.flags) && !currentRows.has(flag)) {
           unknown.push(`{{${t.trim()}}}`);
         }
         continue;
       }
-      if (name.startsWith("#") || name.startsWith("/")) {
-        if (!repeatBlocks.has(name.startsWith("/") ? `#${name.slice(1)}` : name)) {
-          unknown.push(`{{${t.trim()}}}`);
-        }
+      if (name.startsWith("#")) {
+        if (!repeatBlocks.has(name)) unknown.push(`{{${t.trim()}}}`);
+        blockStack.push(name.slice(1));
+        continue;
+      }
+      if (name.startsWith("/")) {
+        if (!repeatBlocks.has(`#${name.slice(1)}`)) unknown.push(`{{${t.trim()}}}`);
+        blockStack.pop();
         continue;
       }
       if (name.startsWith("CLAUSE_")) {
         if (!ctx.clausesByName.has(name)) unknown.push(`{{${t.trim()}}}`);
         continue;
       }
-      if (!ctx.knownNames.has(name)) {
+      if (!ctx.knownNames.has(name) && !currentRows.has(name)) {
         unknown.push(`{{${t.trim()}}}`);
       }
     }
+    // Unknown placeholders are a WARNING, not an error: the user owns the
+    // template and may keep extra notes inside it — generation must not
+    // break; unknown tokens are simply stripped from the final document.
     add(
       unknown.length === 0,
       "All required mappings found",
       unknown.length
-        ? `Placeholder-ka ${unknown[0]} lama helin data mapping-ka.`
+        ? `Placeholder-ka aan la aqoon (waa la saari doonaa): ${unknown.slice(0, 5).join(", ")}${unknown.length > 5 ? " …" : ""}`
         : "Dhammaan placeholders-ka waxay helay data mapping.",
+      "warning",
     );
 
-    // Block balance
+    // Block balance — {{ENDIF}} and {{END:NAME}} both count as closes.
     const opens = tokens.filter((t) => /^IF:/i.test(t.trim())).length;
-    const endifs = tokens.filter((t) => /^ENDIF$/i.test(t.trim())).length;
+    const endifs = tokens.filter((t) => /^(ENDIF|END:[A-Za-z0-9_]+)$/i.test(t.trim())).length;
     add(opens === endifs, "Conditional blocks balanced", opens === endifs ? undefined : `{{IF:}} ${opens} · {{ENDIF}} ${endifs}`);
 
     const repOpens = tokens.filter((t) => /^#[A-Za-z0-9_]+$/.test(t.trim()));
@@ -169,4 +200,31 @@ export async function validateTemplate(
     checks,
     issues,
   };
+}
+
+/**
+ * Scan a .docx for every {{…}} placeholder token (document + headers +
+ * footers). Used by the Template Manager to show the user exactly which
+ * placeholders their own template contains.
+ */
+export async function listTemplateTokens(bytes: ArrayBuffer): Promise<string[]> {
+  const tokens: string[] = [];
+  const zip = await JSZip.loadAsync(bytes);
+  const partNames = Object.keys(zip.files).filter((n) =>
+    /^word\/(document|header\d*|footer\d*)\.xml$/.test(n),
+  );
+  for (const name of partNames) {
+    const xml = await zip.file(name)!.async("string");
+    tokens.push(...extractTokens(xml));
+  }
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of tokens) {
+    const key = t.trim().toUpperCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(t.trim());
+    }
+  }
+  return out;
 }

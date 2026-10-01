@@ -71,6 +71,30 @@ function firstPartyField(
   return "";
 }
 
+/**
+ * Phase Document Generation — the representative (wakiil) fields of the
+ * FIRST absent party that has a linked rep. Empty when nobody is
+ * represented: a jooga party NEVER shows wakiil data in the document.
+ */
+function firstWakiilFields(
+  values: FormValues,
+  partyId: string,
+  fieldIds: string[],
+): string[] {
+  const v = values[partyId];
+  const rows = Array.isArray(v) ? (v as PartyRow[]) : [];
+  const represented = rows.find(
+    (r) => r.attendance?.status === "wakiil" && r.attendance.representativeId,
+  );
+  if (!represented) return fieldIds.map(() => "");
+  const key = `wakiilo_${partyId}`;
+  const reps = values[key];
+  const rep = Array.isArray(reps)
+    ? (reps as PartyRow[]).find((r) => r.id === represented.attendance!.representativeId)
+    : undefined;
+  return fieldIds.map((f) => (rep?.values?.[f] ?? "").trim());
+}
+
 function partyRowTokens(
   row: PartyRow,
   mapping: RepeatBlockMapping,
@@ -134,14 +158,44 @@ export function computeReplacements(
 
   // Step 1 correction — Kiro Furan has no end date: a stale value left in
   // the draft (user switched Xidhan → Furan and chose "Hay draft-ka") must
-  // never reach the document. Workflow visibility and stored draft data
-  // stay separate; generation reads the CURRENT duration answer.
+  // never reach the document. Every end-date placeholder alias (the long
+  // Somali name AND the short user-template aliases) is blanked.
   if (subTypeRaw && !Array.isArray(subTypeRaw)) {
     const heshiiska = subTypeRaw as Record<string, string>;
     if (heshiiska.muddada_nooca !== "xidhan") {
-      map["{{TAARIIKHDA_DHAMMAADKA}}"] = "";
+      for (const key of Object.keys(map)) {
+        const name = key.replace(/[{}]/g, "").toUpperCase();
+        if (name === "TAARIIKHDA_DHAMMAADKA" || name === "TAARIIKH_DHAMMAAD") {
+          map[key] = "";
+        }
+      }
     }
   }
+
+  // Phase Document Generation — wakiil (representative) placeholders for the
+  // user's own template. The short {{WAKIIL_*}} aliases resolve to the first
+  // represented KIREYE; the explicit group names target one side each.
+  // Per-party data belongs inside repeat blocks (see buildRepeatBlockData).
+  const [wMagac, wTelefoon, wAqoonsi, wCinwaan] = firstWakiilFields(values, "kireeyayaal", [
+    "magac",
+    "telefoon",
+    "aqoonsi",
+    "cinwaan",
+  ]);
+  map["{{WAKIIL_MAGAC}}"] = wMagac;
+  map["{{WAKIIL_TELEFOON}}"] = wTelefoon;
+  map["{{WAKIIL_AQOONSI}}"] = wAqoonsi;
+  map["{{WAKIIL_CINWAAN}}"] = wCinwaan;
+  map["{{KIREYE_WAKIIL_MAGAC}}"] = wMagac;
+  map["{{KIREYE_WAKIIL_TELEFOON}}"] = wTelefoon;
+  const [tMagac, tTelefoon] = firstWakiilFields(values, "kiraystayaal", [
+    "magac",
+    "telefoon",
+    "aqoonsi",
+    "cinwaan",
+  ]);
+  map["{{KIRAYSTE_WAKIIL_MAGAC}}"] = tMagac;
+  map["{{KIRAYSTE_WAKIIL_TELEFOON}}"] = tTelefoon;
 
   return map;
 }
@@ -196,6 +250,45 @@ export function resolveFlags(
   return flags;
 }
 
+/**
+ * Phase Document Generation — per-row wakiil tokens for ATTENDANCE party
+ * blocks (KIREYEYAYAAL / KIRAYSTAYAAL). Each row exposes the fields of ITS
+ * OWN representative (empty for a jooga party — never leaks wakiil data for
+ * a present person) plus row-scoped flags usable inside the repeat body:
+ *   {{IF:WAKIIL}}…{{END:WAKIIL}}  → renders only when this party is absent
+ *   {{IF:JOOGA}}…{{END:JOOGA}}    → renders only when this party is present
+ */
+function wakiilRowTokens(
+  config: DocumentConfig,
+  values: FormValues,
+  partyId: string,
+  row: PartyRow,
+): Record<string, string> {
+  const partyDef = config.sections
+    .flatMap((s) => s.parties ?? [])
+    .find((p) => p.id === partyId);
+  if (!partyDef?.attendance) return {};
+  const status = row.attendance?.status;
+  const flags: Record<string, string> = {
+    JOOGA: status === "jooga" ? "1" : "",
+    WAKIIL: status === "wakiil" ? "1" : "",
+  };
+  if (status !== "wakiil" || !row.attendance?.representativeId) {
+    return { ...flags, WAKIIL_MAGAC: "", WAKIIL_TELEFOON: "", WAKIIL_AQOONSI: "", WAKIIL_CINWAAN: "" };
+  }
+  const reps = values[representativesKeyFor(partyDef)];
+  const rep = Array.isArray(reps)
+    ? (reps as PartyRow[]).find((r) => r.id === row.attendance!.representativeId)
+    : undefined;
+  return {
+    ...flags,
+    WAKIIL_MAGAC: (rep?.values?.["magac"] ?? "").trim(),
+    WAKIIL_TELEFOON: (rep?.values?.["telefoon"] ?? "").trim(),
+    WAKIIL_AQOONSI: (rep?.values?.["aqoonsi"] ?? "").trim(),
+    WAKIIL_CINWAAN: (rep?.values?.["cinwaan"] ?? "").trim(),
+  };
+}
+
 /** Build repeat-block row data from the mapped party lists. */
 export function buildRepeatBlockData(
   config: DocumentConfig,
@@ -205,6 +298,7 @@ export function buildRepeatBlockData(
   for (const mapping of config.repeatBlocks ?? []) {
     const rows = filledRows(partyRows(values, mapping.partyId)).map((row, i) => ({
       NUMBER: String(i + 1),
+      ...wakiilRowTokens(config, values, mapping.partyId, row),
       ...(row.values ?? {}),
       ...partyRowTokens(row, mapping),
     }));
@@ -276,6 +370,53 @@ export function buildDataContext(
     clausesByName,
     repeatBlocks: buildRepeatBlockData(config, values),
   };
+}
+
+/**
+ * Every placeholder name this config CAN resolve — for the Template Manager
+ * to categorize the tokens found in a user-uploaded .docx. Static and
+ * value-independent: configured placeholders, condition flags, clause
+ * markers, repeat-block ids and ALL row tokens (fields, aliases, NUMBER,
+ * wakiil tokens, MATALAYA), even when the current answers are empty.
+ */
+export function knownPlaceholderNames(config: DocumentConfig): Set<string> {
+  const names = new Set<string>();
+  for (const p of config.placeholders) {
+    names.add(p.placeholder.replace(/[{}]/g, "").toUpperCase());
+  }
+  for (const flag of Object.keys(config.conditionFlags ?? {})) {
+    names.add(flag.toUpperCase());
+  }
+  for (const clause of config.clauses) {
+    names.add(clause.placeholder.replace(/[{}]/g, "").toUpperCase());
+  }
+  for (const block of config.repeatBlocks ?? []) {
+    const id = block.blockId.toUpperCase();
+    names.add(`#${id}`);
+    names.add(`/${id}`);
+    names.add((block.numberPlaceholder ?? "NUMBER").toUpperCase());
+    for (const alias of Object.keys(block.aliases ?? {})) {
+      names.add(alias.toUpperCase());
+    }
+    const partyDef = config.sections
+      .flatMap((s) => s.parties ?? [])
+      .find((p) => p.id === block.partyId);
+    for (const field of partyDef?.fields ?? []) {
+      names.add(field.id.toUpperCase());
+    }
+    if (partyDef?.attendance) {
+      for (const t of ["WAKIIL_MAGAC", "WAKIIL_TELEFOON", "WAKIIL_AQOONSI", "WAKIIL_CINWAAN", "JOOGA", "WAKIIL"]) {
+        names.add(t);
+      }
+    }
+    if (block.partyId.startsWith("wakiilo_")) {
+      names.add("MATALAYA");
+      for (const field of partyDef?.representativeFields ?? []) {
+        names.add(field.id.toUpperCase());
+      }
+    }
+  }
+  return names;
 }
 
 /** Format one mapped key with the document's format config. */

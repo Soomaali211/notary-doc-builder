@@ -20,7 +20,7 @@ import {
   resolveFlags,
   validateTemplate,
 } from "../src/lib/notary/template";
-import { buildFileBaseName, buildOutputFolder } from "../src/lib/notary/archiver";
+import { buildFileBaseName, buildOutputFolder, uniqueBaseName } from "../src/lib/notary/archiver";
 import { selectTemplate } from "../src/lib/notary/registry";
 import { heshiisKiroConfig as config } from "../src/lib/notary/documents/heshiisKiro";
 import { scenarioA, scenarioB } from "../scripts/verify-helpers";
@@ -91,9 +91,10 @@ describe("placeholders", () => {
     expect(out).toContain("Taariikhda: DPN/K/001");
   });
 
-  test("unknown token is left untouched", () => {
+  test("unknown token is stripped from the output", () => {
     const out = render(p("X: {{NOT_A_REAL_TOKEN}}"), scenarioA());
-    expect(out).toContain("X: {{NOT_A_REAL_TOKEN}}");
+    expect(out).not.toContain("{{NOT_A_REAL_TOKEN}}");
+    expect(out).toContain("X:");
   });
 
   test("fallback used for empty optional value", () => {
@@ -255,12 +256,15 @@ describe("template validation", () => {
     expect(result.valid).toBe(false);
   });
 
-  test("unknown mapping is reported with the token name", async () => {
+  test("unknown mapping is reported as a WARNING (generation survives)", async () => {
     const bytes = await miniDocx([p("Qalad: {{NOT_A_REAL_TOKEN}}")]);
     const ctx = buildDataContext(config, scenarioA());
     const result = await validateTemplate("T", "/templates/x.docx", bytes, ctx);
-    expect(result.valid).toBe(false);
-    expect(result.issues.some((i) => i.message.includes("NOT_A_REAL_TOKEN"))).toBe(true);
+    // Unknown placeholders never break generation — the user owns the
+    // template; the token is simply stripped from the final document.
+    expect(result.valid).toBe(true);
+    const warning = result.issues.find((i) => i.message.includes("NOT_A_REAL_TOKEN"));
+    expect(warning?.level).toBe("warning");
   });
 
   test("unclosed IF block is flagged", async () => {
@@ -281,12 +285,25 @@ describe("template validation", () => {
     expect(balance?.ok).toBe(false);
   });
 
-  test("unknown IF flag is reported", async () => {
+  test("unknown IF flag is reported as a WARNING (not an error)", async () => {
     const bytes = await miniDocx([p("{{IF:MA_JIRO_FLAG}}"), p("x"), p("{{ENDIF}}")]);
     const ctx = buildDataContext(config, scenarioA());
     const result = await validateTemplate("T", "/templates/x.docx", bytes, ctx);
-    expect(result.valid).toBe(false);
-    expect(result.issues.some((i) => i.message.includes("MA_JIRO_FLAG"))).toBe(true);
+    expect(result.valid).toBe(true);
+    const warning = result.issues.find((i) => i.message.includes("MA_JIRO_FLAG"));
+    expect(warning?.level).toBe("warning");
+  });
+
+  test("{{END:NAME}} alias closes an IF block", async () => {
+    const bytes = await miniDocx([
+      p("{{IF:DEEBAAJI_HAA}}"),
+      p("qaybta deebaajiga"),
+      p("{{END:DEEBAAJI_HAA}}"),
+    ]);
+    const ctx = buildDataContext(config, scenarioA());
+    const result = await validateTemplate("T", "/templates/x.docx", bytes, ctx);
+    expect(result.valid).toBe(true);
+    expect(result.checks.find((c) => c.label === "Conditional blocks balanced")?.ok).toBe(true);
   });
 });
 
@@ -329,16 +346,23 @@ describe("formatting preservation", () => {
 /* ------------------------------------------------------------------ */
 
 describe("archive naming", () => {
-  test("buildFileBaseName sanitizes and prefixes references", () => {
+  test("buildFileBaseName follows Heshiis_Kiro_[REF] pattern", () => {
     expect(buildFileBaseName(config, "DPN/K/001", "Guri Xaas")).toBe(
-      "Ref-DPN-K-001_Heshiis-Kiro_Guri-Xaas",
+      "Heshiis_Kiro_Ref-DPN-K-001",
     );
   });
 
   test("existing Ref prefix is never doubled", () => {
     expect(buildFileBaseName(config, "Ref/DPN/K/001", "Guri Xaas")).toBe(
-      "Ref-DPN-K-001_Heshiis-Kiro_Guri-Xaas",
+      "Heshiis_Kiro_Ref-DPN-K-001",
     );
+  });
+
+  test("uniqueBaseName never repeats a name (no-overwrite)", () => {
+    const taken = new Set<string>();
+    expect(uniqueBaseName("Heshiis_Kiro_Test-Unique", taken)).toBe("Heshiis_Kiro_Test-Unique");
+    expect(uniqueBaseName("Heshiis_Kiro_Test-Unique", taken)).toBe("Heshiis_Kiro_Test-Unique-2");
+    expect(uniqueBaseName("Heshiis_Kiro_Test-Unique", taken)).toBe("Heshiis_Kiro_Test-Unique-3");
   });
 
   test("output folder uses config.outputFolder and sub-type label", () => {
@@ -363,10 +387,10 @@ describe("full generation pipeline", () => {
     expect(out.result.templateId).toBe("KIRO_GURI_XAAS_V1");
     expect(out.result.templateVersion).toBe(1);
 
-    // Immutable archive naming + paths.
-    expect(out.result.fileName).toBe("Ref-DPN-K-001_Heshiis-Kiro_Guri-Xaas.docx");
+    // Immutable archive naming + paths (output/Kiro/…, Heshiis_Kiro_[REF]).
+    expect(out.result.fileName).toBe("Heshiis_Kiro_Ref-DPN-K-001.docx");
     expect(out.result.outputDocxPath).toBe(
-      "output/Kiro/Guri_Xaas/Ref-DPN-K-001_Heshiis-Kiro_Guri-Xaas.docx",
+      "output/Kiro/Guri_Xaas/Heshiis_Kiro_Ref-DPN-K-001.docx",
     );
     expect(out.result.metadata.outputDocxPath).toBe(out.result.outputDocxPath);
     expect(out.result.metadata.templateId).toBe("KIRO_GURI_XAAS_V1");

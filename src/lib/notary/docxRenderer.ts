@@ -112,7 +112,9 @@ function isIfMarker(text: string): string | null {
 }
 
 function isEndifMarker(text: string): boolean {
-  return /\{\{ENDIF\}\}/.test(text);
+  // {{ENDIF}} is the canonical close; {{END:NAME}} is accepted as an alias
+  // (the template owner chooses whichever reads clearer).
+  return /\{\{ENDIF\}\}|\{\{END:[A-Za-z0-9_]+\}\}/.test(text);
 }
 
 /* ------------------------------------------------------------------ */
@@ -278,10 +280,12 @@ function processParagraph(
     }
   }
 
-  // Plain placeholder replacement (case-insensitive).
+  // Plain placeholder replacement (case-insensitive). A token with NO data
+  // mapping is unknown — it is stripped so no {{…}} ever survives into the
+  // final document (validation already warns the template owner).
   const replaced = text.replace(TOKEN_RE, (token) => {
     const value = lookupReplacement(ctx.replacements, token);
-    return value !== undefined ? value : token;
+    return value !== undefined ? value : "";
   });
   if (replaced !== text) {
     return [{ kind: "p", xml: replaceParagraphText(item.xml, escapeXml(replaced)), text: replaced }];

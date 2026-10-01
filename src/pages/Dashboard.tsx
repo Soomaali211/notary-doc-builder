@@ -10,6 +10,7 @@ import {
   ArrowRight,
   CalendarClock,
   FileSignature,
+  FileUp,
   FolderOpen,
   MessagesSquare,
   ShieldCheck,
@@ -42,6 +43,13 @@ const AREAS = [
     icon: MessagesSquare,
     title: "Team Board",
     text: "Read and post office notices for everyone.",
+    color: "text-pen-purple",
+  },
+  {
+    to: "/templates",
+    icon: FileUp,
+    title: "Templates",
+    text: "Upload your own Word template and manage placeholders.",
     color: "text-pen-purple",
   },
   {

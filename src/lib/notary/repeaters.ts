@@ -23,15 +23,39 @@ export interface RepeatExpansion {
   known: boolean;
 }
 
+/**
+ * Row-scoped conditional segments inside a repeat body:
+ *   {{IF:TOKEN}}…{{END:TOKEN}}   (alias: {{ENDIF}})
+ * The segment renders only when THIS row's TOKEN value is non-empty
+ * (e.g. the WAKIIL flag set by buildRepeatBlockData: "1" for an absent
+ * party, "" for a present one). Non-nested; unknown tokens → dropped
+ * (empty row value means "not applicable for this row").
+ */
+const ROW_CONDITION_RE = /\{\{IF:([A-Za-z0-9_]+)\}\}([\s\S]*?)(?:\{\{END:\1\}\}|\{\{ENDIF\}\})/g;
+
+function rowTokenTruthy(row: Record<string, string>, name: string): boolean {
+  const v = row[name.trim().toUpperCase()];
+  return v !== undefined && v.trim() !== "" && v.trim() !== "0" && v.trim().toLowerCase() !== "no";
+}
+
+function expandRowConditionals(body: string, row: Record<string, string>): string {
+  return body.replace(ROW_CONDITION_RE, (_m, name: string, segment: string) =>
+    rowTokenTruthy(row, name) ? segment : "",
+  );
+}
+
 function expandBody(
   body: string,
   info: RepeatBlockInfo,
 ): string[] {
   return info.rows.map((row) =>
-    body.replace(/\{\{([^#/][A-Za-z0-9_.]*)\}\}/g, (token, name: string) => {
-      const value = row[name.trim().toUpperCase()];
-      return value !== undefined ? value : token; // unknown → main pass decides
-    }),
+    expandRowConditionals(body, row).replace(
+      /\{\{([^#/][A-Za-z0-9_.]*)\}\}/g,
+      (token, name: string) => {
+        const value = row[name.trim().toUpperCase()];
+        return value !== undefined ? value : token; // unknown → main pass decides
+      },
+    ),
   );
 }
 

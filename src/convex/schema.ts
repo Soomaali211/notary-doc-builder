@@ -94,6 +94,35 @@ const schema = defineSchema(
       value: v.number(),
     }).index("by_key", ["key"]),
 
+    // ---------------------------------------------------------------
+    // Phase Document Generation — USER-CREATED Word templates. The user
+    // owns template design (layout, fonts, logo, legal wording); the app
+    // only stores the .docx bytes + scanned placeholder metadata and fills
+    // the placeholders. Templates are append-only: re-uploading creates a
+    // NEW record/storage object — an original template is never overwritten.
+    // ---------------------------------------------------------------
+    notary_templates: defineTable({
+      userId: v.id("users"),
+      documentType: v.string(),
+      /** Optional sub-type binding ("guri_xaas"…); empty = all sub-types. */
+      subtype: v.optional(v.string()),
+      name: v.string(),
+      fileName: v.string(),
+      storageId: v.id("_storage"),
+      sizeBytes: v.number(),
+      /** JSON string[] of scanned {{TOKENS}} (client-side scan result). */
+      placeholdersJson: v.optional(v.string()),
+      /** JSON string[] of validation warnings (unknown placeholders …). */
+      warningsJson: v.optional(v.string()),
+      /** One default template per (user, documentType). */
+      isDefault: v.boolean(),
+      status: v.union(v.literal("active"), v.literal("retired")),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_type", ["userId", "documentType"]),
+
     // Team scheduling: signing appointments, optionally tied to a document.
     notary_appointments: defineTable({
       userId: v.id("users"),
