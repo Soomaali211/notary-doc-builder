@@ -27,7 +27,7 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { UserPlus, Users, X } from "lucide-react";
+import { AlertTriangle, UserPlus, Users, X } from "lucide-react";
 import type { FormValues, PartyDef, PartyRow } from "@/lib/notary/types";
 import { getRepresentatives, representedByRep } from "@/lib/notary/formValues";
 import { FieldRenderer } from "./FieldRenderer";
@@ -174,6 +174,33 @@ export function RepresentativeGroupingEditor({
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   Wuxuu matalayaa: {memberNames.join(", ")}
                 </p>
+              )}
+
+              {/* An incomplete representative must never silently become
+                  "—" in the signed document. Say so here, per group, and
+                  offer a way out that leaves the rest of the form alone. */}
+              {memberNames.length > 0 && !repName && (
+                <div className="mt-2 rounded-md border border-pen-orange/50 bg-pen-orange/10 p-2">
+                  <p className="flex items-start gap-1.5 text-[11px] font-medium text-pen-orange">
+                    <AlertTriangle className="mt-px size-3.5 shrink-0" />
+                    <span>
+                      Magaca wakiilka maa jiro — qof{" "}
+                      {memberNames.length === 1 ? "kan" : "kan"} wakiilka uu matalayo
+                      {memberNames.length === 1 ? "" : "da"} hadda magac la'aan ayay
+                      document-ka ku qaadan doonaa.
+                    </span>
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => onRemoveRep(rep.id)}
+                      className="rounded-md border border-pen-orange/50 px-2 py-1 text-[10px] font-medium text-pen-orange transition-colors hover:bg-pen-orange/15"
+                    >
+                      Ka tirtir kooxaha wakiilkan
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           );

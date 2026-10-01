@@ -115,9 +115,18 @@ function docTitle(text: string): Paragraph {
  * the scanner sees each token whole.
  */
 function partyLine(namePart: string, phonePart: string): Paragraph {
+  // When the phone token is absent (an absent party — their phone is shown
+  // on the wakiil line instead), emit no dangling "Tell ".
+  const children = phonePart
+    ? [
+        new TextRun({ text: namePart }),
+        new TextRun({ children: [new Tab()] }),
+        new TextRun({ text: `Tell ${phonePart}` }),
+      ]
+    : [new TextRun({ text: namePart })];
   return new Paragraph({
     tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-    children: [new TextRun({ text: namePart }), new TextRun({ children: [new Tab()] }), new TextRun({ text: `Tell ${phonePart}` })],
+    children,
     spacing: { after: 60 },
   });
 }
