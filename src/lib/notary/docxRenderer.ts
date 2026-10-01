@@ -111,6 +111,34 @@ function isIfMarker(text: string): string | null {
   return m ? m[1].toUpperCase() : null;
 }
 
+/** True when this paragraph closes its OWN {{IF:}} (single-line section). */
+function hasInlineConditional(text: string): boolean {
+  return /\{\{IF:[A-Za-z0-9_]+\}\}[\s\S]*?(?:\{\{END:[A-Za-z0-9_]+\}\}|\{\{ENDIF\}\})/.test(
+    text,
+  );
+}
+
+/**
+ * Single-paragraph conditional sections:
+ *   {{IF:DEEBAAJI_HAA}}Qaybta deebaajiga{{END:DEEBAAJI_HAA}}
+ * Returns the text with each segment kept (flag true) or dropped (false),
+ * or null when the paragraph holds no complete inline segment.
+ */
+const INLINE_IF_RE = /\{\{IF:([A-Za-z0-9_]+)\}\}([\s\S]*?)(?:\{\{END:[A-Za-z0-9_]+\}\}|\{\{ENDIF\}\})/g;
+
+function resolveInlineConditionals(
+  text: string,
+  flags: Record<string, boolean>,
+): string | null {
+  if (!text.includes("{{IF:")) return null;
+  let matched = false;
+  const out = text.replace(INLINE_IF_RE, (_m, name: string, segment: string) => {
+    matched = true;
+    return flags[name.trim().toUpperCase()] === true ? segment : "";
+  });
+  return matched ? out : null;
+}
+
 function isEndifMarker(text: string): boolean {
   // {{ENDIF}} is the canonical close; {{END:NAME}} is accepted as an alias
   // (the template owner chooses whichever reads clearer).
@@ -196,6 +224,13 @@ function processConditionalBlocks(items: Item[], ctx: DataContext): Item[] {
   let i = 0;
   while (i < items.length) {
     const item = items[i];
+    // A paragraph that closes its OWN {{IF:}} is a single-line conditional
+    // section — handled in the paragraph pass, never as a block opener.
+    if (item.kind === "p" && hasInlineConditional(item.text ?? "")) {
+      out.push(item);
+      i++;
+      continue;
+    }
     const flag = item.kind === "p" ? isIfMarker(item.text ?? "") : null;
     if (!flag) {
       out.push(item);
@@ -252,10 +287,41 @@ function processParagraph(
   ctx: DataContext,
   clauses: Map<string, ResolvedClause>,
 ): Item[] {
-  const text = item.text ?? "";
+  let text = item.text ?? "";
   if (!text.includes("{{")) return [item];
+  let changed = false;
 
-  // Clause marker → resolved lines or complete removal.
+  // 1) Inline repeat blocks FIRST: row-scoped conditionals inside a block
+  // body ({{IF:WAKIIL}}…{{END:WAKIIL}}) belong to THAT row, so they must be
+  // resolved per row before document-level flags are evaluated.
+  const inline = findInlineRepeatBlock(text);
+  if (inline) {
+    const info = ctx.repeatBlocks.get(inline[1].toUpperCase());
+    if (info) {
+      if (info.rows.length === 0) return []; // empty list → line disappears
+      const next = text.replace(inline[0], expandRepeatInline(inline, info));
+      if (next !== text) {
+        text = next;
+        changed = true;
+      }
+    }
+  }
+
+  // 2) Single-line conditional sections (document flags): a false flag
+  // removes exactly its own segment; a fully-removed line disappears.
+  const inlineConditional = resolveInlineConditionals(text, ctx.flags);
+  if (inlineConditional !== null) {
+    if (inlineConditional.trim() === "") return [];
+    text = inlineConditional;
+    changed = true;
+  }
+  if (!text.includes("{{")) {
+    return changed
+      ? [{ kind: "p", xml: replaceParagraphText(item.xml, escapeXml(text)), text }]
+      : [item];
+  }
+
+  // 3) Clause marker → resolved lines or complete removal.
   const clauseMatch = /\{\{(CLAUSE_[A-Z0-9_]+)\}\}/.exec(text);
   if (clauseMatch) {
     const resolved = clauses.get(clauseMatch[1]);
@@ -268,26 +334,16 @@ function processParagraph(
     }));
   }
 
-  // Inline repeat block: {{#X}}…{{/X}} inside one paragraph.
-  const inline = findInlineRepeatBlock(text);
-  if (inline) {
-    const info = ctx.repeatBlocks.get(inline[1].toUpperCase());
-    if (info) {
-      if (info.rows.length === 0) return []; // empty list → line disappears
-      const expanded = expandRepeatInline(inline, info);
-      const replaced = text.replace(inline[0], expanded);
-      return [{ kind: "p", xml: replaceParagraphText(item.xml, escapeXml(replaced)), text: replaced }];
-    }
-  }
-
-  // Plain placeholder replacement (case-insensitive). A token with NO data
-  // mapping is unknown — it is stripped so no {{…}} ever survives into the
-  // final document (validation already warns the template owner).
+  // 4) Plain placeholder replacement (case-insensitive). A token with NO
+  // data mapping is unknown — it is stripped so no {{…}} ever survives into
+  // the final document (validation already warns the template owner).
   const replaced = text.replace(TOKEN_RE, (token) => {
     const value = lookupReplacement(ctx.replacements, token);
     return value !== undefined ? value : "";
   });
-  if (replaced !== text) {
+  // A paragraph already expanded above must be rewritten even when no
+  // tokens are left to replace.
+  if (changed || replaced !== text) {
     return [{ kind: "p", xml: replaceParagraphText(item.xml, escapeXml(replaced)), text: replaced }];
   }
   return [item];
@@ -335,8 +391,15 @@ export async function generateDocx(
   templateBytes: ArrayBuffer,
   config: DocumentConfig,
   values: FormValues,
+  /**
+   * Single source of truth overrides, e.g. the reference number chosen by
+   * the pipeline — the document then shows the SAME reference that names
+   * the archive file (never a stale value from a draft).
+   */
+  overrides?: Record<string, string>,
 ): Promise<{ blob: Blob; ctx: DataContext }> {
   const ctx = buildDataContext(config, values);
+  if (overrides) ctx.replacements = { ...ctx.replacements, ...overrides };
   const clauses = resolveClauses(config, values);
   const zip = await JSZip.loadAsync(templateBytes);
 

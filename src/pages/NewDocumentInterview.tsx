@@ -1281,12 +1281,14 @@ export default function NewDocumentInterview() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => step >= steps.length && setStep(steps.length)}
+                    // The review page is always reachable (read-only): it is
+                    // where the missing-data summary + template choice live.
+                    onClick={() => setStep(steps.length)}
                     aria-current={isReview ? "step" : undefined}
                     className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-all ${
                       isReview
                         ? "neu-inset glow-primary-sm font-semibold text-primary"
-                        : "cursor-not-allowed text-muted-foreground/50"
+                        : "text-foreground/80 hover:text-foreground"
                     }`}
                   >
                     <span

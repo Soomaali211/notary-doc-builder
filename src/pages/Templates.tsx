@@ -174,8 +174,9 @@ export default function Templates() {
               )}
               {lastReport.report.unknown.length > 0 && (
                 <p className="text-pen-orange">
-                  ⚠ Placeholder aan la aqoon (waa la saari doonaa):{" "}
+                  ⚠ Template-ku wuxuu leeyahay placeholder aan system-ku aqoon:{" "}
                   {lastReport.report.unknown.map((u) => `{{${u}}}`).join(", ")}
+                  {" "}— generation ma joojinayo, token-kana ayaa document-ka ka saaraysa.
                 </p>
               )}
               <p className="flex items-center gap-1.5 text-pen-green">

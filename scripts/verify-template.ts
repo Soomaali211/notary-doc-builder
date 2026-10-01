@@ -78,12 +78,12 @@ const out = await generateDocument({
   spec,
 });
 check(
-  "Filename Ref-DPN-K-001_Heshiis-Kiro_Guri-Xaas.docx",
-  out.result.fileName === "Ref-DPN-K-001_Heshiis-Kiro_Guri-Xaas.docx",
+  "Filename Heshiis_Kiro_[REF].docx",
+  out.result.fileName === "Heshiis_Kiro_Ref-DPN-K-001.docx",
 );
 check(
-  "Output path output/Kiro/Guri_Xaas/",
-  out.result.outputDocxPath === "output/Kiro/Guri_Xaas/Ref-DPN-K-001_Heshiis-Kiro_Guri-Xaas.docx",
+  "Output path output/Kiro/",
+  out.result.outputDocxPath === "output/Kiro/Guri_Xaas/Heshiis_Kiro_Ref-DPN-K-001.docx",
 );
 check("Template metadata bound (V1)", out.result.templateId === "KIRO_GURI_XAAS_V1" && out.result.templateVersion === 1);
 check("PDF unavailable → DOCX still generated", out.result.pdfAvailable === false && out.warnings.length > 0);

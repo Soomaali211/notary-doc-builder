@@ -326,7 +326,7 @@ export const heshiisKiroConfig: DocumentConfig = {
     // the engine resolves every alias to the SAME form-state value.
     { placeholder: "{{REF_NUMBER}}", mapping: { key: "heshiiska.reference", fallback: "" } },
     { placeholder: "{{TAARIIKH}}", mapping: { key: "heshiiska.taariikhda_heshiiska", format: "date" } },
-    { placeholder: "{{NOOCA_KIRADA}}", mapping: { key: "heshiiska.sub_type", format: "text" } },
+    { placeholder: "{{NOOCA_KIRADA}}", mapping: { key: "heshiiska.sub_type" } },
     { placeholder: "{{TAARIIKH_BILOWGA}}", mapping: { key: "heshiiska.taariikhda_bilowga", format: "date" } },
     { placeholder: "{{TAARIIKH_DHAMMAAD}}", mapping: { key: "heshiiska.taariikhda_dhammaadka", format: "date" } },
 

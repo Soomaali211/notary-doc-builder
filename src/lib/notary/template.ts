@@ -21,6 +21,7 @@ export {
   buildDataContext,
   resolveFlags,
   buildRepeatBlockData,
+  knownPlaceholderNames,
   type DataContext,
   type RepeatBlockInfo,
 } from "./dataContext";

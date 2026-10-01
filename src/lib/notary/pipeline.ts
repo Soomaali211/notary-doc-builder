@@ -119,8 +119,13 @@ export async function generateDocument(input: PipelineInput): Promise<PipelineOu
     }
   }
 
-  // 5–8. Data context → conditions → clauses → repeaters → placeholders → DOCX.
-  const { blob, ctx } = await generateDocx(bytes, config, values);
+  // 5–8. Data context → conditions → clauses → repeaters → placeholders →
+  // DOCX. The reference number is the single source of truth: the document
+  // shows the SAME value that names the archive file.
+  const { blob, ctx } = await generateDocx(bytes, config, values, {
+    "{{REFERENCE_NUMBER}}": referenceNumber,
+    "{{REF_NUMBER}}": referenceNumber,
+  });
 
   // 9. Validate the OUTPUT — no unresolved required placeholder may remain.
   const outBytes = await blob.arrayBuffer();

@@ -119,7 +119,8 @@ export async function scanTemplateTokens(
     }
     if (name.startsWith("/")) {
       openBlocks.pop();
-      if (!known.has(`#${name}`)) syntaxErrors.push(`Block-ka la aqoon: {{${name}}}`);
+      const blockId = name.slice(1);
+      if (!known.has(`#${blockId}`)) syntaxErrors.push(`Block-ka la aqoon: {{${name}}}`);
       continue;
     }
     const bare = name.replace(/^#/, "").replace(/^\//, "");

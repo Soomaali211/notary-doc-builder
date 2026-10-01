@@ -11,6 +11,7 @@ import type {
   DocumentConfig,
   DocumentFormatConfig,
   FormValues,
+  PartyDef,
   PartyRow,
 } from "./types";
 import { evaluateCondition, makeGetter } from "./conditions";
@@ -75,24 +76,29 @@ function firstPartyField(
  * Phase Document Generation — the representative (wakiil) fields of the
  * FIRST absent party that has a linked rep. Empty when nobody is
  * represented: a jooga party NEVER shows wakiil data in the document.
+ * Field ids come from the config's representativeFields (no hard-coded
+ * party names), so any future document type inherits the same behavior.
  */
-function firstWakiilFields(
+function firstWakiilValues(
+  config: DocumentConfig,
   values: FormValues,
-  partyId: string,
-  fieldIds: string[],
-): string[] {
-  const v = values[partyId];
-  const rows = Array.isArray(v) ? (v as PartyRow[]) : [];
+  partyDef: PartyDef,
+): Record<string, string> {
+  const fields = partyDef.representativeFields ?? [];
+  const empty = Object.fromEntries(fields.map((f) => [f.id, ""]));
+  const rows = partyRows(values, partyDef.id);
   const represented = rows.find(
     (r) => r.attendance?.status === "wakiil" && r.attendance.representativeId,
   );
-  if (!represented) return fieldIds.map(() => "");
-  const key = `wakiilo_${partyId}`;
-  const reps = values[key];
+  if (!represented) return empty;
+  const reps = values[representativesKeyFor(partyDef)];
   const rep = Array.isArray(reps)
     ? (reps as PartyRow[]).find((r) => r.id === represented.attendance!.representativeId)
     : undefined;
-  return fieldIds.map((f) => (rep?.values?.[f] ?? "").trim());
+  if (!rep) return empty;
+  return Object.fromEntries(
+    fields.map((f) => [f.id, (rep.values?.[f.id] ?? "").trim()]),
+  );
 }
 
 function partyRowTokens(
@@ -173,29 +179,23 @@ export function computeReplacements(
   }
 
   // Phase Document Generation — wakiil (representative) placeholders for the
-  // user's own template. The short {{WAKIIL_*}} aliases resolve to the first
-  // represented KIREYE; the explicit group names target one side each.
-  // Per-party data belongs inside repeat blocks (see buildRepeatBlockData).
-  const [wMagac, wTelefoon, wAqoonsi, wCinwaan] = firstWakiilFields(values, "kireeyayaal", [
-    "magac",
-    "telefoon",
-    "aqoonsi",
-    "cinwaan",
-  ]);
-  map["{{WAKIIL_MAGAC}}"] = wMagac;
-  map["{{WAKIIL_TELEFOON}}"] = wTelefoon;
-  map["{{WAKIIL_AQOONSI}}"] = wAqoonsi;
-  map["{{WAKIIL_CINWAAN}}"] = wCinwaan;
-  map["{{KIREYE_WAKIIL_MAGAC}}"] = wMagac;
-  map["{{KIREYE_WAKIIL_TELEFOON}}"] = wTelefoon;
-  const [tMagac, tTelefoon] = firstWakiilFields(values, "kiraystayaal", [
-    "magac",
-    "telefoon",
-    "aqoonsi",
-    "cinwaan",
-  ]);
-  map["{{KIRAYSTE_WAKIIL_MAGAC}}"] = tMagac;
-  map["{{KIRAYSTE_WAKIIL_TELEFOON}}"] = tTelefoon;
+  // user's own template, derived from the config's attendance groups:
+  //   {{WAKIIL_MAGAC}}                     → first represented group
+  //   {{KIREYE_WAKIIL_MAGAC}}              → per group (singular name)
+//   per-party wakiil data lives INSIDE repeat blocks (buildRepeatBlockData)
+  const attendanceGroups = config.sections
+    .flatMap((s) => s.parties ?? [])
+    .filter((p) => p.attendance);
+  attendanceGroups.forEach((partyDef, index) => {
+    const rep = firstWakiilValues(config, values, partyDef);
+    const group = partyDef.singular.toUpperCase().replace(/[^A-Z0-9_]/g, "");
+    for (const [fieldId, value] of Object.entries(rep)) {
+      const token = `WAKIIL_${fieldId.toUpperCase()}`;
+      // The short {{WAKIIL_*}} alias points at the first attendance group.
+      if (index === 0) map[`{{${token}}}`] = value;
+      map[`{{${group}_${token}}}`] = value;
+    }
+  });
 
   return map;
 }
@@ -268,25 +268,26 @@ function wakiilRowTokens(
     .flatMap((s) => s.parties ?? [])
     .find((p) => p.id === partyId);
   if (!partyDef?.attendance) return {};
+  const repFields = partyDef.representativeFields ?? [];
   const status = row.attendance?.status;
-  const flags: Record<string, string> = {
+  const tokens: Record<string, string> = {
     JOOGA: status === "jooga" ? "1" : "",
     WAKIIL: status === "wakiil" ? "1" : "",
   };
-  if (status !== "wakiil" || !row.attendance?.representativeId) {
-    return { ...flags, WAKIIL_MAGAC: "", WAKIIL_TELEFOON: "", WAKIIL_AQOONSI: "", WAKIIL_CINWAAN: "" };
-  }
+  // Every configured representative field gets a WAKIIL_<FIELD> token,
+  // empty unless THIS row is represented.
+  for (const f of repFields) tokens[`WAKIIL_${f.id.toUpperCase()}`] = "";
+  if (status !== "wakiil" || !row.attendance?.representativeId) return tokens;
+
   const reps = values[representativesKeyFor(partyDef)];
   const rep = Array.isArray(reps)
     ? (reps as PartyRow[]).find((r) => r.id === row.attendance!.representativeId)
     : undefined;
-  return {
-    ...flags,
-    WAKIIL_MAGAC: (rep?.values?.["magac"] ?? "").trim(),
-    WAKIIL_TELEFOON: (rep?.values?.["telefoon"] ?? "").trim(),
-    WAKIIL_AQOONSI: (rep?.values?.["aqoonsi"] ?? "").trim(),
-    WAKIIL_CINWAAN: (rep?.values?.["cinwaan"] ?? "").trim(),
-  };
+  if (!rep) return tokens;
+  for (const f of repFields) {
+    tokens[`WAKIIL_${f.id.toUpperCase()}`] = (rep.values?.[f.id] ?? "").trim();
+  }
+  return tokens;
 }
 
 /** Build repeat-block row data from the mapped party lists. */
@@ -405,8 +406,11 @@ export function knownPlaceholderNames(config: DocumentConfig): Set<string> {
       names.add(field.id.toUpperCase());
     }
     if (partyDef?.attendance) {
-      for (const t of ["WAKIIL_MAGAC", "WAKIIL_TELEFOON", "WAKIIL_AQOONSI", "WAKIIL_CINWAAN", "JOOGA", "WAKIIL"]) {
-        names.add(t);
+      names.add("JOOGA");
+      names.add("WAKIIL");
+      for (const f of partyDef.representativeFields ?? []) {
+        names.add(`WAKIIL_${f.id.toUpperCase()}`);
+        names.add(`${partyDef.singular.toUpperCase()}_WAKIIL_${f.id.toUpperCase()}`);
       }
     }
     if (block.partyId.startsWith("wakiilo_")) {
