@@ -75,6 +75,83 @@ export function scenarioA(): FormValues {
   };
 }
 
+/**
+ * Scenario #21 — the acceptance scenario of the Document Generation phase:
+ * Kireeyayaal = 2 (K1 jooga, K2 maqan + wakiil)
+ * Kiraystayaal = 2 (T1 jooga, T2 maqan + wakiil)
+ * Deebaaji = Haa · Damiin = Maya · Kiro = Furan
+ * Expected document: 2+2 parties, wakiil for K2/T2, deposit section,
+ * NO guarantor, NO End Date.
+ */
+export function scenario21(): FormValues {
+  const att = (
+    id: string,
+    values: Record<string, string>,
+    status: "jooga" | "wakiil",
+    representativeId?: string,
+  ): PartyRow => ({
+    id,
+    values: { magac: "", telefoon: "", aqoonsi: "", cinwaan: "", faahfaahin_dheeraad: "", ...values },
+    attendance: status === "wakiil" ? { status, representativeId } : { status },
+  });
+  const kireeyeRep: PartyRow = {
+    id: "krep-1",
+    values: { magac: "Cali Joof", telefoon: "+252 61 7770001", aqoonsi: "", cinwaan: "" },
+  };
+  const kiraysteRep: PartyRow = {
+    id: "trep-1",
+    values: { magac: "Hodan Joof", telefoon: "+252 61 7770002", aqoonsi: "", cinwaan: "" },
+  };
+  return {
+    heshiiska: {
+      reference: "DPN/K/021",
+      taariikhda_heshiiska: "2026-09-29",
+      sub_type: "guri_xaas",
+      kireeye_mode: "multiple",
+      kirayste_mode: "multiple",
+      muddada_nooca: "furan",
+      deebaaji_haa: "yes",
+      damiin_haa: "no",
+      taariikhda_bilowga: "2026-10-01",
+      taariikhda_dhammaadka: "",
+      shuruudaha_gaarka_ah: "",
+    },
+    kireeyayaal: [
+      att("k1", { magac: "Kireeye Kowaad", telefoon: "+252 61 1110001", aqoonsi: "ID-1" }, "jooga"),
+      att("k2", { magac: "Kireeye labaad" }, "wakiil", kireeyeRep.id),
+    ],
+    kiraystayaal: [
+      att("t1", { magac: "Kirayste Kowaad", telefoon: "+252 61 2220001", aqoonsi: "ID-2" }, "jooga"),
+      att("t2", { magac: "Kirayste Labaad" }, "wakiil", kiraysteRep.id),
+    ],
+    wakiilo_kireeyayaal: [kireeyeRep],
+    wakiilo_kiraystayaal: [kiraysteRep],
+    guriga: {
+      nooca_guriga: "guri_xaas",
+      goobta: "Hodan, Muqdisho",
+      cinwaanka_guriga: "Wadada 21ka, Guri 44",
+      sharraxaad: "Guri 3-qol ah.",
+      qolada: "",
+    },
+    lacagta: {
+      qiimaha_bil_ka: "500",
+      habka_bixinta: "mobile",
+      taariikhda_bixinta: "1aad ee bil kasta",
+      bixinta_hore: "muqadin",
+      faahfaahin_lacagta: "",
+    },
+    deebaaji: { lacagta_deebaajiga: "25", shuruudaha_deebaajiga: "" },
+    damiinka: { damiin_magac: "", damiin_telefoon: "", damiin_aqoonsi: "", damiin_cinwaan: "" },
+    ogaysiinta: {
+      mudada_ogaysiinta: "30 maalmood",
+      shuruudaha_joojinta: "Labada dhinac waxay is fiiqin karaan 30 maalmood ka hor.",
+      faahfaahin_ogaysiinta: "",
+    },
+    maragyo: [{ id: "w1", values: { magac: "Asha Omar", telefoon: "", aqoonsi: "", cinwaan: "" } }],
+    dheeraad: { shuruudo_dheeraad: "" },
+  };
+}
+
 /** Test scenario B — deebaaji Maya + damiin Maya → sections removed. */
 export function scenarioB(): FormValues {
   const v = scenarioA();

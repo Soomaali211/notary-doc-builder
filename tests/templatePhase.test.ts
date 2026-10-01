@@ -25,7 +25,7 @@ import {
 import { listTemplateTokens } from "../src/lib/notary/templateValidator";
 import { heshiisKiroConfig as config } from "../src/lib/notary/documents/heshiisKiro";
 import { scanTemplateTokens, toTemplateSpec } from "../src/lib/notary/userTemplate";
-import { scenarioA } from "../scripts/verify-helpers";
+import { scenario21, scenarioA } from "../scripts/verify-helpers";
 import type { FormValues, PartyRow } from "../src/lib/notary/types";
 
 const p = (text: string) => `<w:p><w:r><w:t>${text}</w:t></w:r></w:p>`;
@@ -43,95 +43,6 @@ async function miniDocx(paragraphs: string[]): Promise<ArrayBuffer> {
 
 async function registryBytes(): Promise<ArrayBuffer> {
   return await Bun.file("public/templates/heshiis_kiro/guri_xaas.docx").arrayBuffer();
-}
-
-const att = (
-  id: string,
-  values: Record<string, string>,
-  status: "jooga" | "wakiil",
-  representativeId?: string,
-): PartyRow => ({
-  id,
-  values: {
-    magac: "",
-    telefoon: "",
-    aqoonsi: "",
-    cinwaan: "",
-    faahfaahin_dheeraad: "",
-    ...values,
-  },
-  attendance: status === "wakiil" ? { status, representativeId } : { status },
-});
-
-/* ------------------------------------------------------------------ */
-/* Scenario #21                                                        */
-/* ------------------------------------------------------------------ */
-
-const KIREYE_REP = {
-  id: "krep-1",
-  values: { magac: "Cali Joof", telefoon: "+252 61 7770001", aqoonsi: "", cinwaan: "" },
-};
-const KIRAYSTE_REP = {
-  id: "trep-1",
-  values: { magac: "Hodan Joof", telefoon: "+252 61 7770002", aqoonsi: "", cinwaan: "" },
-};
-
-/**
- * #21 — Kireeyayaal = 2 (K1 jooga, K2 maqan + wakiil)
- *       Kiraystayaal = 2 (T1 jooga, T2 maqan + wakiil)
- *       Deebaaji = Haa · Damiin = Maya · Kiro = Furan
- */
-function scenario21(): FormValues {
-  return {
-    heshiiska: {
-      reference: "DPN/K/021",
-      taariikhda_heshiiska: "2026-09-29",
-      sub_type: "guri_xaas",
-      kireeye_mode: "multiple",
-      kirayste_mode: "multiple",
-      muddada_nooca: "furan",
-      deebaaji_haa: "yes",
-      damiin_haa: "no",
-      taariikhda_bilowga: "2026-10-01",
-      taariikhda_dhammaadka: "",
-      shuruudaha_gaarka_ah: "",
-    },
-    kireeyayaal: [
-      att("k1", { magac: "Kireeye Kowaad", telefoon: "+252 61 1110001", aqoonsi: "ID-1" }, "jooga"),
-      att("k2", { magac: "Kireeye labaad" }, "wakiil", KIREYE_REP.id),
-    ],
-    kiraystayaal: [
-      att("t1", { magac: "Kirayste Kowaad", telefoon: "+252 61 2220001", aqoonsi: "ID-2" }, "jooga"),
-      att("t2", { magac: "Kirayste Labaad" }, "wakiil", KIRAYSTE_REP.id),
-    ],
-    "wakiilo_kireeyayaal": [KIREYE_REP],
-    "wakiilo_kiraystayaal": [KIRAYSTE_REP],
-    guriga: {
-      nooca_guriga: "guri_xaas",
-      goobta: "Hodan, Muqdisho",
-      cinwaanka_guriga: "Wadada 21ka, Guri 44",
-      sharraxaad: "Guri 3-qol ah.",
-      qolada: "",
-    },
-    lacagta: {
-      qiimaha_bil_ka: "500",
-      habka_bixinta: "mobile",
-      taariikhda_bixinta: "1aad ee bil kasta",
-      bixinta_hore: "muqadin",
-      faahfaahin_lacagta: "",
-    },
-    deebaaji: { lacagta_deebaajiga: "25", shuruudaha_deebaajiga: "" },
-    damiinka: { damiin_magac: "", damiin_telefoon: "", damiin_aqoonsi: "", damiin_cinwaan: "" },
-    ogaysiinta: {
-      mudada_ogaysiinta: "30 maalmood",
-      shuruudaha_joojinta: "Labada dhinac waxay is fiiqin karaan 30 maalmood ka hor.",
-      faahfaahin_ogaysiinta: "",
-    },
-    maragyo: [
-      { id: "w1", values: { magac: "Asha Omar", telefoon: "", aqoonsi: "", cinwaan: "" } },
-    ],
-    dheeraad: { shuruudo_dheeraad: "" },
-  };
 }
 
 /* ------------------------------------------------------------------ */

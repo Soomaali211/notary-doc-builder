@@ -275,6 +275,10 @@ export function buildHeshiisKiroTemplate(): Document {
               }),
             ],
           }),
+          line(
+            `Wakiilka Kireeyaha: ${T("KIREEYE_WAKIIL_MAGAC")} — ${T("KIREEYE_WAKIIL_TELEFOON")} · Wakiilka Kiraystaha: ${T("KIRAYSTE_WAKIIL_MAGAC")} — ${T("KIRAYSTE_WAKIIL_TELEFOON")}`,
+            { italic: true },
+          ),
           heading("13. MARAGYO (SAXIIX)"),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
@@ -311,3 +315,15 @@ export function requiredTemplateTokens(): string[] {
 
 /** Suggested file name of the system-generated starter template. */
 export const TEMPLATE_FILE_NAME = "heshiis_kiro_template.docx";
+
+/**
+ * No-overwrite guard: the starter template is only written when the file is
+ * missing, or when the operator explicitly asks (--force). An edited copy
+ * the user saved must never be regenerated away.
+ */
+export function canWriteStarterTemplate(
+  fileExists: boolean,
+  force = false,
+): boolean {
+  return !fileExists || force;
+}

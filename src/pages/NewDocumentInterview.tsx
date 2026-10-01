@@ -1495,9 +1495,19 @@ export default function NewDocumentInterview() {
                   </p>
                   <div className="mt-3 space-y-2">
                     {(myTemplates ?? []).length === 0 && (
-                      <p className="neu-inset p-3 text-xs text-muted-foreground">
-                        Weli template user ah lama soo gelin — tusaalaha registry-ga ayaa la isticmaalayaa.
-                      </p>
+                      <div className="neu-inset p-3 text-xs text-muted-foreground">
+                        <p>
+                          Weli template user ah lama soo gelin — tusaalaha registry-ga ayaa la
+                          isticmaalayaa.
+                        </p>
+                        <p className="mt-1.5">
+                          Ma qaab isu la yeelo?{" "}
+                          <a href="/templates" className="font-medium text-primary hover:underline">
+                            Soo celi heshiis_kiro_template.docx
+                          </a>{" "}
+                          ka Template Manager, ku qaab-dhismeed Word, kadibna soo geli.
+                        </p>
+                      </div>
                     )}
                     {(myTemplates ?? []).map((t) => (
                       <label

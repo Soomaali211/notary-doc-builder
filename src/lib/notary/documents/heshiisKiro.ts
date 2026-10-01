@@ -75,6 +75,23 @@ const YES_NO: SelectOption[] = [
 const NOW = 0;
 const KIRO_TEMPLATES: TemplateSpec[] = [
   {
+    /**
+     * System starter template (generated from the Placeholder Registry).
+     * subtype "" = universal: used for any sub-type that has no dedicated
+     * template yet. The USER edits its design afterwards — the system only
+     * fills its placeholders.
+     */
+    templateId: "KIRO_HESHIIS_TEMPLATE_V1",
+    documentType: "heshiis_kiro",
+    subtype: "",
+    name: "Heshiis Kiro (template-ka nidaamka)",
+    filePath: "/templates/heshiis_kiro_template.docx",
+    version: 1,
+    status: "active",
+    createdAt: NOW,
+    updatedAt: NOW,
+  },
+  {
     templateId: "KIRO_GURI_XAAS_V1",
     documentType: "heshiis_kiro",
     subtype: "guri_xaas",

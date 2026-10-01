@@ -16,11 +16,16 @@ import {
 import {
   AlertTriangle,
   CheckCircle2,
+  Download,
   FileUp,
   Loader2,
   Star,
   Trash2,
 } from "lucide-react";
+import {
+  TEMPLATE_FILE_NAME,
+  buildHeshiisKiroTemplateBlob,
+} from "@/lib/notary/templateBuilder";
 
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -43,6 +48,33 @@ export default function Templates() {
   >(null);
 
   const knownNames = config ? knownPlaceholderNames(config) : new Set<string>();
+
+  /**
+   * [Soo celi template-ka nidaamka] — the system BUILDS the starter .docx
+   * (real Word file, canonical placeholders) and hands it to the user, who
+   * then owns the design. The file is written with a fresh name, so an
+   * edited template is never overwritten.
+   */
+  const [building, setBuilding] = useState(false);
+  const downloadStarter = async () => {
+    setBuilding(true);
+    try {
+      const blob = await buildHeshiisKiroTemplateBlob();
+      const a = window.document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = TEMPLATE_FILE_NAME;
+      window.document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+      toast.success("Template-ka nidaamka waa la soo celiyay — furi Word-ka si aad u edisto.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Template-ka lama soo celin karo — isku day mar kale.");
+    } finally {
+      setBuilding(false);
+    }
+  };
 
   const handleUpload = async (file: File) => {
     if (!config) return;
@@ -185,6 +217,34 @@ export default function Templates() {
               </p>
             </div>
           )}
+        </div>
+
+        {/* Starter template builder — the user's Word template starts here */}
+        <div className="neu-raised p-6">
+          <h2 className="text-base font-bold">Template-ka nidaamka (system)</h2>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            System-ku wuxuu abuuraa Word .docx template-ka La{" "}
+            <code className="rounded bg-muted px-1">{TEMPLATE_FILE_NAME}</code>{" "}
+            oo leh placeholder-yada canonical-ka. Ka dibna ADIGA ayaa Word-ka
+            furaya, qaabka, font-ka, logo-ga, sharciga iyo meelaha saxiixada
+            aad beddelaysaa — placeholder-yadana <strong>haba seyn</strong>.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3 gap-2"
+            disabled={building}
+            onClick={() => void downloadStarter()}
+          >
+            {building ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+            Soo celi heshiis_kiro_template.docx
+          </Button>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Marka aad Word-ka ku edit-gareeyo, ku kaydi magac cusub (tusaale{" "}
+            <code className="bg-muted px-1">heshiis_kiro_template_final.docx</code>) oo
+            soo geli Template Manager-ka — user-kayga waa la ilaaliyaa, lama
+            beddelin.
+          </p>
         </div>
 
         {/* Available placeholder reference */}

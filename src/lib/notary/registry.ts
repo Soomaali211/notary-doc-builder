@@ -39,21 +39,21 @@ export function registryTemplates(): TemplateSpec[] {
 
 /**
  * get_template(): resolve the active template for a document type + subtype.
- * Returns undefined when no template is registered (validation reports it).
+ * Falls back to the UNIVERSAL template (subtype "") when the sub-type has
+ * none of its own — that is how the system's starter template is used.
+ * Returns undefined when nothing matches (validation reports it).
  */
 export function getTemplate(
   documentType: string,
   subtype: string,
 ): TemplateSpec | undefined {
-  const candidates = registryTemplates()
-    .filter(
-      (t) =>
-        t.documentType === documentType &&
-        t.subtype === subtype &&
-        t.status !== "retired",
-    )
+  const active = registryTemplates()
+    .filter((t) => t.documentType === documentType && t.status !== "retired")
     .sort((a, b) => b.version - a.version);
-  return candidates[0];
+  return (
+    active.find((t) => t.subtype === subtype) ??
+    active.find((t) => !t.subtype)
+  );
 }
 
 /** get_template_by_id(): exact lookup (used by archive / metadata screens). */
@@ -77,8 +77,19 @@ export function selectTemplate(
       ? String((subTypeRaw as Record<string, string>)["sub_type"] ?? "")
       : "";
   if (subType) {
-    const found = getTemplate(config.id, subType);
-    if (found) return found;
+    // A universal (subtype-less) template is only an automatic fallback —
+    // never stronger than a template registered FOR that sub-type.
+    const dedicated = registryTemplates().find(
+      (t) =>
+        t.documentType === config.id &&
+        t.subtype === subType &&
+        t.status !== "retired",
+    );
+    if (dedicated) return dedicated;
+    const universal = registryTemplates().find(
+      (t) => t.documentType === config.id && !t.subtype && t.status !== "retired",
+    );
+    if (universal) return universal;
   }
   const specs = (config.templates ?? []).filter((t) => t.status !== "retired");
   return specs.length === 1
