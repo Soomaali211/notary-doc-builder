@@ -309,7 +309,10 @@ export default function Templates() {
           )}
         </div>
 
-        {/* v2 — the legal-document starter, modelled on the real notary sample */}
+        {/* v2 — the legal-document starter, modelled on the real notary sample.
+            Heshiis Kiro only: the starter is built from THAT document's
+            wording, so it is never offered for another document type. */}
+        {config?.id === "heshiis_kiro" && (
         <div className="neu-raised border-primary/40 p-6">
           <h2 className="text-base font-bold">
             Template-ka v2 — Heshiis Kiro (qoraal sharciyeed){" "}
@@ -342,8 +345,10 @@ export default function Templates() {
             saxiixada adigaa beddelaysaa — placeholder-yadana <strong>haba seyn</strong>.
           </p>
         </div>
+        )}
 
         {/* Starter template builder — the user's Word template starts here */}
+        {config?.id === "heshiis_kiro" && (
         <div className="neu-raised p-6">
           <h2 className="text-base font-bold">Template-ka nidaamka v1 (miis xog leh)</h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
@@ -370,6 +375,7 @@ export default function Templates() {
             beddelin.
           </p>
         </div>
+        )}
 
         {/* Available placeholder reference */}
         {config && (
@@ -389,13 +395,26 @@ export default function Templates() {
                     {n.startsWith("IF:") ? `{{${n}}}` : `{{${n}}}`}
                   </code>
                 ))}
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-             Repeat blocks: <code className="bg-muted px-1">{"{{#KIREYEYAYAAL}}…{{/KIREYEYAYAAL}}"}</code>, {" "}
-              <code className="bg-muted px-1">{"{{#KIRAYSTAYAAL}}…{{/KIRAYSTAYAAL}}"}</code>, {" "}
-              <code className="bg-muted px-1">{"{{#WAKIILO_KIREEYAYAAL}}…{{/WAKIILO_KIREEYAYAAL}}"}</code>, {" "}
-              <code className="bg-muted px-1">{"{{#MARAGYO}}…{{/MARAGYO}}"}</code>. Conditionals:{" "}
-              <code className="bg-muted px-1">{"{{IF:DEEBAAJI_HAA}}…{{END:DEEBAAJI_HAA}}"}</code>.
+            </div>            <p className="mt-3 text-xs text-muted-foreground">
+              Repeat blocks:{" "}
+              {(config.repeatBlocks ?? []).map((b, i) => (
+                <span key={b.blockId}>
+                  {i > 0 && ", "}
+                  <code className="bg-muted px-1">
+                    {`{{#${b.blockId}}}…{{/${b.blockId}}}`}
+                  </code>
+                </span>
+              ))}
+              . Conditionals:{" "}
+              {Object.keys(config.conditionFlags ?? {})
+                .slice(0, 3)
+                .map((f, i) => (
+                  <span key={f}>
+                    {i > 0 && ", "}
+                    <code className="bg-muted px-1">{`{{IF:${f}}}…{{END:${f}}}`}</code>
+                  </span>
+                ))}
+              .
             </p>
           </details>
         )}

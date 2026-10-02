@@ -24,6 +24,8 @@ import { PartyListEditor } from "@/components/notary/PartyListEditor";
 import { PartyStatusEditor } from "@/components/notary/PartyStatusEditor";
 import { RepresentativeGroupingEditor } from "@/components/notary/RepresentativeGroupingEditor";
 import { StepperProgress } from "@/components/notary/StepperProgress";
+import { NumberSelector } from "@/components/notary/NumberSelector";
+import { Label } from "@/components/ui/label";
 import { SetupField } from "@/components/notary/SetupField";
 import { SetupSummaryCard } from "@/components/notary/SetupSummaryCard";
 import {
@@ -43,10 +45,13 @@ import {
   linkPartyRepresentative,
   removeRepeatableItem,
   serializeDraft,
+  referenceAnswer,
   setAnswer,
   setPartyAttendance,
   setRepeatableAnswer,
+  setRepeatableCount,
   setRepresentativeField,
+  subTypeAnswer,
   validateSectionById,
 } from "@/lib/notary/engine";
 import { validateDocument } from "@/lib/notary/validation";
@@ -98,6 +103,7 @@ const DOCX_MIME =
 type StepKind =
   | { kind: "section"; section: SectionDef }
   | { kind: "party-data"; partyDef: PartyDef }
+  | { kind: "party-count"; partyDef: PartyDef }
   | { kind: "party-status"; partyDef: PartyDef };
 
 interface InterviewStep {
@@ -121,6 +127,8 @@ function stepDescription(step: InterviewStep): string {
       return step.detail.section.description ?? "";
     case "party-data":
       return `Buuxi xogta ${step.detail.partyDef.label.toLowerCase()} — xubin kasta gooni ah.`;
+    case "party-count":
+      return `Wixii ${step.detail.partyDef.label.toLowerCase()} — tirada ayaa marka hore la dooraa.`;
     case "party-status":
       return "Ma Joogaa Heshiiska? Haa = xogta qofka jooga; Maya = wakiil ayaa matalaya (magac + telefoon).";
   }
@@ -151,16 +159,20 @@ export function SectionStep({
 }) {
   const section = step.section;
   // Step 1 (Dejinta Heshiiska): setup controls drive the whole workflow.
+  // The rich setup cards belong to the rental document only — a document
+  // type whose setup section is named differently renders its plain fields.
   const isSetup = section.id === "heshiiska";
   const setupFields = isSetup
     ? ["sub_type", "kireeye_mode", "kirayste_mode", "muddada_nooca", "deebaaji_haa", "damiin_haa"]
     : [];
+  // Resolved defensively: a document type without these groups (e.g. Kala
+  // Iibsi Hanti) must never crash the setup renderer.
   const landlordDef = config.sections
     .flatMap((s) => s.parties ?? [])
-    .find((p) => p.id === "kireeyayaal")!;
+    .find((p) => p.id === "kireeyayaal");
   const tenantDef = config.sections
     .flatMap((s) => s.parties ?? [])
-    .find((p) => p.id === "kiraystayaal")!;
+    .find((p) => p.id === "kiraystayaal");
 
   return (
     <>
@@ -328,10 +340,10 @@ export default function NewDocumentInterview() {
         payload: {
           documentType: config.id,
           documentTypeTitle: config.title,
-          subType: getAnswer(next, "heshiiska", "sub_type") || document.subType,
+          subType: subTypeAnswer(config, next) || document.subType,
           subTypeLabel: getSubTypeLabel(
             config,
-            getAnswer(next, "heshiiska", "sub_type") || document.subType,
+            subTypeAnswer(config, next) || document.subType,
           ),
           referenceNumber: document.referenceNumber,
           fileBaseName:
@@ -564,7 +576,9 @@ export default function NewDocumentInterview() {
       return steps.findIndex((s) => {
         if (
           partyId &&
-          (s.detail.kind === "party-status" || s.detail.kind === "party-data")
+          (s.detail.kind === "party-status" ||
+            s.detail.kind === "party-data" ||
+            s.detail.kind === "party-count")
         ) {
           return s.detail.partyDef.id === partyId;
         }
@@ -623,6 +637,15 @@ export default function NewDocumentInterview() {
         steps
           .filter((s) => {
             if (s.detail.kind === "section") return !validation[s.detail.section.id];
+            if (s.detail.kind === "party-count") {
+              // A count step is complete as soon as the rows it created
+              // pass the group's own rules.
+              const partyDef = s.detail.partyDef;
+              const sectionId = visibleSections.find((sec) =>
+                (sec.parties ?? []).some((p) => p.id === partyDef.id),
+              )?.id;
+              return sectionId ? !validation[sectionId] : false;
+            }
             if (s.detail.kind === "party-data" || s.detail.kind === "party-status") {
               const partyDef = s.detail.partyDef;
               const sectionId = visibleSections.find((sec) =>
@@ -662,7 +685,9 @@ export default function NewDocumentInterview() {
         );
       }
       case "party-data":
-      case "party-status": {
+      case "party-status":
+      case "party-count": {
+        if (currentStep.detail.kind === "party-count") return false; // count itself is never invalid
         // Step 2 owns data + presence + wakiil TOGETHER: full party errors
         // (identity AND the Ma-Joogaa choice) plus rep-related generals.
         const partyDef = currentStep.detail.partyDef;
@@ -710,6 +735,8 @@ export default function NewDocumentInterview() {
           });
         }
       }
+    } else if (step.kind === "party-count") {
+      return null;
     } else if (step.kind === "party-data") {
       const partyDef = step.partyDef;
       getPartyRows(values, partyDef.id).forEach((row, rowIndex) => {
@@ -767,6 +794,7 @@ export default function NewDocumentInterview() {
         }
       });
     } else {
+      // party-count — nothing to fill, the step only picks a number.
       return null;
     }
     return fields.length > 0 ? { fields } : null;
@@ -833,7 +861,7 @@ export default function NewDocumentInterview() {
         (f) => getAnswer(values, d.section.id, f.id) === FIELD_SKIPPED,
       );
     }
-    if (d.kind === "party-data" || d.kind === "party-status") {
+    if (d.kind === "party-data" || d.kind === "party-status" || d.kind === "party-count") {
       return getPartyRows(values, d.partyDef.id).some((row) =>
         Object.values(row.values ?? {}).some((v) => v === FIELD_SKIPPED),
       );
@@ -871,7 +899,7 @@ export default function NewDocumentInterview() {
       // Phase 3: the user-entered reference is the source of truth —
       // it is never auto-incremented.
       const referenceNumber = (
-        getAnswer(values, "heshiiska", "reference") ||
+        referenceAnswer(config, values) ||
         document.referenceNumber ||
         ""
       ).trim();
@@ -883,7 +911,7 @@ export default function NewDocumentInterview() {
         return;
       }
 
-      const subType = getAnswer(values, "heshiiska", "sub_type") || document.subType;
+      const subType = subTypeAnswer(config, values) || document.subType;
       const subTypeLabel = getSubTypeLabel(config, subType);
 
       // Phase Document Generation — the USER'S OWN template wins. Its bytes
@@ -995,7 +1023,7 @@ export default function NewDocumentInterview() {
     setPreviewLoading(true);
     try {
       const referenceNumber =
-        (getAnswer(values, "heshiiska", "reference") || document.referenceNumber || "PREVIEW").trim() ||
+        (referenceAnswer(config, values) || document.referenceNumber || "PREVIEW").trim() ||
         "PREVIEW";
       let userBytes: ArrayBuffer | undefined;
       let userSpec;
@@ -1012,7 +1040,7 @@ export default function NewDocumentInterview() {
         referenceNumber,
         subTypeLabel: getSubTypeLabel(
           config,
-          getAnswer(values, "heshiiska", "sub_type") || document.subType,
+          subTypeAnswer(config, values) || document.subType,
         ),
         templateBytes: userBytes,
         spec: userSpec,
@@ -1185,6 +1213,40 @@ export default function NewDocumentInterview() {
     />
   );
 
+  /**
+   * "Tirada …?" — the count step. Writes the chosen number straight into
+   * the group's row list (count-first, no repeated question later).
+   */
+  const renderPartyCountStep = (partyDef: PartyDef) => {
+    const rows = (values[partyDef.id] as FormValues[keyof FormValues]) ?? [];
+    const count = Array.isArray(rows) ? rows.length : 0;
+    return (
+      <div className="neu-inset p-4">
+        <Label className="flex items-center gap-2 text-sm font-semibold">
+          <Users className="size-4 text-primary" />
+          Tirada {partyDef.label}
+        </Label>
+        {partyDef.description && (
+          <p className="text-xs text-muted-foreground">{partyDef.description}</p>
+        )}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <span className="text-sm text-muted-foreground">
+            Tirada {partyDef.label} ee aad dooranayso:
+          </span>
+          <NumberSelector
+            value={Math.max(1, count)}
+            min={partyDef.min}
+            {...(partyDef.max ? { max: partyDef.max } : {})}
+            label={partyDef.singular}
+            onChange={(next) =>
+              setValues((v) => setRepeatableCount(v!, partyDef, next))
+            }
+          />
+        </div>
+      </div>
+    );
+  };
+
   const renderPartyDataStep = (partyDef: PartyDef) => {
     const rows = (values[partyDef.id] as FormValues[keyof FormValues]) ?? [];
     const sectionId = visibleSections.find((sec) =>
@@ -1225,7 +1287,7 @@ export default function NewDocumentInterview() {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="notebook-annotation text-sm text-muted-foreground">
-              {config.title} · {getSubTypeLabel(config, getAnswer(values, "heshiiska", "sub_type") || document.subType)}
+              {config.title} · {getSubTypeLabel(config, subTypeAnswer(config, values) || document.subType)}
             </p>
             <h1 className="text-2xl font-bold tracking-tight">
               {isReview ? "Dib u Eegis & Abuur" : (currentStep?.short ?? "")}
@@ -1395,6 +1457,8 @@ export default function NewDocumentInterview() {
                   />
                 )}
 
+                {currentStep.detail.kind === "party-count" &&
+                  renderPartyCountStep(currentStep.detail.partyDef)}
                 {currentStep.detail.kind === "party-data" && renderPartyDataStep(currentStep.detail.partyDef)}
                 {currentStep.detail.kind === "party-status" && (
                   <>

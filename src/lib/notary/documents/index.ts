@@ -1,12 +1,16 @@
 import type { DocumentConfig } from "../types";
 import { heshiisKiroConfig } from "./heshiisKiro";
+import { kalaIiibsiHantiConfig } from "./kalaIiibsiHanti";
 
 /**
  * Document type registry. Future document types (Heshiis Deyn,
  * Wakiilnimo, Kala Iibsi Hanti, Cadayn Cilaaj, Heshiis Shirkadeed …)
  * are registered here — no engine code changes needed.
  */
-export const documentConfigs: DocumentConfig[] = [heshiisKiroConfig];
+export const documentConfigs: DocumentConfig[] = [
+  heshiisKiroConfig,
+  kalaIiibsiHantiConfig,
+];
 
 export function getConfig(id: string): DocumentConfig | undefined {
   return documentConfigs.find((c) => c.id === id);
@@ -42,12 +46,6 @@ export const upcomingDocumentTypes: CatalogEntry[] = [
     title: "Heshiis Wakiilnimo",
     description:
       "Awood-siin wakiil oo rasmi ah — xuduudaha wakiilka, mudada, iyo xaddidaadaha.",
-  },
-  {
-    id: "kala_iibsi_hanti",
-    title: "Kala Iibsi Hanti",
-    description:
-      "Iibsi iyo gudbin hanti — qiimaha, habka lacag bixinta, iyo gudbinta milkiga.",
   },
   {
     id: "cadayn_cilaaj",

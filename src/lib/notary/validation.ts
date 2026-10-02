@@ -168,6 +168,19 @@ export function validateSectionCross(
 ): string[] {
   const errors: string[] = [];
   for (const field of fields) {
+    // Numeric ceiling: this amount may not exceed the referenced one (a
+    // buyer can never pay more than the agreed price). Declared per field,
+    // so a config without it is unaffected.
+    const ceiling = field.validation?.notMoreThan;
+    if (ceiling) {
+      const own = (values[field.id] ?? "").trim();
+      const limit = (values[ceiling] ?? "").trim();
+      if (own && limit && isAmount(own) && isAmount(limit) && Number(own) > Number(limit)) {
+        const limitLabel =
+          fields.find((f) => f.id === ceiling)?.label ?? ceiling;
+        errors.push(`${field.label} waa inay ka yar tahay ${limitLabel}.`);
+      }
+    }
     if (!field.validation?.notBefore) continue;
     const end = (values[field.id] ?? "").trim();
     const start = (values[field.validation.notBefore] ?? "").trim();

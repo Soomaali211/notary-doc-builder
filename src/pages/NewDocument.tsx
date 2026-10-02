@@ -96,11 +96,11 @@ export default function NewDocument() {
 
       {/* Step 2: sub-type */}
       {config && (
-        <section className="mt-10" aria-label="2 · Nooca Kirada">
+        <section className="mt-10" aria-label="2 · Nooca Hantida">
           <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            2 · Nooca Kirada
+            2 · {config.id === "heshiis_kiro" ? "Nooca Kirada" : "Nooca Hantida"}
           </h2>
-          <div className="flex flex-wrap gap-3" role="radiogroup" aria-label="Nooca Kirada">
+          <div className="flex flex-wrap gap-3" role="radiogroup" aria-label="Nooca Hantida">
             {config.subTypes.map((s) => {
               const selected = subType === s.value;
               return (

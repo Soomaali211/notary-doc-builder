@@ -63,15 +63,16 @@ export function getTemplateById(templateId: string): TemplateSpec | undefined {
 
 /**
  * Automatic selection used by the generation pipeline: reads the user's
- * chosen sub-type from the answers (heshiiska.sub_type) — config-driven,
- * never hard-coded. Falls back to the document type's only template when
- * the config declares exactly one.
+ * chosen sub-type from the answers (the config's setup section) —
+ * config-driven, never hard-coded. Falls back to the document type's only
+ * template when the config declares exactly one.
  */
 export function selectTemplate(
   config: DocumentConfig,
   values: FormValues,
 ): TemplateSpec | undefined {
-  const subTypeRaw = values["heshiiska"];
+  const setupId = config.setupSectionId ?? "heshiiska";
+  const subTypeRaw = values[setupId];
   const subType =
     subTypeRaw && !Array.isArray(subTypeRaw)
       ? String((subTypeRaw as Record<string, string>)["sub_type"] ?? "")

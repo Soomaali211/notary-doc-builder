@@ -55,7 +55,7 @@ export interface PipelineOutput {
 }
 
 function subTypeOf(config: DocumentConfig, values: FormValues): string {
-  const v = values["heshiiska"];
+  const v = values[config.setupSectionId ?? "heshiiska"];
   if (v && !Array.isArray(v)) {
     return String((v as Record<string, string>)["sub_type"] ?? "");
   }

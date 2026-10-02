@@ -8,6 +8,7 @@
 
 import type {
   ClauseMapping,
+  DerivedValueDef,
   DocumentConfig,
   DocumentFormatConfig,
   FormValues,
@@ -171,6 +172,13 @@ export function computeReplacements(
   map["{{KIREYEYAYAAL_LIST}}"] = joinPartyList(values, "kireeyayaal");
   map["{{KIRAYSTAYAAL_LIST}}"] = joinPartyList(values, "kiraystayaal");
 
+  // Values the SYSTEM derives from other answers (money still owed, party
+  // counts…). Declared per document type; when a config declares none the
+  // loop body never runs and the map is unchanged.
+  for (const derived of config.derivedValues ?? []) {
+    map[`{{${derived.token}}}`] = deriveValue(config, values, derived);
+  }
+
   if (config.witnessPlaceholder) {
     map[config.witnessPlaceholder] = joinPartyList(
       values,
@@ -179,10 +187,12 @@ export function computeReplacements(
     );
   }
 
-  const subTypeRaw = values["heshiiska"];
+  // Sub-type label — read from the config's OWN setup section, so a document
+  // type that calls it something other than "heshiiska" resolves too.
+  const setupRaw = values[config.setupSectionId ?? "heshiiska"];
   const subType =
-    subTypeRaw && !Array.isArray(subTypeRaw)
-      ? String((subTypeRaw as Record<string, string>)["sub_type"] ?? "")
+    setupRaw && !Array.isArray(setupRaw)
+      ? String((setupRaw as Record<string, string>)["sub_type"] ?? "")
       : "";
   if (subType) {
     map["{{SUB_TYPE}}"] =
@@ -193,6 +203,9 @@ export function computeReplacements(
   // the draft (user switched Xidhan → Furan and chose "Hay draft-ka") must
   // never reach the document. Every end-date placeholder alias (the long
   // Somali name AND the short user-template aliases) is blanked.
+  // Heshiis Kiro only: this correction reads the rental answers by name.
+  // A document type without a "heshiiska" section never enters the block.
+  const subTypeRaw = values["heshiiska"];
   if (subTypeRaw && !Array.isArray(subTypeRaw)) {
     const heshiiska = subTypeRaw as Record<string, string>;
     if (heshiiska.muddada_nooca !== "xidhan") {
@@ -225,6 +238,48 @@ export function computeReplacements(
   });
 
   return map;
+}
+
+/**
+ * Compute ONE declared derived value.
+ *
+ * `subtract` treats an empty input as 0 and never prints a negative figure:
+ * a balance can be outstanding, never a refund invented out of thin air.
+ * Empty in, empty out — an unfilled form produces no line at all.
+ */
+function deriveValue(
+  config: DocumentConfig,
+  values: FormValues,
+  derived: DerivedValueDef,
+): string {
+  const format = config.format ?? {};
+  if (derived.op === "party_count") {
+    return String(filledRows(partyRows(values, derived.partyId)).length);
+  }
+  const [first, ...rest] = derived.keys;
+  const head = numericValue(resolveKey(values, first));
+  if (head === null) return "";
+  const total = rest.reduce((sum, key) => {
+    const n = numericValue(resolveKey(values, key));
+    return n === null ? sum : sum - n;
+  }, head);
+  const clamped = Math.max(0, total);
+  return formatValueByKind(String(clamped), derived.format ?? "number", format);
+}
+
+/** A form value as a number, or null when it is empty/not a number. */
+function numericValue(raw: unknown): number | null {
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      const n = numericValue(item);
+      if (n !== null) return n;
+    }
+    return null;
+  }
+  const text = typeof raw === "string" ? raw.trim() : raw == null ? "" : String(raw);
+  if (!text) return null;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**
@@ -319,6 +374,20 @@ export function resolveFlags(
     flags[`${group}_JOOGA`] = rows.some((r) => r.attendance?.status === "jooga");
   }
 
+  // Count flags — "is there exactly ONE, or several?" for a group whose count
+  // the user picks directly (PartyDef.countFirst). The group name comes from
+  // the PLURAL storage key, not the singular label, so the token can never
+  // drift away from the block name ({{#IIBIYEYAAL}} ↔ {{IF:IIBIYEYAAL_BADAN}}).
+  // Groups without countFirst produce no flags at all — the whole block is
+  // inert for every document type that does not ask for a count.
+  for (const partyDef of config.sections.flatMap((s) => s.parties ?? [])) {
+    if (!partyDef.countFirst) continue;
+    const group = partyDef.id.toUpperCase().replace(/[^A-Z0-9_]/g, "");
+    const count = filledRows(partyRows(values, partyDef.id)).length;
+    flags[`${group}_HAL`] = count === 1;
+    flags[`${group}_BADAN`] = count > 1;
+  }
+
   // Annex group flags. Each annex field belongs to a named group so the
   // template can wrap a few lines in ONE {{IF:…}} and print nothing at all
   // when the group has no value. Groups are declared by the annex field's
@@ -332,7 +401,11 @@ export function resolveFlags(
     .map((f) => annexGroupFlag(f.group))
     .filter((f, i, arr) => arr.indexOf(f) === i);
   for (const flag of annexFlags) if (flags[flag] === undefined) flags[flag] = false;
-  flags.ANNEX_HAS_VALUES = annexFlags.some((f) => flags[f] === true);
+  // Only a document type that actually declares annex fields gets the
+  // umbrella flag — a config with no annex has nothing to hide.
+  if ((config.annexFields ?? []).length > 0) {
+    flags.ANNEX_HAS_VALUES = annexFlags.some((f) => flags[f] === true);
+  }
   return flags;
 }
 
@@ -482,6 +555,13 @@ export function knownPlaceholderNames(config: DocumentConfig): Set<string> {
   for (const flag of Object.keys(config.conditionFlags ?? {})) {
     names.add(flag.toUpperCase());
   }
+  // The witness list ({{MARAGYO_LIST}}) is a real, resolvable placeholder —
+  // it is declared through witnessPlaceholder, not through config.placeholders,
+  // so it has to be registered here or the Template Manager reports the
+  // office's own witness token as "placeholder aan system-ku aqoon".
+  if (config.witnessPlaceholder) {
+    names.add(config.witnessPlaceholder.replace(/[{}]/g, "").toUpperCase());
+  }
   // Attendance-derived flags. resolveFlags() ALWAYS produces a <GROUP>_JOOGA
   // and a <GROUP>_WAKIIL for every attendance party, so the Template Manager
   // must accept them even when the current answers make them false — they are
@@ -492,6 +572,20 @@ export function knownPlaceholderNames(config: DocumentConfig): Set<string> {
     const group = partyDef.singular.toUpperCase().replace(/[^A-Z0-9_]/g, "");
     names.add(`${group}_JOOGA`);
     names.add(`${group}_WAKIIL`);
+  }
+  // Count flags — resolveFlags() ALWAYS emits <GROUP>_HAL / <GROUP>_BADAN
+  // for a countFirst group, so the Template Manager must accept them even
+  // when the current answers make them false.
+  for (const partyDef of config.sections.flatMap((s) => s.parties ?? [])) {
+    if (!partyDef.countFirst) continue;
+    const group = partyDef.id.toUpperCase().replace(/[^A-Z0-9_]/g, "");
+    names.add(`${group}_HAL`);
+    names.add(`${group}_BADAN`);
+  }
+  // Derived values ({{LACAGTA_HADHAY}}, {{TIRADA_IIBIYEYAAL}}, …) are real,
+  // resolvable placeholders — the validator must accept them.
+  for (const derived of config.derivedValues ?? []) {
+    names.add(derived.token.toUpperCase());
   }
   for (const clause of config.clauses) {
     names.add(clause.placeholder.replace(/[{}]/g, "").toUpperCase());

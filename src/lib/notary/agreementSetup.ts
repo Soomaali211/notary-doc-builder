@@ -131,6 +131,13 @@ export type WorkflowStepKind =
   | { kind: "section"; sectionId: string }
   | { kind: "party-data"; partyDef: PartyDef }
   /**
+   * "Tirada …?" — how many of this group. Emitted ONLY for a group that
+   * declares PartyDef.countFirst (a document type that asks the count as
+   * its own step). Groups without it are unchanged: their count is decided
+   * inside their own setup question, exactly as before.
+   */
+  | { kind: "party-count"; partyDef: PartyDef }
+  /**
    * Step 2 — "Xogta iyo Xaaladda": ONE combined step per attendance group
    * (identity + presence + representation). The count is decided in Step 1
    * and there is no separate count or attendance step.
@@ -187,6 +194,16 @@ export function buildConditionalWorkflow(
       if (!partyDef.attendance) {
         steps.push({ key: `party-${partyDef.id}`, short: partyDef.label, detail: { kind: "party-data", partyDef } });
         continue;
+      }
+      // Count-first groups ask "how many?" in their own step, immediately
+      // before the combined data/attendance step. The chosen count is
+      // written straight into the row list (setRepeatableCount).
+      if (partyDef.countFirst) {
+        steps.push({
+          key: `count-${partyDef.id}`,
+          short: `Tirada ${partyDef.label}`,
+          detail: { kind: "party-count", partyDef },
+        });
       }
       // Step 2 — "Xogta iyo Xaaladda Kireeyaha/Kiraystaha": ONE combined
       // step (identity + Ma Joogaa Haa/Maya + inline wakiil inputs). The

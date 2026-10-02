@@ -28,8 +28,8 @@ export function SetupField({
   values: FormValues;
   errors?: SectionErrors;
   sectionId: string;
-  landlordDef: PartyDef;
-  tenantDef: PartyDef;
+  landlordDef: PartyDef | undefined;
+  tenantDef: PartyDef | undefined;
   onValues: (next: FormValues) => void;
 }) {
   const value = getAnswer(values, sectionId, field.id);
@@ -39,9 +39,14 @@ export function SetupField({
     field.id === "kireeye_mode" || field.id === "kirayste_mode";
   const partyDef = field.id === "kireeye_mode" ? landlordDef : tenantDef;
   const mode = value === "multiple" ? "multiple" : "single";
-  const count = ((values[partyDef.id] as unknown[] | undefined) ?? []).length;
+  // A document type without this group has no rows to count — the field
+  // still renders, the inline selector simply has nothing to drive.
+  const count = partyDef
+    ? ((values[partyDef.id] as unknown[] | undefined) ?? []).length
+    : 0;
 
   const setCount = (next: number) => {
+    if (!partyDef) return;
     onValues(setRepeatableCount(values, partyDef, Math.max(2, next)));
   };
 
@@ -76,7 +81,7 @@ export function SetupField({
                   let next = setAnswer(values, sectionId, field.id, opt.value);
                   // Party mode drives the row count directly (#2/#3/#19):
                   // Kireeye → exactly 1 row; Kireeyayaal → at least 2.
-                  if (isPartyMode) {
+                  if (isPartyMode && partyDef) {
                     const target = opt.value === "single" ? 1 : Math.max(2, count);
                     next = setRepeatableCount(next, partyDef, target);
                   }
@@ -104,7 +109,7 @@ export function SetupField({
       ) : null}
 
       {/* Party-mode → inline number selector (multiple only) */}
-      {isPartyMode && mode === "multiple" && (
+      {isPartyMode && partyDef && mode === "multiple" && (
         <div className="reveal-enter neu-inset mt-1 flex flex-wrap items-center justify-between gap-3 p-3">
           <span className="text-sm font-medium">
             Tirada {field.id === "kireeye_mode" ? "Kireeyayaasha" : "Kiraystayaasha"}

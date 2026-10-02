@@ -67,6 +67,25 @@ export function loadForm(documentTypeId: string): DocumentConfig | undefined {
   return getConfigById(documentTypeId);
 }
 
+/**
+ * Section that holds the document's own settings (sub-type, reference
+ * number, dates). Every document type may name its own; the default keeps
+ * the Heshiis Kiro layout ("heshiiska") exactly as it is today.
+ */
+export function setupSectionId(config: DocumentConfig): string {
+  return config.setupSectionId ?? "heshiiska";
+}
+
+/** The sub-type the user picked in the setup section ("" when not chosen). */
+export function subTypeAnswer(config: DocumentConfig, values: FormValues): string {
+  return getAnswer(values, setupSectionId(config), "sub_type");
+}
+
+/** The reference number the user typed in the setup section. */
+export function referenceAnswer(config: DocumentConfig, values: FormValues): string {
+  return getAnswer(values, setupSectionId(config), "reference");
+}
+
 /** get_sections(): visible, ordered sections for the current answers. */
 export function getSections(
   config: DocumentConfig,

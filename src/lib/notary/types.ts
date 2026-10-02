@@ -45,6 +45,13 @@ export interface FieldValidation {
   patternMessage?: string;
   /** This field's value must be >= the value of the referenced sibling field. */
   notBefore?: string;
+  /**
+   * Numeric sibling rule: this field's value must be <= the referenced sibling
+   * field's value (e.g. the amount paid may never exceed the total price).
+   * Omitted on every existing field, so documents that do not declare it are
+   * completely unaffected.
+   */
+  notMoreThan?: string;
 }
 
 export interface BaseField {
@@ -140,6 +147,15 @@ export interface PartyDef {
    * parties (PartyRepresentative relationship).
    */
   representativeFields?: FieldDef[];
+  /**
+   * The interview asks "Tirada …?" (how many?) in its OWN step before the
+   * data/attendance step, driven by the generic NumberSelector. The chosen
+   * count is written straight into the row list (setRepeatableCount).
+   *
+   * Groups that omit it (every group in Heshiis Kiro) keep the old
+   * behaviour: the count is decided inside their own setup question.
+   */
+  countFirst?: boolean;
   /**
    * FormValues key holding the group's shared representative list.
    * Defaults to `wakiilo_<partyId>`.
@@ -328,9 +344,49 @@ export interface ClauseMapping {
   fallbackLines?: string[];
 }
 
+/**
+ * A value the SYSTEM computes from other answers — the user never types it.
+ *
+ * Two kinds exist so far:
+ *   subtract    → first key minus the following keys (money left to pay)
+ *   party_count → number of filled rows of a repeatable group
+ *
+ * A derived value is written into the document exactly like a mapped
+ * placeholder and is listed in the placeholder inventory, so nothing
+ * invisible ever reaches a signed document.
+ */
+export type DerivedValueDef =
+  | {
+      /** Canonical token name without braces, e.g. "LACAGTA_HADHAY". */
+      token: string;
+      /** Total minus the following keys. */
+      op: "subtract";
+      /** Form keys, e.g. ["qiimaha.qiimaha_guud", "qiimaha.lacagta_bixiyay"]. */
+      keys: string[];
+      format?: FormatKind;
+      /** Somali label shown in the placeholder inventory. */
+      label?: string;
+    }
+  | {
+      token: string;
+      /** Number of filled rows of this repeatable group. */
+      op: "party_count";
+      partyId: string;
+      format?: FormatKind;
+      label?: string;
+    };
+
 export interface DocumentConfig {
   /** Stable id, e.g. "heshiis_kiro". */
   id: string;
+  /**
+   * Section that holds the document's own settings (sub-type, reference
+   * number, dates). Defaults to "heshiiska" — the Heshiis Kiro layout is
+   * unchanged. A document type with a differently-named section declares
+   * it here so the interview, the pipeline and the template registry all
+   * read the same place.
+   */
+  setupSectionId?: string;
   title: string;
   description: string;
   /** Sub-types the user chooses from. */
@@ -383,6 +439,12 @@ export interface DocumentConfig {
    * instead of leaving 1,2,3,5,6.
    */
   clauseNumbering?: boolean;
+  /**
+   * Values the system derives from other answers (money still owed, party
+   * counts…). Omitted by documents that need none, so their replacement
+   * map is byte-identical to before.
+   */
+  derivedValues?: DerivedValueDef[];
 }
 
 /* ------------------------------------------------------------------ */
