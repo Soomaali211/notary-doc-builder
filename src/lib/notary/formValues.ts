@@ -155,17 +155,22 @@ export function applyCountedParties(config: DocumentConfig, values: FormValues):
   let out = values;
   for (const partyDef of config.sections.flatMap((s) => s.parties ?? [])) {
     if (!partyDef.countFrom) continue;
-    // Read the "section.field" path directly rather than through the engine:
-    // the engine imports THIS module, and going back the other way would
-    // close an import cycle.
-    const [sectionId, fieldId] = partyDef.countFrom.split(".");
-    const raw = sectionId && fieldId ? getSectionValues(values, sectionId)[fieldId] : "";
+    const read = (path: string | undefined): string => {
+      if (!path) return "";
+      const [sectionId, fieldId] = path.split(".");
+      return sectionId && fieldId ? String(getSectionValues(values, sectionId)[fieldId] ?? "") : "";
+    };
+    // A single/multiple choice decides the size on its own: "Iibiye" means
+    // exactly one row, and the number beside it is not consulted at all.
+    // This is the shape Heshiis Kiro already uses for "Kireeye / Kireeyayaal".
+    const mode = read(partyDef.countFromMode).trim();
+    const wantedFromMode = mode === "single" ? 1 : undefined;
     // An UNANSWERED count is not the number zero. Number("") === 0 would
     // resize a restored draft's real rows down to the list's minimum and
     // throw away names the notary had already typed.
-    const rawText = String(raw ?? "").trim();
-    if (rawText === "") continue;
-    const wanted = Number(rawText);
+    const rawText = String(read(partyDef.countFrom) ?? "").trim();
+    if (wantedFromMode === undefined && rawText === "") continue;
+    const wanted = wantedFromMode ?? Number(rawText);
     // An unanswered or nonsense count leaves the list as it is: the setup
     // step still asks the question, and guessing a number would be inventing
     // data.

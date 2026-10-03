@@ -137,6 +137,24 @@ export interface BaseField {
   requiredWhen?: Condition;
   /** Visibility rule — hidden fields are not rendered or validated. */
   visibleWhen?: Condition;
+  /**
+   * Render as a big selectable card instead of a plain control.
+   *
+   * Opt-in and document-driven: a config that declares none is unaffected, so
+   * Heshiis Kiro — whose setup fields are listed by id in the interview —
+   * behaves exactly as before. A document whose setup section is NOT named
+   * "heshiiska" (Kala Iibsi Hanti's is "dejinta") uses this flag to get the
+   * same cards without the interview hard-coding a second list of ids.
+   */
+  setupCard?: boolean;
+  /**
+   * For a single/multiple setup card: the party list this choice sizes.
+   *
+   * Names a PartyDef.id. Choosing "single" collapses the list to exactly one
+   * row; choosing "multiple" reveals the count field beside the card. Purely
+   * opt-in — an unset field just renders a plain radio.
+   */
+  partyModeTarget?: string;
   /** Layout width in the two-column grid (default 1). */
   colSpan?: 1 | 2;
   /** Display order; falls back to array position. */
@@ -206,6 +224,19 @@ export interface PartyDef {
    * keeps its plural wording either way.
    */
   countFrom?: string;
+  /**
+   * A single/multiple choice that DECIDES this list's size, e.g.
+   * "dejinta.iibiye_mode".
+   *
+   * When that field holds "single" the list is exactly ONE row and the
+   * `countFrom` number is not consulted; when it holds anything else the
+   * number is used exactly as before. This is what lets one question —
+   * "Iibiye mise Iibiyayaal?" — replace a raw number box, the way Heshiis
+   * Kiro's "Kireeye / Kireeyayaal" already does for landlords.
+   *
+   * Opt-in: no Heshiis Kiro party declares it, so its behaviour is unchanged.
+   */
+  countFromMode?: string;
   /**
    * Whether this list renders INSIDE its section step as well as in its own
    * row step.

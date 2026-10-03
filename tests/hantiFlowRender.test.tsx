@@ -43,8 +43,11 @@ const fullValues = {
   dejinta: {
     sub_type: "dhul_banaan",
     taariikhda_hantida: "2026-01-30",
+    reference: "Ref/Dpn/MG/001/01/26",
+    // Several sellers, several buyers — the counts beside the cards.
+    iibiye_mode: "multiple",
     tirada_iibiyayaasha: "2",
-    tirada_iibsadayaasha: "1",
+    iibsade_mode: "single",
     wakiillo_ma_jiraan: "yes",
     nooca_damiinta: "qof_3aad",
   },
@@ -129,6 +132,35 @@ describe("Hanti — the six steps as the notary walks them", () => {
       "Qiimaha & Faahfaahinta Lacagta",
       "Xogta Damiinka & Maragyada",
     ]);
+  });
+
+  test("Step 1 reads like the office's setup: date, reference, seller, buyer, guarantee", () => {
+    const html = renderStep(fullValues, 0);
+    // The agreement date and its office-allocated reference are both here.
+    expect(html).toContain("Taariikhda Heshiiska");
+    expect(html).toContain("Tixraaca Heshiiska");
+    expect(html).toContain("Ref/Dpn/MG/001/01/26");
+    // Each side is ONE choice, never a raw number box.
+    expect(html).toContain("Iibiye mise Iibiyayaal");
+    expect(html).toContain("Iibsade mise Iibsadayaal");
+    // And the guarantee is chosen here, once.
+    expect(html).toContain("Damiin qof 3aad");
+  });
+
+  test("§22 the single-seller path never shows or demands a number", () => {
+    const oneSeller = {
+      ...fullValues,
+      dejinta: {
+        ...(fullValues as any).dejinta,
+        iibiye_mode: "single",
+        iibsade_mode: "single",
+      },
+    } as unknown as FormValues;
+    const html = renderStep(oneSeller, 0);
+    expect(html).toContain("Iibiye");
+    // No count box when "Iibiye" (not "Iibiyayaal") is the answer.
+    expect(html).not.toContain("Tirada Iibiyayaasha");
+    expect(html).not.toContain("Tirada Iibsadayaasha");
   });
 
   test("§1 the seller count asked in step 1 is the only count step — §3/§5 no re-asking", () => {
@@ -248,6 +280,48 @@ describe("Hanti — step 6 renders guarantor and witnesses (§15, §17)", () => 
 
   test("no undefined/null leaked into the markup", () => {
     expect(html).not.toMatch(/undefined|null/);
+  });
+});
+
+describe("Hanti — Step 1 uses the SAME big cards as Heshiis Kiro", () => {
+  /** One option button in the setup-card markup. */
+  const cardButtons = (h: string) => (h.match(/min-h-11 items-center justify-between/g) ?? []).length;
+  const setupSection = C.sections.find((s) => s.id === "dejinta")!;
+  const cards = setupSection.fields.filter((f) => f.setupCard);
+
+  test("every card declares options — a card with none renders a label and NOTHING to click", () => {
+    // This is a silent failure: the question still appeared on screen, looked
+    // finished, and could not be answered. SetupField draws one button per
+    // option, so options are what make the card real.
+    for (const f of cards) {
+      expect(`${f.id}:${(f.options ?? []).length}`).toBe(`${f.id}:2`);
+    }
+  });
+
+  test("all seven setup questions render two clickable cards each", () => {
+    const html = renderStep(fullValues, 0);
+    expect(cards).toHaveLength(7);
+    expect(cardButtons(html)).toBe(cards.length * 2);
+  });
+
+  test("each optional-list question still offers Haa and Maya", () => {
+    const html = renderStep(fullValues, 0);
+    for (const label of ["Wakiil ma jiraan?", "Sawirro ma jiraan?", "Saxeexyaal ma jiraan?"]) {
+      expect(html).toContain(label);
+    }
+    // Haa/Maya appear as cards for all four of them.
+    expect(cardButtons(html) / 2).toBe(7);
+  });
+
+  test("choosing 'Iibiyayaal' reveals the count beside the card, not as a second box", () => {
+    const many = renderStep(fullValues, 0);
+    expect(many).toContain("Tirada"); // the inline selector's own wording
+    // The figure belongs to ONE control only.
+    expect((many.match(/Tirada Iibiyayaasha/g) ?? []).length).toBeLessThanOrEqual(1);
+  });
+
+  test("§22 no setup question blocks: none of them is required", () => {
+    for (const f of cards) expect(`${f.id}:${f.optional}`).toBe(`${f.id}:true`);
   });
 });
 

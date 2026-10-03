@@ -11,33 +11,46 @@ import type { SectionErrors } from "@/lib/notary/validation";
 /**
  * Renders one Step 1 field with Step-1-aware controls:
  *  – yes_no and radio become big selectable cards (neumorphic).
- *  – kireeye_mode / kirayste_mode reveal an inline number selector
- *    when "multiple" is chosen (Tirada: [-] 2 [+]) — the count chosen
- *    here is REUSED by the dynamic party steps (#19: no repeated question).
+ *  – a single/multiple choice that names a partyModeTarget reveals an inline
+ *    number selector when "multiple" is chosen (Tirada: [-] 2 [+]) — the
+ *    count chosen here is REUSED by the dynamic party steps, so the same
+ *    question is never asked twice.
+ *
+ * The party mode is found from the CONFIG (`FieldDef.partyModeTarget` →
+ * PartyDef.id), never from a hard-coded field id. Heshiis Kiro's two fields
+ * are resolved through the same lookup by their caller, so both document
+ * types share one code path and a third would need no changes here at all.
  */
 export function SetupField({
   field,
   values,
   errors,
   sectionId,
-  landlordDef,
-  tenantDef,
+  partyDef,
+  countLabel,
+  countFieldId,
   onValues,
 }: {
   field: FieldDef;
   values: FormValues;
   errors?: SectionErrors;
   sectionId: string;
-  landlordDef: PartyDef | undefined;
-  tenantDef: PartyDef | undefined;
+  /** The party list this choice sizes, when the field declares one. */
+  partyDef?: PartyDef;
+  /** Somali noun for the count selector, e.g. "Iibiyayaasha". */
+  countLabel?: string;
+  /**
+   * Field that HOLDS the chosen count (the party's `countFrom` path).
+   * The inline selector writes it, which is what makes a draft restore able
+   * to rebuild the list. Empty for a choice with no count of its own.
+   */
+  countFieldId?: string;
   onValues: (next: FormValues) => void;
 }) {
   const value = getAnswer(values, sectionId, field.id);
   const err = errors?.fieldErrors[field.id];
 
-  const isPartyMode =
-    field.id === "kireeye_mode" || field.id === "kirayste_mode";
-  const partyDef = field.id === "kireeye_mode" ? landlordDef : tenantDef;
+  const isPartyMode = Boolean(field.partyModeTarget) && Boolean(partyDef);
   const mode = value === "multiple" ? "multiple" : "single";
   // A document type without this group has no rows to count — the field
   // still renders, the inline selector simply has nothing to drive.
@@ -47,7 +60,14 @@ export function SetupField({
 
   const setCount = (next: number) => {
     if (!partyDef) return;
-    onValues(setRepeatableCount(values, partyDef, Math.max(2, next)));
+    const target = Math.max(2, next);
+    // The number is STORED on the count field as well as applied to the rows,
+    // so a restored draft rebuilds the same list from the saved answer. The
+    // rows are never the only copy of the figure.
+    const stored = countFieldId
+      ? setAnswer(values, sectionId, countFieldId, String(target))
+      : values;
+    onValues(setRepeatableCount(stored, partyDef, target));
   };
 
   return (
@@ -62,7 +82,7 @@ export function SetupField({
         {err && <p className="mt-1 text-sm text-destructive">✗ {err}</p>}
       </div>
 
-      {/* Option cards (Haa/Maya, Kireeye/Kireeyayaal, Furan/Xidhan …) */}
+      {/* Option cards (Haa/Maya, Kireeye/Kireeyayaal, Iibiye/Iibiyayaal …) */}
       {field.type === "yes_no" || field.type === "radio" ? (
         <div
           role="radiogroup"
@@ -112,7 +132,7 @@ export function SetupField({
       {isPartyMode && partyDef && mode === "multiple" && (
         <div className="reveal-enter neu-inset mt-1 flex flex-wrap items-center justify-between gap-3 p-3">
           <span className="text-sm font-medium">
-            Tirada {field.id === "kireeye_mode" ? "Kireeyayaasha" : "Kiraystayaasha"}
+            Tirada {countLabel ?? partyDef.singular}
           </span>
           <NumberSelector
             value={Math.max(2, count)}

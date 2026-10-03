@@ -307,18 +307,36 @@ export function SectionStep({
   // Step 1 (Dejinta Heshiiska): setup controls drive the whole workflow.
   // The rich setup cards belong to the rental document only — a document
   // type whose setup section is named differently renders its plain fields.
-  const isSetup = section.id === "heshiiska";
+  const isSetup = section.id === setupSectionId(config);
   const setupFields = isSetup
     ? ["sub_type", "kireeye_mode", "kirayste_mode", "muddada_nooca", "deebaaji_haa", "damiin_haa"]
     : [];
+  const allParties = config.sections.flatMap((s) => s.parties ?? []);
+  // Every card that names a party list, whatever the document calls it:
+  // Heshiis Kiro's Kireeye/Kirayste plus Kala Iibsi Hanti's Iibiye/Iibsade.
+  // The count wording is READ from the config too — the label of the field
+  // that carries `countFrom` ("Tirada Iibiyayaasha") minus its "Tirada "
+  // prefix — so no Somali plural is spelled out here in code.
+  const partyDefsByField = new Map<string, { def: PartyDef; countLabel: string; countFieldId: string }>();
+  // Count fields owned by a card: the inline [-] n [+] selector next to the
+  // card STORES the number, so the plain renderer must not draw a second box
+  // for the same figure. Kiro declares no partyModeTarget, so it owns nothing.
+  const ownedCountFields = new Set<string>();
+  for (const f of section.fields) {
+    const def = f.partyModeTarget ? allParties.find((p) => p.id === f.partyModeTarget) : undefined;
+    if (!def) continue;
+    const [countSection, countField] = (def.countFrom ?? "").split(".");
+    const countDef = config.sections
+      .flatMap((s) => s.fields)
+      .find((cf) => countSection && cf.id === countField);
+    const countLabel = (countDef?.label ?? def.label).replace(/^Tirada\s+/i, "");
+    partyDefsByField.set(f.id, { def, countLabel, countFieldId: countField ?? "" });
+    if (countField) ownedCountFields.add(countField);
+  }
   // Resolved defensively: a document type without these groups (e.g. Kala
   // Iibsi Hanti) must never crash the setup renderer.
-  const landlordDef = config.sections
-    .flatMap((s) => s.parties ?? [])
-    .find((p) => p.id === "kireeyayaal");
-  const tenantDef = config.sections
-    .flatMap((s) => s.parties ?? [])
-    .find((p) => p.id === "kiraystayaal");
+  const landlordDef = allParties.find((p) => p.id === "kireeyayaal");
+  const tenantDef = allParties.find((p) => p.id === "kiraystayaal");
 
   return (
     <>
@@ -334,7 +352,7 @@ export function SectionStep({
               values change — Kiro Furan hides End Date, Xidhan shows it, no
               page refresh or re-entry needed. */}
           {getVisibleFields(section, values)
-            .filter((f) => setupFields.includes(f.id) || f.visibleWhen)
+            .filter((f) => (setupFields.includes(f.id) || f.setupCard) && !ownedCountFields.has(f.id))
             .map((field) => {
               // visibleWhen fields on Step 1 (e.g. open/closed dates) use the
               // standard renderer; setup choices use the rich setup cards.
@@ -351,14 +369,25 @@ export function SectionStep({
                   />
                 );
               }
+              const mode = partyDefsByField.get(field.id);
+              // Kiro names its two party choices by id (declared, not guessed);
+              // any other document names the list in `partyModeTarget`.
+              const chosenDef = mode?.def ??
+                (field.id === "kireeye_mode" ? landlordDef :
+                 field.id === "kirayste_mode" ? tenantDef : undefined);
+              const chosenCountLabel =
+                mode?.countLabel ??
+                (field.id === "kireeye_mode" ? "Kireeyayaasha" :
+                 field.id === "kirayste_mode" ? "Kiraystayaasha" : undefined);
               return (
                 <SetupField
                   key={field.id}
                   field={field}
                   values={values}
                   sectionId={section.id}
-                  landlordDef={landlordDef}
-                  tenantDef={tenantDef}
+                  partyDef={chosenDef}
+                  countLabel={chosenCountLabel}
+                  countFieldId={mode?.countFieldId}
                   errors={stepErrors ? validation[section.id] : undefined}
                   onValues={(next) => (onSetupValues ? onSetupValues(next) : setValues(() => next))}
                 />
@@ -366,7 +395,7 @@ export function SectionStep({
             })}
           {/* reference/dates/textarea-style remaining fields */}
           {section.fields
-            .filter((f) => !setupFields.includes(f.id) && !f.visibleWhen)
+            .filter((f) => !(setupFields.includes(f.id) || f.setupCard) && !ownedCountFields.has(f.id))
             .filter((f) => getVisibleFields(section, values).some((vf) => vf.id === f.id))
             .map((field) => (
               <FieldRenderer

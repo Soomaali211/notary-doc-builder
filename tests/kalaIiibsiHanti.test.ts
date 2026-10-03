@@ -43,6 +43,7 @@ import {
   addRepresentative,
   applyCountedParties,
   createInitialValues,
+  createValuesFromDraft,
   getPartyRows,
   representedByRep,
 } from "../src/lib/notary/formValues";
@@ -244,6 +245,70 @@ describe("B — form flow", () => {
     expect(getPartyRows(kept, "iibiyeyaal")).toHaveLength(1);
   });
 
+  test("§1 'Iibiye' is exactly one seller — a stale count beside it is ignored", () => {
+    const values = {
+      ...createInitialValues(C),
+      dejinta: {
+        sub_type: "dhul_banaan",
+        taariikhda_hantida: "2026-01-30",
+        iibiye_mode: "single",
+        // A count left over from before the mode was switched back: it must
+        // NOT keep ten rows alive under an answer that says "one seller".
+        tirada_iibiyayaasha: "9",
+      },
+    } as unknown as FormValues;
+    expect(getPartyRows(applyCountedParties(C, values), "iibiyeyaal")).toHaveLength(1);
+  });
+
+  test("§5 'Iibsade' is exactly one buyer, same rule", () => {
+    const values = {
+      ...createInitialValues(C),
+      dejinta: {
+        sub_type: "dhul_banaan",
+        taariikhda_hantida: "2026-01-30",
+        iibsade_mode: "single",
+        tirada_iibsadayaasha: "8",
+      },
+    } as unknown as FormValues;
+    expect(getPartyRows(applyCountedParties(C, values), "iibsadayaal")).toHaveLength(1);
+  });
+
+  test("§1 'Iibiyayaal' still uses the count typed beside the card", () => {
+    const values = {
+      ...createInitialValues(C),
+      dejinta: {
+        sub_type: "dhul_banaan",
+        taariikhda_hantida: "2026-01-30",
+        iibiye_mode: "multiple",
+        tirada_iibiyayaasha: "10",
+        iibsade_mode: "multiple",
+        tirada_iibsadayaasha: "2",
+      },
+    } as unknown as FormValues;
+    const grown = applyCountedParties(C, values);
+    expect(getPartyRows(grown, "iibiyeyaal")).toHaveLength(10);
+    expect(getPartyRows(grown, "iibsadayaal")).toHaveLength(2);
+  });
+
+  test("a restored draft honours the mode too — never resurrects deleted rows", () => {
+    const draft = {
+      dejinta: {
+        sub_type: "dhul_banaan",
+        taariikhda_hantida: "2026-01-30",
+        iibiye_mode: "single",
+        tirada_iibiyayaasha: "5",
+      },
+      iibiyeyaal: [
+        { id: "s1", values: { magac: "AHMED CALI" } },
+        { id: "s2", values: { magac: "RUUN XASAN" } },
+      ],
+    };
+    const restored = createValuesFromDraft(C, JSON.stringify(draft));
+    expect(getPartyRows(restored, "iibiyeyaal")).toHaveLength(1);
+    // The one row kept is the first entered, never a blank replacement.
+    expect(getPartyRows(restored, "iibiyeyaal")[0].values?.magac).toBe("AHMED CALI");
+  });
+
   test("the plot section is Dhul Banaan-only — Guri sees its own section", () => {
     const forSub = (sub: string) =>
       buildConditionalWorkflow(C, {
@@ -343,20 +408,33 @@ describe("C — the plot (Dhul Banaan)", () => {
     expect(ids(plotSection)).not.toContain("beerta");
   });
 
-  test("the reference is NOT a form question — the system allocates it", () => {
+  test("the reference box is on Step 1 — same shape as Heshiis Kiro", () => {
+    const setup = C.sections.find((s) => s.id === "dejinta")!;
+    const ref = setup.fields.find((f) => f.id === "reference");
+    expect(ref).toBeDefined();
+    // The office allocates it — the empty box says so and never blocks.
+    expect(ref!.placeholder).toBe("Si toos ah ayaa la abuurayaa");
+    expect(ref!.optional).toBe(true);
+  });
+
+  test("Step 1 asks, once and in order: date, reference, seller mode, buyer mode, guarantee", () => {
     const setup = C.sections.find((s) => s.id === "dejinta")!;
     expect(setup.fields.map((f) => f.id)).toEqual([
       "sub_type",
       "taariikhda_hantida",
+      "reference",
+      // One or several? Each asked ONCE, each decides its list's size.
+      "iibiye_mode",
+      "tirada_iibiyayaasha",
+      "iibsade_mode",
+      "tirada_iibsadayaasha",
       // Each asked ONCE, at the top; each decides whether one optional list
       // exists at all. None of them is ever asked again below.
-    "wakiillo_ma_jiraan",
-    "sawirro_ma_jiraan",
-    "saxeexo_ma_jiraan",
-    "shaxado_ma_jiraan",
-    "tirada_iibiyayaasha",
-    "tirada_iibsadayaasha",
-    "nooca_damiinta",
+      "wakiillo_ma_jiraan",
+      "sawirro_ma_jiraan",
+      "saxeexo_ma_jiraan",
+      "shaxado_ma_jiraan",
+      "nooca_damiinta",
     ]);
   });
 

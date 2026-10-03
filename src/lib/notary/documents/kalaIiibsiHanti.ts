@@ -120,9 +120,36 @@ const hasBalanceOwed: Condition = {
   value: "qayb_aad_ah",
 };
 
+/** Step 1 — the Haa/Maya answer. The setup cards render `options`, so a
+ *  yes/no question needs them spelled out (same shape as Heshiis Kiro).
+ */
+const YES_NO: SelectOption[] = [
+  { value: "yes", label: "Haa" },
+  { value: "no", label: "Maya" },
+];
+
+/**
+ * Step 1 — one seller or several? Asked ONCE, here.
+ *
+ * This is the SAME shape Heshiis Kiro already uses for "Kireeye /
+ * Kireeyayaal": a single/multiple choice that then reveals the count. The
+ * choice and the count together are the single source of truth for the seller
+ * list — no later step asks either again.
+ */
+const IIBIYE_MODE: SelectOption[] = [
+  { value: "single", label: "Iibiye" },
+  { value: "multiple", label: "Iibiyayaal" },
+];
+
+/** Step 1 — one buyer or several? Same single source of truth as above. */
+const IIBSADE_MODE: SelectOption[] = [
+  { value: "single", label: "Iibsade" },
+  { value: "multiple", label: "Iibsadayaal" },
+];
+
 const NOOCA_DAMIIN: SelectOption[] = [
-  { value: "qof_3aad", label: "Haa — Qof 3aad ayaa damiinaya" },
-  { value: "iibiyaha", label: "Maya — Iibiyaha / Iibiyayaasha ayaa is-damiinaya" },
+  { value: "qof_3aad", label: "Qof 3aad ayaa damiinaya" },
+  { value: "iibiyaha", label: "Iibiyaha / Iibiyayaasha ayaa is-damiinaya" },
 ];
 
 /**
@@ -727,7 +754,78 @@ requiresWitness: false,
           hint: "Dhul Banaan, Guri ama Beer",
           colSpan: 2,
         },
-        { id: "taariikhda_hantida", type: "date", label: "Taariikhda Iibka", validation: { required: true } },
+        // §2 — the AGREEMENT'S date, not the date the property changed hands.
+        // Renamed from "Taariikhda Iibka" so Step 1 reads exactly like the
+        // Kiro setup; the key is unchanged, so the registry token and
+        // referenceDateKey keep resolving exactly as before.
+        {
+          id: "taariikhda_hantida",
+          type: "date",
+          label: "Taariikhda Heshiiska",
+          validation: { required: true },
+        },
+        // §2 — the reference is ALLOCATED BY THE OFFICE, not invented here:
+        // the empty box is filled once, kept in the draft, and never asked
+        // again. Same placeholder and optional rule as Heshiis Kiro.
+        {
+          id: "reference",
+          type: "text",
+          label: "Tixraaca Heshiiska (Reference Number)",
+          placeholder: "Si toos ah ayaa la abuurayaa",
+          optional: true,
+          colSpan: 2,
+        },
+        // §1 — one seller or several. `setupCard` gives this the same big
+        // selectable cards Heshiis Kiro uses for "Kireeye / Kireeyayaal", and
+        // `partyModeTarget` wires the choice to the seller list below so no
+        // step ever asks the same question twice.
+        {
+          id: "iibiye_mode",
+          type: "radio",
+          label: "Iibiye mise Iibiyayaal?",
+          options: IIBIYE_MODE,
+          // Not a blocking requirement (§22): an unanswered mode simply leaves
+          // the list as-is, and the seller list's own min-1 rule still asks for
+          // a seller. When answered, it decides the row count exactly.
+          optional: true,
+          description: "Hal iibiye ama laba iyo wixii ka badan",
+          colSpan: 2,
+          setupCard: true,
+          partyModeTarget: "iibiyeyaal",
+        },
+        // The count is asked HERE and nowhere else — and only once "Iibiyayaal"
+        // is chosen. Hidden fields are neither rendered nor validated, so the
+        // single-seller path never shows or demands a number.
+        {
+          id: "tirada_iibiyayaasha",
+          type: "number",
+          label: "Tirada Iibiyayaasha",
+          optional: true,
+          visibleWhen: { op: "equals", field: `${DEJINTA}.iibiye_mode`, value: "multiple" },
+          hint: "Hal sawir ama hal saxeex kasta ma qayb aha — tiradu waxay ka duul tahay.",
+          colSpan: 2,
+        },
+        // §5 — buyers, exactly as sellers: one choice, one count, one place.
+        {
+          id: "iibsade_mode",
+          type: "radio",
+          label: "Iibsade mise Iibsadayaal?",
+          options: IIBSADE_MODE,
+          optional: true,
+          description: "Hal iibsade ama laba iyo wixii ka badan",
+          colSpan: 2,
+          setupCard: true,
+          partyModeTarget: "iibsadayaal",
+        },
+        {
+          id: "tirada_iibsadayaasha",
+          type: "number",
+          label: "Tirada Iibsadayaasha",
+          optional: true,
+          visibleWhen: { op: "equals", field: `${DEJINTA}.iibsade_mode`, value: "multiple" },
+          hint: "Hal sawir ama hal saxeex kasta ma qayb aha.",
+          colSpan: 2,
+        },
         // ONE place to say which optional lists this sale has. Each answer
         // decides whether the matching section exists at all — so a notary
         // with no representative is never asked how many representatives
@@ -735,59 +833,38 @@ requiresWitness: false,
         {
           id: "wakiillo_ma_jiraan",
           type: "yes_no",
+          options: YES_NO,
           label: "Wakiil ma jiraan?",
           optional: true,
+          setupCard: true,
           hint: "Haa = qof qalbi wuxuu matalaya qof kale.",
         },
         {
           id: "sawirro_ma_jiraan",
           type: "yes_no",
+          options: YES_NO,
           label: "Sawirro ma jiraan?",
           optional: true,
+          setupCard: true,
           hint: "Tiradu ma la xiriirin tirada iibiyayaasha.",
         },
         {
           id: "saxeexo_ma_jiraan",
           type: "yes_no",
+          options: YES_NO,
           label: "Saxeexyaal ma jiraan?",
           optional: true,
+          setupCard: true,
           hint: "Qof kasta oo iibiye ah ma saxeyn karo.",
         },
         {
           id: "shaxado_ma_jiraan",
           type: "yes_no",
+          options: YES_NO,
           label: "Shaxado / Tixraacyo ma jiraan?",
           optional: true,
+          setupCard: true,
           hint: "Beerta, wakiilnimo, tixraaca notary.",
-        },
-        // THE COUNTS — asked HERE, once, and nowhere else.
-        //
-        // The office rule: this is the single source of truth for how many
-        // sellers and how many buyers there are. Writing a number builds
-        // exactly that many rows (PartyDef.countFrom), so the rows can never
-        // disagree with the answer, and no later step asks the same question
-        // again. A representative, a photograph or a signature never changes
-        // either number.
-        {
-          id: "tirada_iibiyayaasha",
-          type: "number",
-          label: "Tirada Iibiyayaasha",
-          // NOT blocking. A sale still needs one seller, but that floor
-          // belongs to the SELLER LIST, which already enforces it and already
-          // words the error in Somali. Asking it again here would be the same
-          // rule twice, and would stop a notary who simply has not counted
-          // yet (req: optional never blocks).
-          optional: true,
-          hint: "Hal sawir ama hal saxeex kasta ma qayb aha — tiradu waxay ka duul tahay.",
-          colSpan: 2,
-        },
-        {
-          id: "tirada_iibsadayaasha",
-          type: "number",
-          label: "Tirada Iibsadayaasha",
-          optional: true,
-          hint: "Hal sawir ama hal saxeex kasta ma qayb aha.",
-          colSpan: 2,
         },
         // THE GUARANTEE IS DECIDED HERE, once. A sale is always guaranteed:
         // either a third party stands behind it, or the sellers guarantee
@@ -795,12 +872,13 @@ requiresWitness: false,
         // necessary — the question itself is never asked twice.
         {
           id: "nooca_damiinta",
-          type: "select",
-          label: "Damiin ma jiraa?",
+          type: "radio",
+          label: "Damiin qof 3aad mise iibiyaha is-damiinanaya?",
           options: NOOCA_DAMIIN,
           optional: true,
           hint: "Maya = iibiyaha / iibiyayaasha ayaa is-damiinaya.",
           colSpan: 2,
+          setupCard: true,
         },
       ],
     },
@@ -822,6 +900,9 @@ requiresWitness: false,
           // actually has; it is never guessed from the people below.
           countFirst: true,
           countFrom: `${DEJINTA}.tirada_iibiyayaasha`,
+          // "Iibiye" collapses the list to exactly one row; "Iibiyayaal"
+          // uses the count typed beside the card.
+          countFromMode: `${DEJINTA}.iibiye_mode`,
           fields: partyFields("Iibiyaha", { attendance: false, role: true }),
         },
       ],
@@ -1097,6 +1178,7 @@ requiresWitness: false,
           // The buyer count is asked ONCE, in Dejinta Heshiiska — so this
           // list gets NO "Tirada Iibsadayaasha" step of its own.
           countFrom: `${DEJINTA}.tirada_iibsadayaasha`,
+          countFromMode: `${DEJINTA}.iibsade_mode`,
           representativeFields: REPRESENTATIVE_FIELDS,
           fields: partyFields("Iibsadaha", { attendance: true }),
         },
