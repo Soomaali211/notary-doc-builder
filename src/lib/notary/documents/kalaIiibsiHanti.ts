@@ -3,6 +3,7 @@ import type {
   DocumentConfig,
   FieldDef,
   PlaceholderMapping,
+  SectionDef,
   SelectOption,
   TemplateSpec,
 } from "../types";
@@ -115,6 +116,73 @@ const NOOCA_WAKIILKA: SelectOption[] = [
   { value: "wakiil", label: "Wakiil caadi ah (qof siisaba wuxuu u qaadan karaa)" },
   { value: "wakiil_qayim", label: "Wakiil Qayim (qof aan iskiis u qaadi karin)" },
 ];
+
+/**
+ * PER-PERSON representation: does somebody else sign for this one?
+ *
+ * "Ma jiro" is a real answer and the DEFAULT answer — most people in a sale
+ * sign for themselves, and it must never be confused with "we forgot to
+ * ask". When either wakiil kind is chosen the office then picks WHICH
+ * representative and WHICH people he covers.
+ */
+const NOOCA_MATALAADA: SelectOption[] = [
+  { value: "ma_jiro", label: "Ma jiro — isaga isaga ayaa saxiixaya" },
+  { value: "wakiil", label: "Wakiil caadi ah ayaa matalaya" },
+  { value: "wakiil_qayim", label: "Wakiil Qayim ayaa matalaya" },
+];
+
+/**
+ * THE FORM'S STEP ORDER.
+ *
+ * The office reads a sale aloud in this order, and the flipped form follows
+ * it: who is selling, whose family they are, who stands for whom, who is
+ * buying, what is being sold, what it costs, then the evidence that goes on
+ * the paper — photographs, signatures, witnesses, certificates.
+ *
+ * The photographs and signatures deliberately come AFTER the price: they are
+ * evidence gathered around the deal, not facts about the deal, and they are
+ * counted by nobody.
+ */
+const SECTION_ORDER = [
+  "dejinta",
+  "iibiyaha",
+  "kooxaha",
+  "wakiillada",
+  "iibsadaha",
+  "hantida_dhul_banaan",
+  "hantida_guri",
+  "hantida_beer",
+  "qiimaha",
+  "damiinka",
+  "sawirrada",
+  "saxeexayaasha",
+  "maragyada",
+  "shaxadaha",
+];
+
+/**
+ * The office's reading order, exported so the form's own step order can be
+ * tested against it rather than against a copy of itself.
+ */
+export const KALA_IIBSI_HANTI_SECTION_ORDER = SECTION_ORDER;
+
+/**
+ * Sort the sections into the office's reading order.
+ *
+ * A section missing from SECTION_ORDER keeps its declared position at the
+ * END rather than vanishing, so a new section is visible in the form the
+ * moment it is added instead of disappearing silently.
+ */
+function ordered(list: SectionDef[]): SectionDef[] {
+  const rank = (id: string) => {
+    const i = SECTION_ORDER.indexOf(id);
+    return i === -1 ? SECTION_ORDER.length : i;
+  };
+  return list
+    .map((section, i) => ({ section, i }))
+    .sort((a, b) => rank(a.section.id) - rank(b.section.id) || a.i - b.i)
+    .map(({ section }) => section);
+}
 
 /** Signature prefixes. Taken from the Beer scan, not invented. */
 const PREFIX_SAXEEX: SelectOption[] = [
@@ -281,6 +349,17 @@ function partyFields(
       placeholder: "+252 61 5551234",
     },
     {
+      id: "nooca_matalaada",
+      type: "select",
+      label: "Matalaad",
+      options: NOOCA_MATALAADA,
+      // NO default on purpose. A default value marks an otherwise-empty row
+      // as "filled", which would conjure a nameless phantom party into the
+      // document. Leaving it blank already means "nobody signs for this one".
+      optional: true,
+      hint: "Qof kale ayaa saxiixaya? Hal qof wuxuu matali karaa dad badan.",
+    },
+    {
       id: "wakiil",
       type: "text",
       label: "Wakiilka saxiixaya (haddii uu jiro)",
@@ -434,9 +513,23 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       definite: true,
       label: "Erayga iibsadaha (definite: iibsadaha / iibsatada)",
     },
+    // What is still OWED. This is arithmetic on two numbers the office typed
+    // — the price minus what was paid — and nothing more: no wording is
+    // invented here, and an unfilled price produces no line at all.
+    //
+    // OPEN DECISION: whether the sale is PAID IN FULL or PARTLY is a legal
+    // statement no scan read so far makes, so the form does not ask it and
+    // does not print it. See scanEvidence.ts.
+    {
+      token: "LACAGTA_HADHAY",
+      op: "subtract",
+      keys: ["qiimaha.qiimaha_guud", "qiimaha.lacagta_bixiyay"],
+      format: "currency",
+      label: "Lacagta weli loo bixinayo (qiimaha − la bixiyay)",
+    },
   ],
 
-  sections: [
+  sections: ordered([
     {
       id: DEJINTA,
       title: "Dejinta Hantida",
@@ -936,7 +1029,9 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           // The amount paid can never exceed the price of the plot. This is a
           // numeric rule about ONE pair of fields — it says nothing about how
           // many people, photos or signatures the document has.
-          validation: { min: 0, notMoreThan: "qiimaha.qiimaha_guud" },
+          // `notMoreThan` names a SIBLING field id (the engine compares two
+          // fields of the same section), not a section-qualified path.
+          validation: { min: 0, notMoreThan: "qiimaha_guud" },
           placeholder: "Tusaale: 600",
         },
       ],
@@ -960,7 +1055,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       ],
       fields: [],
     },
-  ],
+  ]),
 
   // BUILT FROM THE PLACEHOLDER REGISTRY — canonical names first, accepted
   // aliases after them (never generated, always resolvable).

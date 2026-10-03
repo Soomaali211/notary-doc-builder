@@ -486,7 +486,10 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
     token: "IIBIYEYAAL",
     kind: "block",
     label: "Iibiyayaal (kasta hal unug)",
-    bodyTokens: ["NUMBER", "MAGAC", "JINSI", "DOORO", "KOOX", "DEGAN", "TELEFOON", "WAKIIL"],
+    bodyTokens: [
+      "NUMBER", "MAGAC", "JINSI", "DOORO", "KOOX", "DEGAN", "TELEFOON",
+      "NOOCA_MATALAADA", "WAKIIL",
+    ],
     group: "Iibiyayaal",
   },
   {
@@ -494,7 +497,7 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
     kind: "block",
     label: "Iibsadayaal (kasta hal unug)",
     bodyTokens: [
-      "NUMBER", "MAGAC", "JINSI", "DEGAN", "TELEFOON",
+      "NUMBER", "MAGAC", "JINSI", "DEGAN", "TELEFOON", "NOOCA_MATALAADA",
       "WAKIIL", "JOOGA", "MATALAYA",
       "WAKIIL_MAGAC", "WAKIIL_SAWIR",
     ],

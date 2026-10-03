@@ -108,19 +108,19 @@ describe("A — document type registration", () => {
 /* ------------------------------------------------------------------ */
 
 describe("B — form flow", () => {
-  test("the FLIPPED flow: type/date → sellers → group → wakiil → photos → signatures → papers → buyers → plot → damiin → price → witnesses", () => {
+  test("the FLIPPED flow follows the office's reading order", () => {
     const steps = buildConditionalWorkflow(C, {
       ...createInitialValues(C),
       dejinta: { sub_type: "dhul_banaan", taariikhda_hantida: "2026-01-30" },
     } as FormValues);
     // A non-attendance list (the sellers, the group, the photographs…) and
     // the witnesses render under BOTH their section header and their own row
-    // step — the same shape Heshiis Kiro already has for its witnesses, so
-    // the flow is consistent.
+    // step — the same shape Heshiis Kiro already has for its witnesses.
     //
-    // The ORDER is the flipped one: the buyers are asked only AFTER the
-    // sellers' group, authorities, photographs and signature lines are
-    // settled, because those lists depend on who the sellers are.
+    // The ORDER is the one the notary reads the sale aloud in: who is
+    // selling, whose family, who stands for whom, who is buying, what is
+    // sold, what it costs — and only then the evidence that goes on the
+    // paper (photographs, signatures, witnesses, certificates).
     expect(steps.map((s) => s.short)).toEqual([
       "Dejinta Hantida",
       "Iibiyaha",
@@ -132,22 +132,22 @@ describe("B — form flow", () => {
       "Wakiillada",
       "Tirada Wakiillo",
       "Wakiillo",
+      "Tirada Iibsadayaal",
+      "Xogta iyo Xaaladda Iibsadayaal",
+      "Faahfaahinta Dhulka",
+      "Qiimaha Hantida",
+      "Dammaanadda",
       "Sawirrada",
       "Tirada Sawirro",
       "Sawirro",
       "Saxeexayaasha",
       "Tirada Saxeexayaal",
       "Saxeexayaal",
+      "Maragyada",
+      "Maragyo",
       "Shaxadaha iyo Warqadaha",
       "Tirada Shaxado",
       "Shaxado",
-      "Tirada Iibsadayaal",
-      "Xogta iyo Xaaladda Iibsadayaal",
-      "Faahfaahinta Dhulka",
-      "Dammaanadda",
-      "Qiimaha Hantida",
-      "Maragyada",
-      "Maragyo",
     ]);
   });
 
@@ -465,6 +465,7 @@ describe("F — repeatable parties", () => {
       "koox",
       "degan",
       "telefoon",
+      "nooca_matalaada",
       "wakiil",
     ]);
     expect(party("iibsadayaal").fields.map((f) => f.id)).toEqual([
@@ -472,6 +473,7 @@ describe("F — repeatable parties", () => {
       "jinsi",
       "degan",
       "telefoon",
+      "nooca_matalaada",
       "wakiil",
     ]);
   });
@@ -821,7 +823,6 @@ describe("J — placeholder inventory", () => {
       "DHUL_GOOBTA",
       "DHUL_XADKA_WAQOOYI",
       "LACAGTA_LA_BIXIYAY",
-      "LACAGTA_HADHAY",
       "HABKA_BIXINTA",
       "SHURUUDAHA_IIBKA",
       "RAHMAD_NOOCA",
@@ -831,6 +832,11 @@ describe("J — placeholder inventory", () => {
     ]) {
       expect(names.has(gone)).toBe(false);
     }
+    // {{LACAGTA_HADHAY}} WAS in this list. It is gone no longer: the office
+    // explicitly asked for "lacagta hadhay", and it is now DERIVED as plain
+    // arithmetic (price − amount paid) rather than typed in as a field, so
+    // it can never contradict the two numbers it is computed from.
+    expect(names.has("LACAGTA_HADHAY")).toBe(true);
   });
 });
 

@@ -71,6 +71,7 @@ import { makeGetter } from "@/lib/notary/conditions";
 import { getPartyRows, getRepresentatives, stripSkipMarkers } from "@/lib/notary/formValues";
 import { isFieldRequired } from "@/lib/notary/validation";
 import { FIELD_SKIPPED } from "@/lib/notary/types";
+import { buildHantiReview, type HantiReview } from "@/lib/notary/hantiReview";
 import type {
   FieldDef,
   FormValues,
@@ -137,6 +138,115 @@ function stepDescription(step: InterviewStep): string {
 
 /** One config section: scalar fields + classic (non-attendance) repeaters.
  *  Exported so tests can render the real Step 1 UI through SSR. */
+/**
+ * KALA IIBSI HANTI — the people-first review.
+ *
+ * The generic review below lists form fields in the order they were typed.
+ * This one answers the questions the notary actually asks before signing:
+ * how many sellers, whose family, who represents whom, how many photographs
+ * and whose, who signs — and, at the bottom, WHAT IS STILL MISSING.
+ *
+ * Missing OPTIONAL answers never appear here and never block. Only the
+ * REQUIRED ones are listed, by name, under a clear heading.
+ *
+ * Exported so tests can render it without a browser.
+ */
+export function HantiReviewSummary({
+  review,
+  onEditSection,
+}: {
+  review: HantiReview;
+  onEditSection?: (sectionId: string) => void;
+}) {
+  // A block key maps back to the section it came from, so "Wax ka beddel"
+  // lands the notary where the answers were typed.
+  const sectionFor: Record<string, string> = {
+    sellers: "iibiyaha",
+    groups: "kooxaha",
+    representatives: "wakiillada",
+    photos: "sawirrada",
+    signatories: "saxeexayaasha",
+    buyers: "iibsadaha",
+    witnesses: "maragyada",
+    property: "hantida_dhul_banaan",
+    certificates: "shaxadaha",
+    payment: "qiimaha",
+  };
+
+  return (
+    <div className="neu-raised mb-6 p-4">
+      <h3 className="text-sm font-bold">Waxa Hantida ku Jira</h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Tirada dadka, sawirrada iyo saxeexyadu waa tiro madax-bannaan — lama
+        xiriirin tirada iibiyayaasha.
+      </p>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {review.blocks.map((block) => (
+          <div key={block.key} className="neu-inset p-3">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-xs font-semibold">{block.title}</h4>
+              {block.count && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                  {block.count}
+                </span>
+              )}
+            </div>
+            {block.lines.length === 0 ? (
+              <p className="mt-1 text-[11px] text-muted-foreground">—</p>
+            ) : (
+              <ul className="mt-1 space-y-0.5">
+                {block.lines.slice(0, 6).map((line, i) => (
+                  <li key={`${block.key}-${i}`} className="text-[11px] leading-tight">
+                    <span className="text-muted-foreground">{line.label}:</span>{" "}
+                    <span className="font-medium">{line.value || "—"}</span>
+                  </li>
+                ))}
+                {block.lines.length > 6 && (
+                  <li className="text-[11px] text-muted-foreground">
+                    … iyo {block.lines.length - 6} kale
+                  </li>
+                )}
+              </ul>
+            )}
+            {onEditSection && sectionFor[block.key] && (
+              <button
+                type="button"
+                onClick={() => onEditSection(sectionFor[block.key])}
+                className="mt-2 text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+              >
+                Wax ka beddel
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Only REQUIRED gaps are listed. An optional field the notary left
+          blank is not a problem and is deliberately absent from this list. */}
+      {review.missing.length > 0 && (
+        <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+          <h4 className="text-xs font-bold text-destructive">
+            Waxa MAQAN (waajibka ah):
+          </h4>
+          <ul className="mt-1 space-y-0.5">
+            {review.missing.map((m, i) => (
+              <li key={`${m.path}-${i}`} className="text-[11px] text-destructive">
+                {m.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {review.ready && (
+        <p className="mt-3 text-xs font-medium text-primary">
+          Dhammaan xogta waajibka ah waa buuxiyay — diyaar ma ah in la abuuro.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function SectionStep({
   step,
   values,
@@ -1529,6 +1639,27 @@ export default function NewDocumentInterview() {
                     Hubi xogta oo dhan — guji "Wax ka beddel" si aad ugu noqoto qayb kasta.
                   </p>
                 </header>
+                {/* KALA IIBSI HANTI — the notary reads a sale by PEOPLE, not
+                    by form fields: how many sellers, whose family, who
+                    stands for whom, how many photographs and whose, who signs.
+                    That summary is built by hantiReview and shown above the
+                    generic field-by-field list below.
+
+                    Gated on the document type, so Heshiis Kiro never reaches
+                    this code path and its review is byte-identical. */}
+                {config?.id === "kala_iibsi_hanti" && values && (
+                  <HantiReviewSummary
+                    review={buildHantiReview(config, values)}
+                    onEditSection={(sectionId) => {
+                      const target = stepTargetForSection(sectionId);
+                      if (target >= 0) {
+                        editReturnRef.current = true;
+                        setStep(target);
+                        setStepErrors(false);
+                      }
+                    }}
+                  />
+                )}
                 {reviewBlocks.length === 0 && (
                   <p className="text-sm text-muted-foreground">Weli wax xog ah lama buuxin.</p>
                 )}

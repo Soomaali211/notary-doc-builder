@@ -178,7 +178,7 @@ export function validateSectionCross(
       if (own && limit && isAmount(own) && isAmount(limit) && Number(own) > Number(limit)) {
         const limitLabel =
           fields.find((f) => f.id === ceiling)?.label ?? ceiling;
-        errors.push(`${field.label} waa inay ka yar tahay ${limitLabel}.`);
+        errors.push(`${field.label} waa inay ka yar tahay ama u mid ${limitLabel}.`);
       }
     }
     if (!field.validation?.notBefore) continue;

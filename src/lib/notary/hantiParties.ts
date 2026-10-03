@@ -89,6 +89,18 @@ function filled(rows: PartyRow[]): PartyRow[] {
   );
 }
 
+/**
+ * A person is a row with a NAME.
+ *
+ * `filled()` alone is not enough. Any value at all — a pre-set default, a
+ * stray selection — marks a row as "filled", and an unnamed row would then
+ * become a phantom person with an empty name and print a blank line in the
+ * document. A party without a name is nobody, so it is dropped here.
+ */
+function named(rows: PartyRow[]): PartyRow[] {
+  return filled(rows).filter((r) => text(r, FIELD.name) !== "");
+}
+
 const text = (row: PartyRow | undefined, field: string): string =>
   (row?.values?.[field] ?? "").trim();
 
@@ -145,7 +157,7 @@ export function buildHantiPartyModel(
   /** Row id → the representative NAME that row points at. Filled while the
    *  people are built, so nothing has to be re-scanned afterwards. */
   const repByRowId = new Map<string, string>();
-  const sellerRows = options.sellerRows ?? filled(rowsOf(values, HANTI_KEYS.sellers));
+  const sellerRows = options.sellerRows ?? named(rowsOf(values, HANTI_KEYS.sellers));
   for (const row of sellerRows) {
     const person: Person = {
       id: row.id,
@@ -165,7 +177,9 @@ export function buildHantiPartyModel(
     }
     if (person.name) people.push(person);
   }
-  for (const row of filled(rowsOf(values, HANTI_KEYS.buyers))) {
+  // Names resolve from the SAME people list, so a buyer without a name is
+  // never a link target either.
+  for (const row of named(rowsOf(values, HANTI_KEYS.buyers))) {
     repByRowId.set(row.id, text(row, FIELD.representative));
     people.push({
       id: row.id,
