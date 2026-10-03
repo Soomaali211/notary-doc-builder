@@ -77,18 +77,13 @@ function beerScenario(): FormValues {
         jinsi: i % 2 === 0 ? "male" : "female",
         degan: "Waardhiil",
         koox: "Ilma Xassan Qaalib",
-        ...(repOf(i) ? { wakiil: repOf(i) } : {}),
-      }),
+        ...(repOf(i) ? { wakiil: repOf(i) } : {}) }),
     ),
-    wakiillo: [
+    wakiilo_iibiyeyaal: [
       r("r1", {
-        magac: "RUUN QAALIB",
-        nooca_wakiilka: "wakiil",
-        xiriirka_qoyska: "Hooyada",
-        tixraaca_wakiilnimo: "Ref:APN/096/2025",
-      }),
-      r("r2", { magac: "FARAX AHMED", nooca_wakiilka: "wakiil_qayim" }),
-    ],
+        magac: "RUUN QAALIB" }),
+      r("r2", { magac: "FARAX AHMED" }),
+    ]],
     iibsadayaal: [
       {
         id: "b1",
@@ -116,8 +111,7 @@ function beerScenario(): FormValues {
         r(`c${i + 1}`, {
           tixraaca: `MDH/C/${n}/2025`,
           nooca_shaxadaha: "beerta",
-          haysa: "Ilma Xassan Qaalib",
-        }),
+          haysa: "Ilma Xassan Qaalib" }),
       ),
       r("c5", { tixraaca: "Ref:APN/096/2025", nooca_shaxadaha: "poa", haysa: "RUUN QAALIB" }),
     ],
@@ -275,8 +269,7 @@ describe("ACCEPTANCE A — the Beer scan, reproduced end to end", () => {
       referenceNumber: "DPN-MG-001",
       subTypeLabel: "Beer",
       templateBytes: await zip.generateAsync({ type: "arraybuffer" }),
-      spec: selectTemplate(C, v),
-    });
+      spec: selectTemplate(C, v) });
     const xml = await (await JSZip.loadAsync(Buffer.from(await out.result.blob.arrayBuffer())))
       .file("word/document.xml")!
       .async("string");
@@ -327,7 +320,7 @@ describe("ACCEPTANCE B — 10 sellers → 1 representative → 1 photo → 1 sig
     iibiyeyaal: names.map((n, i) =>
       r(`s${i + 1}`, { magac: n, jinsi: i === 0 ? "male" : "female", degan: "Hargeisa", wakiil: "ABDI WAKIIL" }),
     ),
-    wakiillo: [r("r1", { magac: "ABDI WAKIIL", nooca_wakiilka: "wakiil" })],
+    wakiilo_iibiyeyaal: [r("r1", { magac: "ABDI WAKIIL" })],
     iibsadayaal: [
       {
         id: "b1",
@@ -356,8 +349,7 @@ describe("ACCEPTANCE B — 10 sellers → 1 representative → 1 photo → 1 sig
     expect(countParties(model, { sellerIds: names.map((_, i) => `s${i + 1}`) })).toMatchObject({
       sellers: 10,
       photos: 1,
-      signatures: 1,
-    });
+      signatures: 1 });
   });
 
   test("the ONE photo belongs to the representative, who is not a seller", () => {

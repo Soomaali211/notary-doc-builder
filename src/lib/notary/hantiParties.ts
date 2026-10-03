@@ -44,8 +44,6 @@ export const HANTI_KEYS = {
   buyers: "iibsadayaal",
   groups: "kooxaha",
   witnesses: "maragyo",
-  /** The wakiil list. NOT "wakiilo_*": that prefix is the attendance engine's. */
-  representatives: "wakiillo",
   photos: "sawirrada",
   signatures: "saxeexayaasha",
   certificates: "shaxadaha",
@@ -171,7 +169,6 @@ export function buildHantiPartyModel(
   const people: Person[] = [];
   /** Row id → the representative NAME that row points at. Filled while the
    *  people are built, so nothing has to be re-scanned afterwards. */
-  const repByRowId = new Map<string, string>();
   const sellerRows = options.sellerRows ?? named(rowsOf(values, HANTI_KEYS.sellers));
   for (const row of sellerRows) {
     const person: Person = {
@@ -190,7 +187,6 @@ export function buildHantiPartyModel(
     if (relationship) person.familyRelationship = relationship;
     const status = text(row, FIELD.status);
     if (status) person.status = status;
-    repByRowId.set(person.id, text(row, FIELD.representative));
     const groupName = text(row, FIELD.group);
     const group = groups.find((g) => g.name === groupName);
     if (group) {
@@ -203,7 +199,6 @@ export function buildHantiPartyModel(
   // never a link target either.
   const roleConflicts: { sellerId: string; buyerId: string; name: string }[] = [];
   for (const row of named(rowsOf(values, HANTI_KEYS.buyers))) {
-    repByRowId.set(row.id, text(row, FIELD.representative));
     const name = text(row, FIELD.name);
     // A person cannot sell and buy the same plot. The two sides are separate
     // lists, so the only way to see the clash is the name the notary typed —
@@ -228,40 +223,45 @@ export function buildHantiPartyModel(
   /** ID → person. The picker stores an ID, so this is the REAL link. */
   const peopleById = new Map(people.map((p) => [p.id, p]));
   const representations: Representation[] = [];
-  for (const row of filled(rowsOf(values, HANTI_KEYS.representatives))) {
-    const name = text(row, FIELD.name);
-    // A representative is a PERSON, whether or not he also happens to be one
-    // of the sellers. Most wakiillo in the scans are exactly that — an uncle
-    // who signs for his nephews and owns nothing himself — so an unmatched
-    // name adds a person rather than dropping the authority on the floor.
-    let rep = peopleByName.get(name);
-    if (!rep && name) {
-      rep = {
-        id: row.id,
-        name,
-        gender: genderOf(row),
-        familyRelationship: text(row, FIELD.relationship) || undefined,
-      };
-      people.push(rep);
-      peopleByName.set(name, rep);
+  // Representation is read from the ATTENDANCE model, the one place it is
+  // decided: "Ma Joogaa Heshiiska?" → Maya → Qaybta Wakiilka. Each side keeps
+  // its own wakiilo_* list (wakiilo_iibiyeyaal / wakiilo_iibsadayaal), and a
+  // row points at a representative by ID. There is no separate wakiil list to
+  // cross-reference, so the same question can never be answered twice.
+  for (const partyId of [HANTI_KEYS.sellers, HANTI_KEYS.buyers]) {
+    const repKey = `wakiilo_${partyId}`;
+    const linked = new Map<string, string[]>();
+    for (const row of rowsOf(values, partyId)) {
+      const repId = row.attendance?.representativeId;
+      if (row.attendance?.status !== "wakiil" || !repId) continue;
+      linked.set(repId, [...(linked.get(repId) ?? []), row.id]);
     }
-    if (!rep) continue;
-    const type = text(row, FIELD.repType) || "wakiil";
-    const ref = text(row, FIELD.repRef);
-    const scope = text(row, FIELD.repScope);
-    // Every person whose row names THIS representative. A representative may
-    // stand for many people; two representatives may split one group.
-    const representedPersonIds = people
-      .filter((p) => repByRowId.get(p.id) === name)
-      .map((p) => p.id);
-    representations.push({
-      id: row.id,
-      representativeId: rep.id,
-      representedPersonIds,
-      type: type as Representation["type"],
-      ...(ref ? { reference: ref } : {}),
-      ...(scope ? { scope } : {}),
-    });
+    for (const repRow of filled(rowsOf(values, repKey))) {
+      const name = text(repRow, FIELD.name);
+      // A representative is a PERSON, whether or not he also happens to be one
+      // of the sellers. Most wakiillo in the scans are exactly that — an uncle
+      // who signs for his nephews and owns nothing himself — so an unmatched
+      // name adds a person rather than dropping the authority on the floor.
+      let rep = peopleByName.get(name);
+      if (!rep && name) {
+        rep = {
+          id: repRow.id,
+          name,
+          gender: genderOf(repRow),
+        };
+        people.push(rep);
+        peopleByName.set(name, rep);
+      }
+      if (!rep) continue;
+      representations.push({
+        id: repRow.id,
+        representativeId: rep.id,
+        representedPersonIds: linked.get(repRow.id) ?? [],
+        // §7 — the type is whatever the notary chose on the representative
+        // row, never assumed from anything else. A blank stays "wakiil".
+        type: (text(repRow, FIELD.repType) || "wakiil") as Representation["type"],
+      });
+    }
   }
 
   /* 4 — photographs and signatures. Two independent lists, each linked to a

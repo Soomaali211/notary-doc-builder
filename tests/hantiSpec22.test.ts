@@ -21,15 +21,21 @@ import { buildHantiPartyModel, inspectHantiParties } from "../src/lib/notary/han
 import { countParties, genderWord } from "../src/lib/notary/partyModel";
 import { buildHantiReview } from "../src/lib/notary/hantiReview";
 
+/** Link representative `repId` to these rows (attendance "wakiil"). */
+const represented = (rows: any[], repId: string) =>
+  rows.map((r) => ({ ...r, attendance: { status: "wakiil" as const, representativeId: repId } }));
+
+
 import type { FormValues, PartyRow } from "../src/lib/notary/types";
 
 const row = (id: string, values: Record<string, string>): PartyRow =>
   ({ id, values }) as PartyRow;
 
-const sellers = (n: number) =>
-  Array.from({ length: n }, (_, i) =>
-    row(`s${i + 1}`, { magac: `IIBIYE ${i + 1}`, jinsi: "male", degan: "Hargeisa" }),
-  );
+/** Sellers now carry presence exactly as Heshiis Kiro's landlords do. */
+const sellers = (n: number, status: "jooga" | "wakiil" = "jooga") =>
+  Array.from({ length: n }, (_, i) => ({
+    ...row(`s${i + 1}`, { magac: `IIBIYE ${i + 1}`, jinsi: "male", degan: "Hargeisa" }),
+    attendance: { status } }));
 
 const buyers = (n: number, over: (i: number) => Record<string, string> = () => ({})) =>
   Array.from({ length: n }, (_, i) => ({
@@ -38,10 +44,8 @@ const buyers = (n: number, over: (i: number) => Record<string, string> = () => (
       jinsi: "female",
       degan: "Hargeisa",
       telefoon: "0622222222",
-      ...over(i),
-    }),
-    attendance: { status: "jooga" as const },
-  }));
+      ...over(i) }),
+    attendance: { status: "jooga" as const } }));
 
 /** A sale that is complete in every respect EXCEPT what a test varies. */
 function sale(over: Partial<FormValues> = {}): FormValues {
@@ -53,7 +57,6 @@ function sale(over: Partial<FormValues> = {}): FormValues {
       taariikhda_hantida: "2026-01-30",
       tirada_iibiyayaasha: "1",
       tirada_iibsadayaasha: "1",
-      wakiillo_ma_jiraan: "no",
       sawirro_ma_jiraan: "no",
       saxeexo_ma_jiraan: "no",
       shaxado_ma_jiraan: "no",
@@ -76,13 +79,13 @@ describe("SPEC §22 — the sixteen acceptance cases", () => {
   /* --- 1 --- */
   test("TEST 1 — 10 sellers, 0 photos, 0 signatures, 1 representative is VALID", () => {
     const v = sale({
-      iibiyeyaal: sellers(10),
+      iibiyeyaal: represented(sellers(10), "r1"),
       // 0 photographs, 0 signature lines, 0 certificates.
       sawirrada: [],
       saxeexayaasha: [],
       shaxadaha: [],
       // One representative of his own — entered ONCE in the standalone list.
-      wakiillo: [row("r1", { magac: "RUUN", nooca_wakiilka: "wakiil" })],
+      wakiilo_iibiyeyaal: [row("r1", { magac: "RUUN" })],
     } as Partial<FormValues>);
     expect(errs(v)).toEqual([]);
     const m = buildHantiPartyModel(v);
@@ -92,8 +95,8 @@ describe("SPEC §22 — the sixteen acceptance cases", () => {
   /* --- 2 --- */
   test("TEST 2 — 10 sellers + 1 representative leaves the seller count at 10", () => {
     const v = sale({
-      iibiyeyaal: sellers(10),
-      wakiillo: [row("r1", { magac: "RUUN", nooca_wakiilka: "wakiil" })],
+      iibiyeyaal: represented(sellers(10), "r1"),
+      wakiilo_iibiyeyaal: [row("r1", { magac: "RUUN" })],
     } as Partial<FormValues>);
     const m = buildHantiPartyModel(v);
     const sellerIds = sellers(10).map((s) => s.id);
@@ -106,17 +109,22 @@ describe("SPEC §22 — the sixteen acceptance cases", () => {
   test("TEST 3 — a seller who is ALSO a representative is VALID", () => {
     const v = sale({
       iibiyeyaal: [
-        row("s1", { magac: "RUUN XASAN QAALIB", jinsi: "female", dooro: "wakiil", wakiil: "RUUN XASAN QAALIB" }),
-        row("s2", { magac: "AHMED CALI", jinsi: "male" }),
+        // Ruun is BOTH: a seller in his own right AND the representative for
+        // Ahmed. One person, two facts — the name match keeps him one person.
+        { ...row("s1", { magac: "RUUN XASAN QAALIB", jinsi: "female" }), attendance: { status: "jooga" as const } },
+        { ...row("s2", { magac: "AHMED CALI", jinsi: "male" }), attendance: { status: "wakiil" as const, representativeId: "r1" } },
       ],
-      wakiillo: [row("r1", { magac: "RUUN XASAN QAALIB", nooca_wakiilka: "wakiil" })],
+      wakiilo_iibiyeyaal: [row("r1", { magac: "RUUN XASAN QAALIB" })],
     } as Partial<FormValues>);
     expect(errs(v)).toEqual([]);
     const m = buildHantiPartyModel(v);
     // One person, two facts — not two people.
     expect(m.people.filter((p) => p.name === "RUUN XASAN QAALIB")).toHaveLength(1);
     expect(m.representations[0].representativeId).toBe("s1");
-    expect(m.people.find((p) => p.id === "s1")!.role).toBe("wakiil");
+    // §6/§8 — being a representative is a RELATIONSHIP, never a role, and a
+    // role is never inferred from it. The two stay independent facts.
+    expect(m.representations[0].type).toBe("wakiil");
+    expect(m.people.find((p) => p.id === "s1")!.role).toBeUndefined();
   });
 
   /* --- 4 --- */
@@ -134,7 +142,7 @@ describe("SPEC §22 — the sixteen acceptance cases", () => {
   /* --- 5 --- */
   test("TEST 5 — the SAME person as seller AND buyer is INVALID", () => {
     const v = sale({
-      iibiyeyaal: [row("s1", { magac: "AHMED CALI", jinsi: "male" })],
+      iibiyeyaal: [{ ...row("s1", { magac: "AHMED CALI", jinsi: "male" }), attendance: { status: "jooga" as const } }],
       iibsadayaal: [
         { ...row("b1", { magac: "AHMED CALI", jinsi: "male", telefoon: "0622222222" }), attendance: { status: "jooga" as const } },
       ],
@@ -148,7 +156,7 @@ describe("SPEC §22 — the sixteen acceptance cases", () => {
     expect(review.missing.some((m) => m.message.includes("AHMED CALI"))).toBe(true);
     // Spelling and spacing are noise; a different person is not a clash.
     const other = sale({
-      iibiyeyaal: [row("s1", { magac: "AHMED CALI", jinsi: "male" })],
+      iibiyeyaal: [{ ...row("s1", { magac: "AHMED CALI", jinsi: "male" }), attendance: { status: "jooga" as const } }],
       iibsadayaal: [
         { ...row("b1", { magac: "AHMED  CALI XAASAN", jinsi: "male", telefoon: "0622222222" }), attendance: { status: "jooga" as const } },
       ],
@@ -159,13 +167,16 @@ describe("SPEC §22 — the sixteen acceptance cases", () => {
   /* --- 6 --- */
   test("TEST 6 — a plain wakiil is NEVER silently turned into a wakiil qayim", () => {
     const wakiil = buildHantiPartyModel(
-      sale({ wakiillo: [row("r1", { magac: "RUUN", nooca_wakiilka: "wakiil" })] } as Partial<FormValues>),
+      sale({ wakiilo_iibiyeyaal: [row("r1", { magac: "RUUN" })] } as Partial<FormValues>),
     );
     expect(wakiil.representations[0].type).toBe("wakiil");
     // The two are different answers, and only the answer given is stored.
     expect(wakiil.representations[0].type).not.toBe("wakiil_qayim");
-    const both = C.sections.find((s) => s.id === "wakiillada")!.parties![0];
-    expect(both.fields.find((f) => f.id === "nooca_wakiilka")!.options?.map((o) => o.value)).toEqual([
+    // The choice is asked where the representative is entered — one place.
+    const repFields = C.sections
+      .flatMap((s) => s.parties ?? [])
+      .find((p) => p.id === "iibiyeyaal")!.representativeFields!;
+    expect(repFields.find((f) => f.id === "nooca_wakiilka")!.options?.map((o) => o.value)).toEqual([
       "wakiil",
       "wakiil_qayim",
     ]);
@@ -174,9 +185,9 @@ describe("SPEC §22 — the sixteen acceptance cases", () => {
   /* --- 7 --- */
   test("TEST 7 — a wakiil qayim does not change the seller or buyer count", () => {
     const v = sale({
-      iibiyeyaal: sellers(10),
+      iibiyeyaal: represented(sellers(10), "r1"),
       iibsadayaal: buyers(2),
-      wakiillo: [row("r1", { magac: "RUUN", nooca_wakiilka: "wakiil_qayim", xiriirka_qoyska: "Hooyada" })],
+      wakiilo_iibiyeyaal: [row("r1", { magac: "RUUN", nooca_wakiilka: "wakiil_qayim" })],
     } as Partial<FormValues>);
     expect(errs(v)).toEqual([]);
     const m = buildHantiPartyModel(v);
@@ -202,7 +213,7 @@ describe("SPEC §22 — the sixteen acceptance cases", () => {
 
   /* --- 10 --- */
   test("TEST 10 — no representative means the representative section is hidden", () => {
-    const steps = buildConditionalWorkflow(C, sale({ wakiillo_ma_jiraan: "no" } as Partial<FormValues>)).map((s) => s.short);
+    const steps = buildConditionalWorkflow(C, sale()).map((s) => s.short);
     expect(steps).not.toContain("Wakiillada");
     expect(steps).not.toContain("Tirada Wakiillo");
     expect(steps).not.toContain("Wakiillo");
@@ -304,12 +315,12 @@ describe("SPEC §22 — the sixteen acceptance cases", () => {
   /* --- 16 --- */
   test("TEST 16 — a person is entered once; photo, signature and representation link by ID", () => {
     const v = sale({
-      iibiyeyaal: sellers(3),
+      iibiyeyaal: represented(sellers(3), "r1"),
       sawirro_ma_jiraan: "yes",
       saxeexo_ma_jiraan: "yes",
       sawirrada: [row("p1", { shakhsiga: "s1", sawir: "stor_p1" })],
       saxeexayaasha: [row("x1", { shakhsiga: "s3", prefix: "IIBISO" })],
-      wakiillo: [row("r1", { magac: "OMAR FARAH", nooca_wakiilka: "wakiil" })],
+      wakiilo_iibiyeyaal: [row("r1", { magac: "OMAR FARAH" })],
     } as Partial<FormValues>);
     // The name is TYPED once, in the seller list — never again downstream.
     const blocks = buildDataContext(C, v).repeatBlocks;
@@ -411,7 +422,7 @@ describe("SPEC §7 — title is part of the name, not a field", () => {
     }
     // "Caaqil Suldaan" is simply what the notary typed in the name.
     const m = buildHantiPartyModel(
-      sale({ iibiyeyaal: [row("s1", { magac: "Caaqil Suldaan", jinsi: "male" })] } as Partial<FormValues>),
+      sale({ iibiyeyaal: [{ ...row("s1", { magac: "Caaqil Suldaan", jinsi: "male" }), attendance: { status: "jooga" as const } }] } as Partial<FormValues>),
     );
     expect(m.people[0].name).toBe("Caaqil Suldaan");
   });
@@ -446,8 +457,7 @@ describe("SPEC §1/§3 — one number, one list, asked once", () => {
     // have been stored.
     const draft = JSON.stringify({
       dejinta: { sub_type: "dhul_banaan", tirada_iibiyayaasha: "10", tirada_iibsadayaasha: "4" },
-      iibiyeyaal: [row("s1", { magac: "A" }), row("s2", { magac: "B" }), row("s3", { magac: "C" })],
-    });
+      iibiyeyaal: [{ ...row("s1", { magac: "A" }), attendance: { status: "jooga" as const } }, { ...row("s2", { magac: "B" }), attendance: { status: "jooga" as const } }, { ...row("s3", { magac: "C" }), attendance: { status: "jooga" as const } }] });
     const restored = createValuesFromDraft(C, draft);
     expect(getPartyRows(restored, "iibiyeyaal")).toHaveLength(10);
     expect(getPartyRows(restored, "iibsadayaal")).toHaveLength(4);
@@ -461,8 +471,7 @@ describe("SPEC §1/§3 — one number, one list, asked once", () => {
     // delete sellers the notary already entered.
     const draft = JSON.stringify({
       dejinta: { sub_type: "dhul_banaan" },
-      iibiyeyaal: [row("s1", { magac: "A" }), row("s2", { magac: "B" }), row("s3", { magac: "C" })],
-    });
+      iibiyeyaal: [{ ...row("s1", { magac: "A" }), attendance: { status: "jooga" as const } }, { ...row("s2", { magac: "B" }), attendance: { status: "jooga" as const } }, { ...row("s3", { magac: "C" }), attendance: { status: "jooga" as const } }] });
     const restored = createValuesFromDraft(C, draft);
     expect(getPartyRows(restored, "iibiyeyaal")).toHaveLength(3);
     expect(getPartyRows(restored, "iibiyeyaal").map((r) => r.values?.magac)).toEqual(["A", "B", "C"]);

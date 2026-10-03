@@ -18,6 +18,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 
 import { SectionStep } from "../src/pages/NewDocumentInterview";
+import { PartyStatusEditor } from "../src/components/notary/PartyStatusEditor";
 import { kalaIiibsiHantiConfig as C } from "../src/lib/notary/documents/kalaIiibsiHanti";
 import { buildConditionalWorkflow } from "../src/lib/notary/agreementSetup";
 import { createInitialValues } from "../src/lib/notary/formValues";
@@ -49,15 +50,22 @@ const fullValues = {
     iibiye_mode: "multiple",
     tirada_iibiyayaasha: "2",
     iibsade_mode: "single",
-    wakiillo_ma_jiraan: "yes",
     nooca_damiinta: "qof_3aad",
   },
   iibiyeyaal: [
-    { id: "s1", values: { magac: "AHMED CALI", jinsi: "male", xaalad: "jooga" } },
-    { id: "s2", values: { magac: "RUUN XASAN", jinsi: "female", xaalad: "maqan" } },
+    {
+      id: "s1",
+      values: { magac: "AHMED CALI", jinsi: "male" },
+      attendance: { status: "jooga" },
+    },
+    {
+      id: "s2",
+      values: { magac: "RUUN XASAN", jinsi: "female" },
+      attendance: { status: "wakiil", representativeId: "r1" },
+    },
   ],
   kooxaha: [{ id: "g1", values: { magac: "Ilma Xassan Qaalib" } }],
-  wakiillo: [{ id: "r1", values: { magac: "OMAR FARAH", nooca_wakiilka: "wakiil" } }],
+  wakiilo_iibiyeyaal: [{ id: "r1", values: { magac: "OMAR FARAH", } }],
   iibsadayaal: [
     {
       id: "b1",
@@ -102,6 +110,9 @@ function renderStep(values: FormValues, index: number): string {
   const wf = steps[index];
   if (!wf || wf.detail.kind !== "section") return "";
   const ids = wf.detail.sectionIds;
+  const attendanceParties = ids
+    .flatMap((id) => sec(id).parties ?? [])
+    .filter((p) => p.attendance);
   return ids
     .map((id) =>
       renderToStaticMarkup(
@@ -115,6 +126,26 @@ function renderStep(values: FormValues, index: number): string {
             config={C}
           />
         </ConvexProvider>,
+      ),
+    )
+    .concat(
+      // The interview renders an attendance party's editor INSIDE its flow
+      // step — mirror that, or the seller rows would be invisible here.
+      attendanceParties.map((p) =>
+        renderToStaticMarkup(
+          <ConvexProvider client={convex}>
+            <PartyStatusEditor
+              partyDef={p}
+              values={values}
+              onFieldChange={() => {}}
+              onPresence={() => {}}
+              onLinkRep={() => {}}
+              onCreateRep={() => {}}
+              onUpdateRep={() => {}}
+              onRemoveRep={() => {}}
+            />
+          </ConvexProvider>,
+        ),
       ),
     )
     .join("\n");
@@ -165,7 +196,7 @@ describe("Hanti — the six steps as the notary walks them", () => {
   });
 
   test("§1 the seller count asked in step 1 is the only count step — §3/§5 no re-asking", () => {
-    expect(sectionIdsOf(steps, 1)).toEqual(["iibiyaha", "kooxaha", "wakiillada"]);
+    expect(sectionIdsOf(steps, 1)).toEqual(["iibiyaha", "kooxaha"]);
     expect(sectionIdsOf(steps, 2)).toEqual(["iibsadaha"]);
     // No "Tirada …?" step of its own anywhere in the six.
     expect(steps.every((s) => s.detail.kind === "section")).toBe(true);
@@ -288,9 +319,13 @@ describe("Hanti — §4/§5 gender is asked for ONE person, never several", () =
   const sec = (id: string) => C.sections.find((s) => s.id === id)!;
   const row = (id: string, v: Record<string, string>) => ({ id, values: v });
   const sellers = (n: number) =>
-    Array.from({ length: n }, (_, i) =>
-      row(`s${i + 1}`, { magac: `IIBIYE ${i + 1}`, jinsi: "male", xaalad: "jooga" }),
-    );
+    Array.from({ length: n }, (_, i) => ({
+      id: `s${i + 1}`,
+      values: { magac: `IIBIYE ${i + 1}`, jinsi: "male" },
+      attendance: { status: "jooga" as const },
+    }));
+  // Uses the shared renderStep so the seller editor is rendered the way the
+  // interview renders it — inside its flow step.
   const renderSellers = (n: number) => {
     const values = {
       ...fullValues,
@@ -301,18 +336,7 @@ describe("Hanti — §4/§5 gender is asked for ONE person, never several", () =
         tirada_iibiyayaasha: String(n),
       },
     } as unknown as FormValues;
-    return renderToStaticMarkup(
-      <ConvexProvider client={convex}>
-        <SectionStep
-          step={{ kind: "section", section: sec("iibiyaha"), stepTitle: "X" }}
-          values={values}
-          validation={{}}
-          stepErrors={false}
-          setValues={() => {}}
-          config={C}
-        />
-      </ConvexProvider>,
-    );
+    return renderStep(values, 1);
   };
 
   test("one seller is asked their gender", () => {
@@ -345,10 +369,19 @@ describe("Hanti — §6/§16 a buyer's representation is asked ONCE", () => {
     expect(party.fields.map((f) => f.id)).not.toContain("wakiil");
   });
 
-  test("§6 a SELLER keeps both — a seller has no attendance step to ask instead", () => {
+  test("§6 a SELLER uses the SAME one mechanism as a buyer — no second pair", () => {
     const seller = C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === "iibiyeyaal")!;
-    expect(seller.fields.map((f) => f.id)).toContain("nooca_matalaada");
-    expect(seller.fields.map((f) => f.id)).toContain("wakiil");
+    expect(seller.fields.map((f) => f.id)).not.toContain("nooca_matalaada");
+    expect(seller.fields.map((f) => f.id)).not.toContain("wakiil");
+    // And the seller is an attendance party, so the same combined step serves
+    // him: Ma Joogaa → Maya → Qaybta Wakiilka.
+    expect(seller.attendance).toBe(true);
+    expect(seller.representativeFields?.map((f) => f.id)).toEqual(
+      C.sections
+        .flatMap((s) => s.parties ?? [])
+        .find((p) => p.id === "iibsadayaal")!
+        .representativeFields?.map((f) => f.id),
+    );
   });
 
   test("§22 the gender a seller answered is not validated when the list is plural", () => {
@@ -387,17 +420,19 @@ describe("Hanti — Step 1 uses the SAME big cards as Heshiis Kiro", () => {
 
   test("all seven setup questions render two clickable cards each", () => {
     const html = renderStep(fullValues, 0);
-    expect(cards).toHaveLength(7);
+    expect(cards).toHaveLength(6);
     expect(cardButtons(html)).toBe(cards.length * 2);
   });
 
   test("each optional-list question still offers Haa and Maya", () => {
     const html = renderStep(fullValues, 0);
-    for (const label of ["Wakiil ma jiraan?", "Sawirro ma jiraan?", "Saxeexyaal ma jiraan?"]) {
+    for (const label of ["Sawirro ma jiraan?", "Saxeexyaal ma jiraan?"]) {
       expect(html).toContain(label);
     }
-    // Haa/Maya appear as cards for all four of them.
-    expect(cardButtons(html) / 2).toBe(7);
+    // Haa/Maya appear as cards for all of them. There is no "Wakiil ma
+    // jiraan?" here — a representative is decided inside the person's own
+    // step, exactly as Heshiis Kiro does.
+    expect(cardButtons(html) / 2).toBe(6);
   });
 
   test("choosing 'Iibiyayaal' reveals the count beside the card, not as a second box", () => {

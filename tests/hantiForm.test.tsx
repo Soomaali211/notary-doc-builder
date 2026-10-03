@@ -20,6 +20,11 @@ import { createInitialValues } from "../src/lib/notary/formValues";
 import { buildHantiReview } from "../src/lib/notary/hantiReview";
 import { buildHantiPartyModel } from "../src/lib/notary/hantiParties";
 
+/** Link representative `repId` to these rows (attendance "wakiil"). */
+const represented = (rows: any[], repId: string) =>
+  rows.map((r) => ({ ...r, attendance: { status: "wakiil" as const, representativeId: repId } }));
+
+
 import type { FormValues, PartyRow } from "../src/lib/notary/types";
 /* @jsxRuntime automatic */
 /* @jsxImportSource react */
@@ -84,8 +89,7 @@ const buyers = (n: number) =>
       degan: "Hargeisa",
       telefoon: "0622222222",
     },
-    attendance: { status: "jooga" as const },
-  }));
+    attendance: { status: "jooga" as const } }));
 
 /* ================================================================== */
 /* The form itself                                                     */
@@ -95,11 +99,9 @@ const buyers = (n: number) =>
 function withEveryGateOpen() {
   const v = base();
   Object.assign(v.dejinta, {
-    wakiillo_ma_jiraan: "yes",
     sawirro_ma_jiraan: "yes",
     saxeexo_ma_jiraan: "yes",
-    shaxado_ma_jiraan: "yes",
-  });
+    shaxado_ma_jiraan: "yes" });
   return v;
 }
 
@@ -146,7 +148,6 @@ describe("THE FLIPPED FORM — steps", () => {
       "dejinta",
       "iibiyaha",
       "kooxaha",
-      "wakiillada",
       "iibsadaha",
       "hantida_dhul_banaan",
       "hantida_guri",
@@ -196,15 +197,15 @@ describe("THE FLIPPED FORM — steps", () => {
 
 describe("THE FLIPPED FORM — sellers are dynamic", () => {
   test("one seller is valid and one hundred are representable", () => {
-    const one = base({ iibiyeyaal: [r("s1", { magac: "AHMED CALI", degan: "Hargeisa" })], iibsadayaal: buyers(1) });
+    const one = base({ iibiyeyaal: [{ ...r("s1", { magac: "AHMED CALI", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }], iibsadayaal: buyers(1) });
     expect(Object.keys(validateDocument(C, one))).toEqual([]);
 
     const hundred = base({
-      iibiyeyaal: Array.from({ length: 100 }, (_, i) =>
-        r(`s${i + 1}`, { magac: `IIBIYE ${i + 1}`, degan: "Hargeisa" }),
-      ),
-      iibsadayaal: buyers(1),
-    });
+      iibiyeyaal: Array.from({ length: 100 }, (_, i) => ({
+        ...r(`s${i + 1}`, { magac: `IIBIYE ${i + 1}`, degan: "Hargeisa" }),
+        attendance: { status: "jooga" as const },
+      })),
+      iibsadayaal: buyers(1) });
     expect(Object.keys(validateDocument(C, hundred))).toEqual([]);
   });
 
@@ -217,10 +218,9 @@ describe("THE FLIPPED FORM — sellers are dynamic", () => {
     expect(C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === "iibiyeyaal")!.max).toBeUndefined();
   });
 
-  test("a seller row carries gender, role, representation and their own data", () => {
+  test("a seller row carries gender, role and their own data — representation is the status choice", () => {
     const seller = C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === "iibiyeyaal")!;
-    const ids = seller.fields.map((f) => f.id);
-    expect(ids).toEqual([
+    expect(seller.fields.map((f) => f.id)).toEqual([
       "magac",
       "jinsi",
       "dooro",
@@ -229,22 +229,25 @@ describe("THE FLIPPED FORM — sellers are dynamic", () => {
       "degan",
       "xaalad",
       "telefoon",
-      "nooca_matalaada",
-      "wakiil",
+      // No Matalaad and no wakiil picker: a seller answers "Ma Joogaa
+      // Heshiiska?" and, when Maya, Qaybta Wakiilka — one place, like Kiro.
     ]);
   });
 });
 
 describe("THE FLIPPED FORM — representation is a three-way answer", () => {
-  test("Ma jiro is an answer in its own right — and NOT a default value", () => {
-    const seller = C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === "iibiyeyaal")!;
-    const field = seller.fields.find((f) => f.id === "nooca_matalaada")!;
-    expect(field.options?.map((o) => o.value)).toEqual(["ma_jiro", "wakiil", "wakiil_qayim"]);
-    // A pre-set default would mark an empty row as "filled" and conjure a
-    // nameless phantom party into the document. Blank already means "nobody
-    // signs for this one", so the question stays genuinely unanswered.
-    expect(field.default).toBeUndefined();
-    expect(field.optional).toBe(true);
+  test("presence is a three-way answer — and never pre-set for anybody", () => {
+    // The seller answers it exactly as Heshiis Kiro's landlord does:
+    // present (signs himself), absent with nobody signing, or absent with a
+    // representative. No row starts out decided.
+    for (const id of ["iibiyeyaal", "iibsadayaal"]) {
+      const def = C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === id)!;
+      expect(def.attendance).toBe(true);
+      const fresh = createInitialValues(C);
+      for (const r of (fresh[id] as unknown[] | undefined) ?? []) {
+        expect((r as { attendance?: unknown }).attendance?.status).toBeUndefined();
+      }
+    }
   });
 
   test("an untouched row never becomes a person with no name", () => {
@@ -253,10 +256,14 @@ describe("THE FLIPPED FORM — representation is a three-way answer", () => {
     expect(model.people.every((p) => p.name !== "")).toBe(true);
   });
 
-  test("the same three answers exist on the authority itself", () => {
-    const rep = C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === "wakiillo")!;
-    const field = rep.fields.find((f) => f.id === "nooca_wakiilka")!;
-    expect(field.options?.map((o) => o.value)).toEqual(["wakiil", "wakiil_qayim"]);
+  test("§7 the wakiil / wakiil qayim choice lives where the representative is entered", () => {
+    for (const id of ["iibiyeyaal", "iibsadayaal"]) {
+      const def = C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === id)!;
+      const field = def.representativeFields!.find((f) => f.id === "nooca_wakiilka")!;
+      expect(field.options?.map((o) => o.value)).toEqual(["wakiil", "wakiil_qayim"]);
+      // Never defaulted: the two are different legal answers.
+      expect(field.default).toBeUndefined();
+    }
   });
 });
 
@@ -274,12 +281,12 @@ describe("THE FLIPPED FORM — D/MAALKA is its own role", () => {
 
 describe("THE FLIPPED FORM — optional never blocks", () => {
   test("a missing optional photograph does not appear and does not block", () => {
-    const v = base({ iibiyeyaal: [r("s1", { magac: "AHMED", degan: "Hargeisa" })], iibsadayaal: buyers(1) });
+    const v = base({ iibiyeyaal: [{ ...r("s1", { magac: "AHMED", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }], iibsadayaal: buyers(1) });
     expect(Object.keys(validateDocument(C, v))).toEqual([]);
   });
 
   test("a missing optional payment leaves out the paid line, not the whole block", () => {
-    const v = base({ iibiyeyaal: [r("s1", { magac: "AHMED", degan: "Hargeisa" })], iibsadayaal: buyers(1) });
+    const v = base({ iibiyeyaal: [{ ...r("s1", { magac: "AHMED", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }], iibsadayaal: buyers(1) });
     const review = buildHantiReview(C, v);
     const payment = review.blocks.find((b) => b.key === "payment")!;
     expect(payment.lines.map((l) => l.label)).toEqual(["Qiimaha Guud"]);
@@ -289,10 +296,9 @@ describe("THE FLIPPED FORM — optional never blocks", () => {
     // The price is one of the few answers the document cannot be printed
     // without, so it is one of the few that may still say "you cannot go on".
     const v = base({
-      iibiyeyaal: [r("s1", { magac: "AHMED", degan: "Hargeisa" })],
+      iibiyeyaal: [{ ...r("s1", { magac: "AHMED", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }],
       iibsadayaal: buyers(1),
-      qiimaha: { qiimaha_guud: "" },
-    });
+      qiimaha: { qiimaha_guud: "" } });
     const review = buildHantiReview(C, v);
     expect(review.ready).toBe(false);
     expect(review.missing.some((m) => m.path === "qiimaha.qiimaha_guud")).toBe(true);
@@ -300,10 +306,9 @@ describe("THE FLIPPED FORM — optional never blocks", () => {
 
   test("an EMPTY plot does not block — the survey may not describe the land", () => {
     const v = base({
-      iibiyeyaal: [r("s1", { magac: "AHMED", degan: "Hargeisa" })],
+      iibiyeyaal: [{ ...r("s1", { magac: "AHMED", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }],
       iibsadayaal: buyers(1),
-      hantida_dhul_banaan: { ...PLOT, degmada: "", xaafada: "", cabbirka: "" },
-    });
+      hantida_dhul_banaan: { ...PLOT, degmada: "", xaafada: "", cabbirka: "" } });
     const review = buildHantiReview(C, v);
     expect(review.missing.some((m) => m.path.startsWith("hantida_dhul_banaan."))).toBe(false);
     expect(review.ready).toBe(true);
@@ -313,10 +318,9 @@ describe("THE FLIPPED FORM — optional never blocks", () => {
 describe("THE FLIPPED FORM — payment", () => {
   test("price, amount paid and what is still owed all resolve", () => {
     const v = base({
-      iibiyeyaal: [r("s1", { magac: "AHMED", degan: "Hargeisa" })],
+      iibiyeyaal: [{ ...r("s1", { magac: "AHMED", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }],
       iibsadayaal: buyers(1),
-      qiimaha: { qiimaha_guud: "1600", lacagta_bixiyay: "600" },
-    });
+      qiimaha: { qiimaha_guud: "1600", lacagta_bixiyay: "600" } });
     const map = computeReplacements(C, v);
     expect(map["{{QIIMAHA}}"]).toBe("$1,600");
     expect(map["{{LACAGTA_BIXIYAY}}"]).toBe("$600");
@@ -325,19 +329,17 @@ describe("THE FLIPPED FORM — payment", () => {
 
   test("nothing owed prints nothing — never a negative figure", () => {
     const v = base({
-      iibiyeyaal: [r("s1", { magac: "AHMED", degan: "Hargeisa" })],
+      iibiyeyaal: [{ ...r("s1", { magac: "AHMED", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }],
       iibsadayaal: buyers(1),
-      qiimaha: { qiimaha_guud: "1600", lacagta_bixiyay: "1600" },
-    });
+      qiimaha: { qiimaha_guud: "1600", lacagta_bixiyay: "1600" } });
     expect(computeReplacements(C, v)["{{LACAGTA_HADHAY}}"]).toBe("$0");
   });
 
   test("the amount paid can never exceed the price", () => {
     const v = base({
-      iibiyeyaal: [r("s1", { magac: "AHMED", degan: "Hargeisa" })],
+      iibiyeyaal: [{ ...r("s1", { magac: "AHMED", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }],
       iibsadayaal: buyers(1),
-      qiimaha: { qiimaha_guud: "1600", lacagta_bixiyay: "5000" },
-    });
+      qiimaha: { qiimaha_guud: "1600", lacagta_bixiyay: "5000" } });
     const errors = validateDocument(C, v);
     expect(Object.keys(errors)).toContain("qiimaha");
   });
@@ -351,19 +353,18 @@ describe("REVIEW — the questions the office asks", () => {
   const v = base({
     kooxaha: [r("g", { magac: "Ilma Xassan Qaalib" })],
     iibiyeyaal: [
-      r("s1", { magac: "Ruun Xassan Qaalib", jinsi: "female", degan: "H", koox: "Ilma Xassan Qaalib", wakiil: "RUUN" }),
-      r("s2", { magac: "Ibraahin Xassan", jinsi: "male", degan: "H", koox: "Ilma Xassan Qaalib", wakiil: "FARAX" }),
+      { ...r("s1", { magac: "Ruun Xassan Qaalib", jinsi: "female", degan: "H", koox: "Ilma Xassan Qaalib" }), attendance: { status: "jooga" as const } },
+      { ...r("s2", { magac: "Ibraahin Xassan", jinsi: "male", degan: "H", koox: "Ilma Xassan Qaalib" }), attendance: { status: "jooga" as const } },
     ],
-    wakiillo: [
-      r("r1", { magac: "RUUN", nooca_wakiilka: "wakiil" }),
-      r("r2", { magac: "FARAX", nooca_wakiilka: "wakiil_qayim" }),
+    wakiilo_iibiyeyaal: [
+      r("r1", { magac: "RUUN" }),
+      r("r2", { magac: "FARAX" }),
     ],
     iibsadayaal: buyers(2),
     sawirrada: [r("p1", { magac: "Ruun Xassan Qaalib", sawir: "x" })],
     saxeexayaasha: [r("x1", { magac: "Ibraahin Xassan", prefix: "IIBIYE" })],
     shaxadaha: [r("c1", { tixraaca: "MDH/C/842/2025" })],
-    maragyo: [r("m1", { magac: "MARAG KOOW" }), r("m2", { magac: "MARAG LABO" })],
-  });
+    maragyo: [r("m1", { magac: "MARAG KOOW" }), r("m2", { magac: "MARAG LABO" })] });
   const review = buildHantiReview(C, v);
   const block = (k: string) => review.blocks.find((b) => b.key === k);
 
@@ -441,10 +442,9 @@ describe("REVIEW — the questions the office asks", () => {
     const broken = buildHantiReview(
       C,
       base({
-        iibiyeyaal: [r("s1", { magac: "AHMED", degan: "Hargeisa" })],
+        iibiyeyaal: [{ ...r("s1", { magac: "AHMED", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }],
         iibsadayaal: buyers(1),
-        qiimaha: { qiimaha_guud: "" },
-      }),
+        qiimaha: { qiimaha_guud: "" } }),
     );
     const html = renderToStaticMarkup(<HantiReviewSummary review={broken} />);
     expect(html).toContain("Waxa MAQAN (waajibka ah):");
@@ -460,12 +460,11 @@ describe("REVIEW — the questions the office asks", () => {
 describe("CRITICAL TEST CASES — all five must pass", () => {
   test("CASE 1 — 1 seller, 1 buyer, 1 witness, 1 photo, 1 signature", () => {
     const v = base({
-      iibiyeyaal: [r("s1", { magac: "AHMED CALI", jinsi: "male", degan: "Hargeisa" })],
+      iibiyeyaal: [{ ...r("s1", { magac: "AHMED CALI", jinsi: "male", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }],
       iibsadayaal: buyers(1),
       maragyo: [r("m1", { magac: "MARAG KOOW" })],
       sawirrada: [r("p1", { magac: "AHMED CALI", sawir: "stor_s1" })],
-      saxeexayaasha: [r("x1", { magac: "AHMED CALI", prefix: "IIBIYE" })],
-    });
+      saxeexayaasha: [r("x1", { magac: "AHMED CALI", prefix: "IIBIYE" })] });
     expect(Object.keys(validateDocument(C, v))).toEqual([]);
     expect(resolveFlags(C, v).IIBIYEYAAL_HAL).toBe(true);
     expect(computeReplacements(C, v)["{{IIBIYE_WORD}}"]).toBe("iibiyaha");
@@ -475,18 +474,19 @@ describe("CRITICAL TEST CASES — all five must pass", () => {
     const names = Array.from({ length: 13 }, (_, i) => `XUBIN ${i + 1}`);
     const v = base({
       kooxaha: [r("g", { magac: "Ilma Xassan Qaalib" })],
-      iibiyeyaal: names.map((n, i) =>
-        r(`s${i + 1}`, {
+      iibiyeyaal: names.map((n, i) => ({
+        ...r(`s${i + 1}`, {
           magac: n,
           jinsi: i % 2 === 0 ? "male" : "female",
           degan: "Hargeisa",
           koox: "Ilma Xassan Qaalib",
-          ...(i < 4 ? { wakiil: "RUUN" } : i < 8 ? { wakiil: "FARAX" } : {}),
         }),
-      ),
-      wakiillo: [
-        r("r1", { magac: "RUUN", nooca_wakiilka: "wakiil" }),
-        r("r2", { magac: "FARAX", nooca_wakiilka: "wakiil_qayim" }),
+        // The first eight sign through representatives; the rest sign themselves.
+        attendance: { status: i < 8 ? ("wakiil" as const) : ("jooga" as const), representativeId: i < 4 ? "r1" : i < 8 ? "r2" : undefined },
+      })),
+      wakiilo_iibiyeyaal: [
+        r("r1", { magac: "RUUN" }),
+        r("r2", { magac: "FARAX" }),
       ],
       iibsadayaal: buyers(1),
       // 6 seller photos + 1 buyer photo + 1 D/maal photo = 8.
@@ -496,8 +496,7 @@ describe("CRITICAL TEST CASES — all five must pass", () => {
         r("pd", { magac: "D/MAAL WACFIQ", sawir: "stor_d" }),
       ],
       saxeexayaasha: names.slice(0, 6).map((n, i) => r(`x${i + 1}`, { magac: n, prefix: "IIBISO" })),
-      maragyo: [r("m1", { magac: "MARAG KOOW" }), r("m2", { magac: "MARAG LABO" })],
-    });
+      maragyo: [r("m1", { magac: "MARAG KOOW" }), r("m2", { magac: "MARAG LABO" })] });
     expect(Object.keys(validateDocument(C, v))).toEqual([]);
     const review = buildHantiReview(C, v);
     const count = (k: string) => review.blocks.find((b) => b.key === k)!.count;
@@ -510,13 +509,13 @@ describe("CRITICAL TEST CASES — all five must pass", () => {
 
   test("CASE 3 — 10 sellers, 1 representative, 1 photo — VALID", () => {
     const v = base({
-      iibiyeyaal: Array.from({ length: 10 }, (_, i) =>
-        r(`s${i + 1}`, { magac: `IIBIYE ${i + 1}`, jinsi: "male", degan: "Hargeisa", wakiil: "ABDI" }),
-      ),
-      wakiillo: [r("r1", { magac: "ABDI", nooca_wakiilka: "wakiil" })],
+      iibiyeyaal: Array.from({ length: 10 }, (_, i) => ({
+        ...r(`s${i + 1}`, { magac: `IIBIYE ${i + 1}`, jinsi: "male", degan: "Hargeisa" }),
+        attendance: { status: "wakiil" as const, representativeId: "r1" },
+      })),
+      wakiilo_iibiyeyaal: [r("r1", { magac: "ABDI" })],
       iibsadayaal: buyers(1),
-      sawirrada: [r("p1", { magac: "ABDI", sawir: "stor_rep" })],
-    });
+      sawirrada: [r("p1", { magac: "ABDI", sawir: "stor_rep" })] });
     expect(Object.keys(validateDocument(C, v))).toEqual([]);
     const review = buildHantiReview(C, v);
     expect(review.blocks.find((b) => b.key === "photos")!.count).toBe("Tirada: 1");
@@ -526,22 +525,21 @@ describe("CRITICAL TEST CASES — all five must pass", () => {
   test("CASE 4 — 10 sellers, 2 representatives, 4 photos, 3 signatories — VALID", () => {
     const names = Array.from({ length: 10 }, (_, i) => `IIBIYE ${i + 1}`);
     const v = base({
-      iibiyeyaal: names.map((n, i) =>
-        r(`s${i + 1}`, {
+      iibiyeyaal: names.map((n, i) => ({
+        ...r(`s${i + 1}`, {
           magac: n,
           jinsi: "male",
           degan: "Hargeisa",
-          wakiil: i < 5 ? "RUUN" : "FARAX",
         }),
-      ),
-      wakiillo: [
-        r("r1", { magac: "RUUN", nooca_wakiilka: "wakiil" }),
-        r("r2", { magac: "FARAX", nooca_wakiilka: "wakiil_qayim" }),
+        attendance: { status: "wakiil" as const, representativeId: i < 5 ? "r1" : "r2" },
+      })),
+      wakiilo_iibiyeyaal: [
+        r("r1", { magac: "RUUN" }),
+        r("r2", { magac: "FARAX" }),
       ],
       iibsadayaal: buyers(1),
       sawirrada: names.slice(0, 4).map((n, i) => r(`p${i + 1}`, { magac: n, sawir: `stor_${i}` })),
-      saxeexayaasha: names.slice(0, 3).map((n, i) => r(`x${i + 1}`, { magac: n, prefix: "IIBIYE" })),
-    });
+      saxeexayaasha: names.slice(0, 3).map((n, i) => r(`x${i + 1}`, { magac: n, prefix: "IIBIYE" })) });
     expect(Object.keys(validateDocument(C, v))).toEqual([]);
     const review = buildHantiReview(C, v);
     const count = (k: string) => review.blocks.find((b) => b.key === k)!.count;
@@ -555,14 +553,14 @@ describe("CRITICAL TEST CASES — all five must pass", () => {
     const names = Array.from({ length: 9 }, (_, i) => `XUBIN ${i + 1}`);
     const v = base({
       kooxaha: [r("g", { magac: "Ilma Xassan Qaalib" })],
-      iibiyeyaal: names.map((n, i) =>
-        r(`s${i + 1}`, { magac: n, jinsi: i % 2 === 0 ? "male" : "female", degan: "Hargeisa", koox: "Ilma Xassan Qaalib" }),
-      ),
+      iibiyeyaal: names.map((n, i) => ({
+        ...r(`s${i + 1}`, { magac: n, jinsi: i % 2 === 0 ? "male" : "female", degan: "Hargeisa", koox: "Ilma Xassan Qaalib" }),
+        attendance: { status: "jooga" as const },
+      })),
       iibsadayaal: buyers(1),
       // ONE photograph and ONE signature for nine sellers.
       sawirrada: [r("p1", { magac: names[0], sawir: "stor_1" })],
-      saxeexayaasha: [r("x1", { magac: names[0], prefix: "IIBIYE" })],
-    });
+      saxeexayaasha: [r("x1", { magac: names[0], prefix: "IIBIYE" })] });
     expect(Object.keys(validateDocument(C, v))).toEqual([]);
     const review = buildHantiReview(C, v);
     expect(review.blocks.find((b) => b.key === "sellers")!.count).toBe("Tirada: 9");

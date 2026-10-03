@@ -29,6 +29,11 @@ import { buildHantiPartyModel, inspectHantiParties } from "../src/lib/notary/han
 import { countParties, genderWord, representedPeople, representativesOf } from "../src/lib/notary/partyModel";
 import type { FormValues, PartyRow } from "../src/lib/notary/types";
 
+/** Link representative `repId` to these rows (attendance "wakiil"). */
+const represented = (rows: any[], repId: string) =>
+  rows.map((r) => ({ ...r, attendance: { status: "wakiil" as const, representativeId: repId } }));
+
+
 function row(
   id: string,
   values: Record<string, string>,
@@ -83,21 +88,20 @@ function sellers(n: number, extra: Record<string, string> = {}): PartyRow[] {
         ...extra,
       },
     ),
-  );
+  ).map((r) => ({ ...r, attendance: { status: "jooga" as const } }));
 }
 
 /* ------------------------------------------------------------------ */
 
 describe("TEST 1 — 1 seller + 1 buyer + 3 witnesses", () => {
   const v = values({
-    iibiyeyaal: [row("s1", { magac: "AHMED CALI", jinsi: "male", degan: "Hargeisa" })],
+    iibiyeyaal: [{ ...row("s1", { magac: "AHMED CALI", jinsi: "male", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }],
     iibsadayaal: [row("b1", { magac: "SOMALI JAMAC", jinsi: "male", degan: "Hargeisa", telefoon: "0622222222" }, "jooga")],
     maragyo: [
       row("m1", { magac: "MARAG KOOW" }),
       row("m2", { magac: "MARAG LABO" }),
       row("m3", { magac: "MARAG SADO" }),
-    ],
-  });
+    ] });
 
   test("the document validates with nothing left to answer", () => {
     expect(Object.keys(validateDocument(C, v))).toEqual([]);
@@ -107,8 +111,7 @@ describe("TEST 1 — 1 seller + 1 buyer + 3 witnesses", () => {
     const model = buildHantiPartyModel(v);
     expect(countParties(model, { sellerIds: ["s1"], witnessIds: ["m1", "m2", "m3"] })).toMatchObject({
       sellers: 1,
-      witnesses: 3,
-    });
+      witnesses: 3 });
     expect(buildRepeatBlockData(C, v).get("MARAGYO")!.rows).toHaveLength(3);
   });
 
@@ -122,20 +125,18 @@ describe("TEST 1 — 1 seller + 1 buyer + 3 witnesses", () => {
 
 describe("TEST 2 — 10 sellers + 1 representative + 1 photo + 1 signature", () => {
   const v = values({
-    iibiyeyaal: sellers(10, { wakiil: "ABDI WAKIIL" }),
+    iibiyeyaal: represented(sellers(10, { wakiil: "ABDI WAKIIL" }), "r1"),
     iibsadayaal: [row("b1", { magac: "SOMALI JAMAC", jinsi: "male", degan: "Hargeisa", telefoon: "0622222222" }, "jooga")],
-    wakiillo: [row("r1", { magac: "ABDI WAKIIL", nooca_wakiilka: "wakiil", tixraaca_wakiilnimo: "Ref:APN/096/2025" })],
+    wakiilo_iibiyeyaal: [row("r1", { magac: "ABDI WAKIIL" })],
     sawirrada: [row("p1", { magac: "IIBIYE 1", sawir: "stor_p1" })],
-    saxeexayaasha: [row("g1", { magac: "ABDI WAKIIL", prefix: "IIBIYE/WAKIIL" })],
-  });
+    saxeexayaasha: [row("g1", { magac: "ABDI WAKIIL", prefix: "IIBIYE/WAKIIL" })] });
   const model = buildHantiPartyModel(v);
 
   test("10 sellers is not 1 photo and not 1 signature", () => {
     expect(countParties(model, { sellerIds: sellers(10).map((s) => s.id) })).toMatchObject({
       sellers: 10,
       photos: 1,
-      signatures: 1,
-    });
+      signatures: 1 });
   });
 
   test("the form validates — no rule compares the three counts", () => {
@@ -165,11 +166,10 @@ describe("TEST 3 — 10 sellers, TWO representatives splitting them 6 / 4", () =
     iibiyeyaal: sellers(10).map((s, i) =>
       row(s.id, { ...s.values, wakiil: i < 6 ? "RUUN QAALIB" : "FARAX AHMED" }),
     ),
-    wakiillo: [
-      row("r1", { magac: "RUUN QAALIB", nooca_wakiilka: "wakiil" }),
-      row("r2", { magac: "FARAX AHMED", nooca_wakiilka: "wakiil" }),
-    ],
-  });
+    wakiilo_iibiyeyaal: [
+      row("r1", { magac: "RUUN QAALIB" }),
+      row("r2", { magac: "FARAX AHMED" }),
+    ]] });
   const model = buildHantiPartyModel(v);
   const [a, b] = model.representations;
 
@@ -205,8 +205,7 @@ describe("TEST 4 — a 13-member family: 13 sellers, 8 photos, 6 signatures, 2 w
     sawirrada: names.slice(0, 8).map((n, i) => row(`p${i + 1}`, { magac: n, sawir: `stor_p${i + 1}` })),
     saxeexayaasha: names.slice(0, 6).map((n, i) => row(`x${i + 1}`, { magac: n, prefix: "IIBIYE" })),
     maragyo: [row("m1", { magac: "MARAG KOOW" }), row("m2", { magac: "MARAG LABO" })],
-    iibsadayaal: [row("b1", { magac: "SOMALI JAMAC", jinsi: "male", degan: "Hargeisa", telefoon: "0622222222" }, "jooga")],
-  });
+    iibsadayaal: [row("b1", { magac: "SOMALI JAMAC", jinsi: "male", degan: "Hargeisa", telefoon: "0622222222" }, "jooga")] });
   const model = buildHantiPartyModel(v);
   const counts = countParties(model, { sellerIds: names.map((_, i) => `s${i + 1}`), witnessIds: ["m1", "m2"] });
 
@@ -253,12 +252,12 @@ describe("TEST 5 — gender words: female seller, male seller, mixed group", () 
 
   test("an unchosen gender yields NO word — the engine never guesses", () => {
     expect(genderWord({ role: "seller", gender: "unknown", number: "singular" })).toBeUndefined();
-    const v = values({ iibiyeyaal: [row("s1", { magac: "X", degan: "Hargeisa" })] });
+    const v = values({ iibiyeyaal: [{ ...row("s1", { magac: "X", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }] });
     expect(computeReplacements(C, v)["{{IIBIYE_WORDS}}"]).toBe("");
   });
 
   test("a female seller prints IIBISO, not a mangled IIBIYE", () => {
-    const v = values({ iibiyeyaal: [row("s1", { magac: "MARYAN XASSAN", jinsi: "female", degan: "Hargeisa" })] });
+    const v = values({ iibiyeyaal: [{ ...row("s1", { magac: "MARYAN XASSAN", jinsi: "female", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }] });
     expect(computeReplacements(C, v)["{{IIBIYE_WORDS}}"]).toBe("iibiso");
     expect(computeReplacements(C, v)["{{IIBIYE_WORD}}"]).toBe("iibisada");
   });
@@ -266,10 +265,9 @@ describe("TEST 5 — gender words: female seller, male seller, mixed group", () 
   test("a MIXED group still prints one plural word", () => {
     const v = values({
       iibiyeyaal: [
-        row("s1", { magac: "RUUN XASSAN", jinsi: "female", degan: "Hargeisa" }),
-        row("s2", { magac: "FARAX AHMED", jinsi: "male", degan: "Hargeisa" }),
-      ],
-    });
+        { ...row("s1", { magac: "RUUN XASSAN", jinsi: "female", degan: "Hargeisa" }), attendance: { status: "jooga" as const } },
+        { ...row("s2", { magac: "FARAX AHMED", jinsi: "male", degan: "Hargeisa" }), attendance: { status: "jooga" as const } },
+      ] });
     expect(computeReplacements(C, v)["{{IIBIYE_WORDS}}"]).toBe("iibiyayaal");
   });
 
@@ -277,10 +275,9 @@ describe("TEST 5 — gender words: female seller, male seller, mixed group", () 
     const v = values({
       iibiyeyaal: [
         // "Maryan" and "Ahmed" chosen deliberately OPPOSITE to expectation.
-        row("s1", { magac: "AHMED CALI", jinsi: "female", degan: "Hargeisa" }),
-        row("s2", { magac: "MARYAN XASSAN", jinsi: "male", degan: "Hargeisa" }),
-      ],
-    });
+        { ...row("s1", { magac: "AHMED CALI", jinsi: "female", degan: "Hargeisa" }), attendance: { status: "jooga" as const } },
+        { ...row("s2", { magac: "MARYAN XASSAN", jinsi: "male", degan: "Hargeisa" }), attendance: { status: "jooga" as const } },
+      ] });
     const model = buildHantiPartyModel(v);
     expect(model.people.map((p) => p.gender)).toEqual(["female", "male"]);
   });
@@ -291,11 +288,10 @@ describe("TEST 5 — gender words: female seller, male seller, mixed group", () 
 describe("TEST 6 — a seller who is ALSO the representative", () => {
   const v = values({
     iibiyeyaal: [
-      row("s1", { magac: "RUUN XASSAN QAALIB", jinsi: "female", degan: "Hargeisa", wakiil: "RUUN XASSAN QAALIB" }),
-      row("s2", { magac: "Ibraahin XASSAN", jinsi: "male", degan: "Hargeisa" }),
+      { ...row("s1", { magac: "RUUN XASSAN QAALIB", jinsi: "female", degan: "Hargeisa", wakiil: "RUUN XASSAN QAALIB" }), attendance: { status: "jooga" as const } },
+      { ...row("s2", { magac: "Ibraahin XASSAN", jinsi: "male", degan: "Hargeisa" }), attendance: { status: "jooga" as const } },
     ],
-    wakiillo: [row("r1", { magac: "RUUN XASSAN QAALIB", nooca_wakiilka: "wakiil" })],
-  });
+    wakiilo_iibiyeyaal: [row("r1", { magac: "RUUN XASSAN QAALIB" })] });
   const model = buildHantiPartyModel(v);
 
   test("she is ONE person, not a seller plus a second copy of herself", () => {
@@ -321,11 +317,10 @@ describe("TEST 7 — Wakiil caadi ah is NOT Wakiil Qayim", () => {
     iibiyeyaal: sellers(4, { wakiil: "WAKIIL CAAJI" }).map((s, i) =>
       i === 3 ? row(s.id, { ...s.values, wakiil: "WAKIIL QAYIM" }) : s,
     ),
-    wakiillo: [
-      row("r1", { magac: "WAKIIL CAAJI", nooca_wakiilka: "wakiil" }),
-      row("r2", { magac: "WAKIIL QAYIM", nooca_wakiilka: "wakiil_qayim" }),
-    ],
-  });
+    wakiilo_iibiyeyaal: [
+      row("r1", { magac: "WAKIIL CAAJI" }),
+      row("r2", { magac: "WAKIIL QAYIM" }),
+    ]] });
   const model = buildHantiPartyModel(v);
 
   test("the two authorities are stored as two different things", () => {
@@ -346,11 +341,10 @@ describe("TEST 7 — Wakiil caadi ah is NOT Wakiil Qayim", () => {
   test("a mother may be a wakiil WITHOUT that relationship granting authority", () => {
     const withRelationship = buildHantiPartyModel(
       values({
-        wakiillo: [
-          row("r1", { magac: "WAKIIL CAAJI", nooca_wakiilka: "wakiil_qayim", xiriirka_qoyska: "Hooyada" }),
-        ],
-        iibiyeyaal: sellers(2, { wakiil: "WAKIIL CAAJI" }),
-      }),
+        wakiilo_iibiyeyaal: [
+          row("r1", { magac: "WAKIIL CAAJI" }),
+        ]],
+        iibiyeyaal: sellers(2, { wakiil: "WAKIIL CAAJI" }) }),
     );
     // The relationship is data ON the person; the authority is the edge.
     // They are recorded separately and neither implies the other.
@@ -366,8 +360,7 @@ describe("TEST 8 — an optional photograph is missing: generation still works",
     iibiyeyaal: sellers(3),
     iibsadayaal: [row("b1", { magac: "SOMALI JAMAC", jinsi: "female", degan: "Hargeisa", telefoon: "0622222222" }, "jooga")],
     // NO sawirrada at all.
-    saxeexayaasha: [row("x1", { magac: "IIBIYE 1", prefix: "IIBIYE" })],
-  });
+    saxeexayaasha: [row("x1", { magac: "IIBIYE 1", prefix: "IIBIYE" })] });
 
   test("the missing photograph is NOT a validation error", () => {
     expect(Object.keys(validateDocument(C, v))).toEqual([]);
@@ -395,8 +388,7 @@ describe("TEST 8 — an optional photograph is missing: generation still works",
       referenceNumber: "DPN-MG-001",
       subTypeLabel: "Dhul Banaan",
       templateBytes: await zip.generateAsync({ type: "arraybuffer" }),
-      spec: selectTemplate(C, v),
-    });
+      spec: selectTemplate(C, v) });
 
     const xml = await (await JSZip.loadAsync(Buffer.from(await out.result.blob.arrayBuffer())))
       .file("word/document.xml")!
@@ -417,13 +409,12 @@ describe("TEST 9 — one group NAME plus many individual members", () => {
   const v = values({
     kooxaha: [row("g", { magac: "Ilma Xassan Qaalib" })],
     iibiyeyaal: [
-      row("s1", { magac: "Ruun Xassan Qaalib", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib", wakiil: "Ruun Xassan Qaalib" }),
-      row("s2", { magac: "Ibraahin Xassan Qaalib", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib", wakiil: "Ruun Xassan Qaalib" }),
-      row("s3", { magac: "Farax Axmed Xassan", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib", wakiil: "Ruun Xassan Qaalib" }),
-      row("s4", { magac: "Maryan Xassan Muuse", jinsi: "female", degan: "Hargeisa", koox: "Ilma Xassan Qaalib", wakiil: "Ruun Xassan Qaalib" }),
+      { ...row("s1", { magac: "Ruun Xassan Qaalib", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib", wakiil: "Ruun Xassan Qaalib" }), attendance: { status: "jooga" as const } },
+      { ...row("s2", { magac: "Ibraahin Xassan Qaalib", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib", wakiil: "Ruun Xassan Qaalib" }), attendance: { status: "jooga" as const } },
+      { ...row("s3", { magac: "Farax Axmed Xassan", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib", wakiil: "Ruun Xassan Qaalib" }), attendance: { status: "jooga" as const } },
+      { ...row("s4", { magac: "Maryan Xassan Muuse", jinsi: "female", degan: "Hargeisa", koox: "Ilma Xassan Qaalib", wakiil: "Ruun Xassan Qaalib" }), attendance: { status: "jooga" as const } },
     ],
-    wakiillo: [row("r1", { magac: "Ruun Xassan Qaalib", nooca_wakiilka: "wakiil" })],
-  });
+    wakiilo_iibiyeyaal: [row("r1", { magac: "Ruun Xassan Qaalib" })] });
   const model = buildHantiPartyModel(v);
 
   test("the group is an entity with a name, not a person", () => {
@@ -457,21 +448,19 @@ describe("TEST 10 — one person in several roles, without being duplicated", ()
   const v = values({
     kooxaha: [row("g", { magac: "Ilma Xassan Qaalib" })],
     iibiyeyaal: [
-      row("s1", {
+      { ...row("s1", {
         magac: "Ruun Xassan Qaalib",
         jinsi: "female",
         degan: "Hargeisa",
         koox: "Ilma Xassan Qaalib",
         dooro: "wakiil",
-        wakiil: "Ruun Xassan Qaalib",
-      }),
-      row("s2", { magac: "Ibraahin Xassan Qaalib", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib" }),
+        wakiil: "Ruun Xassan Qaalib" }), attendance: { status: "jooga" as const } },
+      { ...row("s2", { magac: "Ibraahin Xassan Qaalib", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib" }), attendance: { status: "jooga" as const } },
     ],
-    wakiillo: [row("r1", { magac: "Ruun Xassan Qaalib", nooca_wakiilka: "wakiil", xiriirka_qoyska: "Hooyada" })],
+    wakiilo_iibiyeyaal: [row("r1", { magac: "Ruun Xassan Qaalib" })],
     sawirrada: [row("p1", { magac: "Ruun Xassan Qaalib", sawir: "stor_p1" })],
     saxeexayaasha: [row("x1", { magac: "Ruun Xassan Qaalib", prefix: "IIBISO/WAKIIL" })],
-    shaxadaha: [row("c1", { tixraaca: "MDH/C/842/2025", haysa: "Ruun Xassan Qaalib" })],
-  });
+    shaxadaha: [row("c1", { tixraaca: "MDH/C/842/2025", haysa: "Ruun Xassan Qaalib" })] });
   const model = buildHantiPartyModel(v);
   const ruun = model.people.filter((p) => p.name === "Ruun Xassan Qaalib");
 
@@ -505,14 +494,12 @@ describe("TEST 10 — one person in several roles, without being duplicated", ()
       values({
         ...v,
         iibiyeyaal: [
-          row("s1", {
+          { ...row("s1", {
             magac: "Ruun Xassan Qaalib",
             jinsi: "female",
             koox: "Ilma Xassan Qaalib",
-            xiriirka_qoyska: "Hooyada",
-          }),
-        ],
-      }),
+            xiriirka_qoyska: "Hooyada" }), attendance: { status: "jooga" as const } },
+        ] }),
     );
     expect(withKin.people[0].familyRelationship).toBe("Hooyada");
     // The same person with no relationship typed is simply unknown.

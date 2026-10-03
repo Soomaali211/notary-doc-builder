@@ -191,9 +191,7 @@ const isGate = (fieldId: string): Condition => ({
  * The people a picker may offer: everyone already entered — sellers, buyers
  * and the representatives — so a name is chosen, never retyped.
  */
-const PERSON_SOURCE = "iibiyeyaal,iibsadayaal,wakiillo";
-/** The parties a representative can be chosen from. */
-const PERSON_SOURCE_REPS = "iibiyeyaal,iibsadayaal,wakiillo";
+const PERSON_SOURCE = "iibiyeyaal,iibsadayaal";
 
 /**
  * JINSIGA — a person's gender, chosen by the notary.
@@ -268,7 +266,6 @@ const SECTION_ORDER = [
   "dejinta",
   "iibiyaha",
   "kooxaha",
-  "wakiillada",
   "iibsadaha",
   "hantida_dhul_banaan",
   "hantida_guri",
@@ -515,45 +512,18 @@ function partyFields(
       id: "telefoon",
       type: "phone",
       label: `Telefoonka ${role}`,
+      // Shown for a PRESENT person only — an absent one is represented by a
+      // wakiil, so the number belongs to the wakiil instead. Never required:
+      // thirteen sellers must not each be forced to produce a phone number
+      // (§22 — optional never blocks).
       optional: true,
-      ...(opts.attendance
-        ? { requiredWhenRowStatus: "jooga" as const, showOnlyWhenRowStatus: "jooga" as const }
-        : {}),
+      ...(opts.attendance ? { showOnlyWhenRowStatus: "jooga" as const } : {}),
       placeholder: "+252 61 5551234",
     },
-    // Representation is asked ONCE per side, in the shape that side needs:
-    //
-    //  · A NON-attendance party (sellers, groups) answers it here — Matalaad
-    //    and then which wakiil from the wakiillo list stands for them.
-    //  · An ATTENDANCE party (buyers) answers "Ma Joogaa Heshiiska?" instead,
-    //    and "Maya" opens Qaybta Wakiilka. Rendering Matalaad/Wakiil there TOO
-    //    asked the same question twice on one row, so attendance parties do
-    //    not get these two fields at all.
-    ...(opts.attendance
-      ? []
-      : ([
-          {
-            id: "nooca_matalaada",
-            type: "select" as const,
-            label: "Matalaad",
-            options: NOOCA_MATALAADA,
-            // NO default on purpose. A default value marks an otherwise-empty
-            // row as "filled", which would conjure a nameless phantom party
-            // into the document. Leaving it blank already means "nobody signs
-            // for this one".
-            optional: true,
-            hint: "Qof kale ayaa saxiixaya? Hal qof wuxuu matali karaa dad badan.",
-          },
-          {
-            id: "wakiil",
-            type: "person" as const,
-            label: "Wakiilka saxiixaya",
-            personSource: PERSON_SOURCE_REPS,
-            optional: true,
-            showWhenRowValueAnyOf: { field: "nooca_matalaada", values: MATALO_JIRO },
-            description: "Dooro qofka hore u geliyey — wakiilkuna wuxuu yahay qof kale.",
-          },
-        ] satisfies FieldDef[])),
+    // Representation lives with the person's OWN step, exactly as Heshiis
+    // Kiro does it: "Ma Joogaa Heshiiska?" → Maya → Qaybta Wakiilka. There is
+    // no separate Matalaad question and no separate wakiil picker on the row,
+    // because that asked the same thing twice in two places.
   ];
 }
 
@@ -566,6 +536,16 @@ function partyFields(
 const REPRESENTATIVE_FIELDS: FieldDef[] = [
   { id: "magac", type: "text", label: "Magaca Wakiilka", validation: { required: true } },
   { id: "sawir", type: "photo", label: "Sawirka Wakiilka", optional: true },
+  // §7 — WAKIIL ≠ WAKIIL QAYIM. The two are different legal answers, asked
+  // where the representative is entered, and NEVER defaulted to one another.
+  {
+    id: "nooca_wakiilka",
+    type: "select",
+    label: "Nooca Wakiilnimo",
+    options: NOOCA_WAKIILKA,
+    optional: true,
+    hint: "Wakiil caadi ah iyo Wakiil Qayim waa laba arrimo oo kala duwan.",
+  },
 ];
 
 export const kalaIiibsiHantiConfig: DocumentConfig = {
@@ -603,12 +583,12 @@ requiresWitness: false,
     { blockId: "MARAGYO", partyId: "maragyo", numberPlaceholder: "NUMBER" },
     { blockId: "IIBIYEYAAL", partyId: "iibiyeyaal" },
     { blockId: "IIBSADAYAAL", partyId: "iibsadayaal" },
+    { blockId: "WAKIILO_IIBIYEYAAL", partyId: "wakiilo_iibiyeyaal", numberPlaceholder: "NUMBER" },
     { blockId: "WAKIILO_IIBSADAYAAL", partyId: "wakiilo_iibsadayaal", numberPlaceholder: "NUMBER" },
     // Independent lists. Each block repeats over ITS OWN list — a template
     // may print eight photographs beside thirteen sellers without the engine
     // once comparing the two counts.
     { blockId: "KOOXAHA", partyId: "kooxaha", numberPlaceholder: "NUMBER" },
-    { blockId: "WAKIILLO", partyId: "wakiillo", numberPlaceholder: "NUMBER" },
     { blockId: "SAWIRRADA", partyId: "sawirrada", numberPlaceholder: "NUMBER" },
     { blockId: "SAXEEXAYAASHA", partyId: "saxeexayaasha", numberPlaceholder: "NUMBER" },
     { blockId: "SHAXADAHA", partyId: "shaxadaha", numberPlaceholder: "NUMBER" },
@@ -635,7 +615,6 @@ requiresWitness: false,
     // The four "does this sale have one of those?" gates, so a template can
     // leave out a heading whose list is empty. Each mirrors exactly what the
     // notary answered at the top of the interview — nothing is inferred.
-    WAKIILLO_MA_JIRAAN: isGate("wakiillo_ma_jiraan"),
     SAWIRRO_MA_JIRAAN: isGate("sawirro_ma_jiraan"),
     SAXEEXO_MA_JIRAAN: isGate("saxeexo_ma_jiraan"),
     SHAXADO_MA_JIRAAN: isGate("shaxado_ma_jiraan"),
@@ -844,18 +823,10 @@ requiresWitness: false,
           colSpan: 2,
         },
         // ONE place to say which optional lists this sale has. Each answer
-        // decides whether the matching section exists at all — so a notary
-        // with no representative is never asked how many representatives
-        // there are.
-        {
-          id: "wakiillo_ma_jiraan",
-          type: "yes_no",
-          options: YES_NO,
-          label: "Wakiil ma jiraan?",
-          optional: true,
-          setupCard: true,
-          hint: "Haa = qof qalbi wuxuu matalaya qof kale.",
-        },
+        // A representative is decided INSIDE the person's own step
+        // ("Ma Joogaa Heshiiska?" → Maya → Qaybta Wakiilka), exactly as
+        // Heshiis Kiro does. There is no Step-1 "Wakiil ma jiraan?" — asking
+        // it here too would decide the same thing twice.
         {
           id: "sawirro_ma_jiraan",
           type: "yes_no",
@@ -920,7 +891,12 @@ requiresWitness: false,
           // "Iibiye" collapses the list to exactly one row; "Iibiyayaal"
           // uses the count typed beside the card.
           countFromMode: `${DEJINTA}.iibiye_mode`,
-          fields: partyFields("Iibiyaha", { attendance: false, role: true }),
+          // Sellers fill their data and status EXACTLY as Heshiis Kiro's
+          // landlords do: "Ma Joogaa Heshiiska?" → Maya → Qaybta Wakiilka,
+          // inside the same combined step. There is no second wakiil list.
+          attendance: true,
+          representativeFields: REPRESENTATIVE_FIELDS,
+          fields: partyFields("Iibiyaha", { attendance: true, role: true }),
         },
       ],
       fields: [],
@@ -952,70 +928,6 @@ requiresWitness: false,
               label: "Magaca Kooxka / Qoysku",
               optional: true,
               placeholder: "Tusaale: Ilma Xassan Qaalib",
-            },
-          ],
-        },
-      ],
-      fields: [],
-    },
-    {
-      // The authorities. A representative may stand for one person or for a
-      // dozen, and two representatives may split the same group between
-      // them. "Wakiil caadi ah" and "Wakiil Qayim" are different answers and
-      // neither is ever assumed from the other.
-      id: "wakiillada",
-      title: "Wakiillada",
-      flowStep: { n: 2, title: "Xogta & Xaaladda Iibiyayaasha" },
-      description: "Qofka ama dadka saxiixaya magaca iibiyayaasha (iyo iibsadaha).",
-      visibleWhen: isGate("wakiillo_ma_jiraan"),
-      parties: [
-        {
-          id: "wakiillo",
-          label: "Wakiillo",
-          singular: "Wakiil",
-          description:
-            "Hal wakiil oo matalaa dad badan, ama wakiillo kala duwan oo qayb qayb u matalaan.",
-          min: 0,
-          optionalList: true,
-          countFirst: true,
-          fields: [
-            {
-              id: "magac",
-              type: "text",
-              label: "Magaca Wakiilka",
-              validation: { required: true },
-              placeholder: "Tusaale: Ruun Xassan Qaalib",
-            },
-            {
-              id: "nooca_wakiilka",
-              type: "select",
-              label: "Nooca Wakiilnimo",
-              options: NOOCA_WAKIILKA,
-              optional: true,
-              hint: "Wakiil caadi ah iyo Wakiil Qayim waa laba arrimo oo kala duwan.",
-            },
-            {
-              id: "xiriirka_qoyska",
-              type: "text",
-              label: "Xiriirka Qoyska",
-              optional: true,
-              placeholder: "Tusaale: Hooyada",
-              description:
-                "Xiriirku waa xog, ma aha u matalaa. Qof waa hooyada ONA, wakiilna ka yahay QOF KALE.",
-            },
-            {
-              id: "tixraaca_wakiilnimo",
-              type: "text",
-              label: "Tixraaca Wakiilnimo",
-              optional: true,
-              placeholder: "Tusaale: Ref:APN/096/2025",
-            },
-            {
-              id: "xadka_wakiilnimo",
-              type: "text",
-              label: "Xadka Wakiilnimo",
-              optional: true,
-              placeholder: "Muxaadda uu wakiilku matalo",
             },
           ],
         },

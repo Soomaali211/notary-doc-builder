@@ -120,7 +120,6 @@ describe("B — form flow", () => {
       dejinta: {
         sub_type: "dhul_banaan",
         taariikhda_hantida: "2026-01-30",
-        wakiillo_ma_jiraan: "yes",
         sawirro_ma_jiraan: "yes",
         saxeexo_ma_jiraan: "yes",
         shaxado_ma_jiraan: "yes",
@@ -152,7 +151,6 @@ describe("B — form flow", () => {
       dejinta: {
         sub_type: "dhul_banaan",
         taariikhda_hantida: "2026-01-30",
-        wakiillo_ma_jiraan: "yes",
         sawirro_ma_jiraan: "yes",
         saxeexo_ma_jiraan: "yes",
         shaxado_ma_jiraan: "yes",
@@ -181,7 +179,6 @@ describe("B — form flow", () => {
       dejinta: {
         sub_type: "dhul_banaan",
         taariikhda_hantida: "2026-01-30",
-        wakiillo_ma_jiraan: "no",
         sawirro_ma_jiraan: "no",
         saxeexo_ma_jiraan: "no",
         shaxado_ma_jiraan: "no",
@@ -429,8 +426,9 @@ describe("C — the plot (Dhul Banaan)", () => {
       "iibsade_mode",
       "tirada_iibsadayaasha",
       // Each asked ONCE, at the top; each decides whether one optional list
-      // exists at all. None of them is ever asked again below.
-      "wakiillo_ma_jiraan",
+      // exists at all. None of them is ever asked again below. There is no
+      // "Wakiil ma jiraan?" here — a wakiil is decided inside the person's
+      // own step, exactly as Heshiis Kiro does.
       "sawirro_ma_jiraan",
       "saxeexo_ma_jiraan",
       "shaxado_ma_jiraan",
@@ -615,7 +613,7 @@ describe("E — dammaanadda (the decision is made in Step 1)", () => {
         nooca_damiinta: "qof_3aad",
         ...over,
       },
-      iibiyeyaal: [row("s1", { magac: "AHMED CALI", degan: "Hargeisa", telefoon: "0611111111" })],
+      iibiyeyaal: [{ ...row("s1", { magac: "AHMED CALI", degan: "Hargeisa", telefoon: "0611111111" }), attendance: { status: "jooga" as const } }],
       damiinka: { gurmadka_dammaanadda: "Reer deggan oo la dhisay.", ...(over.gurmadka_dammaanadda ? { gurmadka_dammaanadda: over.gurmadka_dammaanadda } : {}) },
     }) as unknown as FormValues;
 
@@ -624,7 +622,7 @@ describe("E — dammaanadda (the decision is made in Step 1)", () => {
     ({
       ...createInitialValues(C),
       dejinta: { sub_type: "dhul_banaan", reference: "DPN-MG-001", taariikhda_hantida: "2026-01-30", nooca_damiinta: nooca },
-      iibiyeyaal: [row("s1", { magac: "AHMED CALI", degan: "Hargeisa", telefoon: "0611111111" })],
+      iibiyeyaal: [{ ...row("s1", { magac: "AHMED CALI", degan: "Hargeisa", telefoon: "0611111111" }), attendance: { status: "jooga" as const } }],
       damiinka: { gurmadka_dammaanadda: "Reer deggan oo la dhisay.", ...det },
     }) as unknown as FormValues;
 
@@ -706,9 +704,9 @@ describe("F — repeatable parties", () => {
       ...createInitialValues(C),
       dejinta: { sub_type: "dhul_banaan", reference: "DPN-MG-001", taariikhda_hantida: "2026-01-30", sawirro_ma_jiraan: "yes", saxeexo_ma_jiraan: "yes" },
       iibiyeyaal: [
-        row("s1", { magac: "AHMED CALI", jinsi: "male", degan: "Hargeisa" }),
-        row("s2", { magac: "OMAR FARAH", jinsi: "male", degan: "Hargeisa" }),
-        row("s3", { magac: "RUUN XASAN", jinsi: "female", degan: "Berbera" }),
+        { ...row("s1", { magac: "AHMED CALI", jinsi: "male", degan: "Hargeisa" }), attendance: { status: "jooga" as const } },
+        { ...row("s2", { magac: "OMAR FARAH", jinsi: "male", degan: "Hargeisa" }), attendance: { status: "jooga" as const } },
+        { ...row("s3", { magac: "RUUN XASAN", jinsi: "female", degan: "Berbera" }), attendance: { status: "jooga" as const } },
       ],
       iibsadayaal: [{ ...row("b1", { magac: "IIBSADE 1", jinsi: "female", degan: "Hargeisa", telefoon: "0622222222" }), attendance: { status: "jooga" } }],
       hantida_dhul_banaan: { sida_hantida_loo_helay: "iibsaday", notary_ref: "Tr No 4471" },
@@ -726,7 +724,7 @@ describe("F — repeatable parties", () => {
     for (const id of ["sawirrada", "saxeexayaasha"]) {
       const field = party(id).fields.find((f) => f.id === "shakhsiga")!;
       expect(field.type).toBe("person");
-      expect(field.personSource).toBe("iibiyeyaal,iibsadayaal,wakiillo");
+      expect(field.personSource).toBe("iibiyeyaal,iibsadayaal");
     }
     // No free-text name field is left behind on either row.
     for (const id of ["sawirrada", "saxeexayaasha"]) {
@@ -745,9 +743,10 @@ describe("F — repeatable parties", () => {
   });
 
   test("10 sellers with 1 photo and 1 signature is VALID — counts never compare", () => {
-    const sellers = Array.from({ length: 10 }, (_, i) =>
-      row(`s${i + 1}`, { magac: `IIBIYE ${i + 1}`, jinsi: "male", degan: "Hargeisa" }),
-    );
+    const sellers = Array.from({ length: 10 }, (_, i) => ({
+      ...row(`s${i + 1}`, { magac: `IIBIYE ${i + 1}`, jinsi: "male", degan: "Hargeisa" }),
+      attendance: { status: "jooga" as const },
+    }));
     const v = linked({ iibiyeyaal: sellers });
     const blocks = buildDataContext(C, v).repeatBlocks;
     expect(blocks.get("IIBIYEYAAL")!.rows).toHaveLength(10);
@@ -795,8 +794,9 @@ describe("F — repeatable parties", () => {
       "degan",
       "xaalad",
       "telefoon",
-      "nooca_matalaada",
-      "wakiil",
+      // No Matalaad and no wakiil picker: a seller's representation is
+      // answered by "Ma Joogaa Heshiiska?" → Maya → Qaybta Wakiilka, the one
+      // place, exactly as Heshiis Kiro's landlord step does it.
     ]);
     // §4 — gender is asked for ONE seller only. Several sellers means plural
     // wording in the document, so per-person gender is hidden, not guessed.
@@ -819,19 +819,23 @@ describe("F — repeatable parties", () => {
     }
   });
 
-  test("SELLERS carry no attendance — a seller always signs his own sale", () => {
-    expect(party("iibiyeyaal").attendance).toBeUndefined();
+  test("SELLERS fill data and status exactly as Heshiis Kiro's landlords do", () => {
+    // Same combined step, same Ma-Joogaa choice, same Qaybta Wakiilka — the
+    // two sides are one shape now, and there is no second wakiil list.
+    expect(party("iibiyeyaal").attendance).toBe(true);
     expect(party("iibsadayaal").attendance).toBe(true);
+    expect(party("iibiyeyaal").representativeFields?.map((f) => f.id)).toEqual(
+      party("iibsadayaal").representativeFields?.map((f) => f.id),
+    );
   });
 
-  test("a seller's phone carries NO row-status rule — a seller has no attendance to gate on", () => {
-    const sellerPhone = party("iibiyeyaal").fields.find((f) => f.id === "telefoon")!;
-    expect(sellerPhone.showOnlyWhenRowStatus).toBeUndefined();
-    expect(sellerPhone.requiredWhenRowStatus).toBeUndefined();
-    // The buyer's ARE gated — an absent buyer is represented by a wakiil.
-    expect(party("iibsadayaal").fields.find((f) => f.id === "telefoon")!.showOnlyWhenRowStatus).toBe(
-      "jooga",
-    );
+  test("a phone belongs to a PRESENT person — and is never forced", () => {
+    for (const id of ["iibiyeyaal", "iibsadayaal"]) {
+      const phone = party(id).fields.find((f) => f.id === "telefoon")!;
+      expect(phone.showOnlyWhenRowStatus).toBe("jooga");
+      // §22 — optional never blocks, however many people are on the list.
+      expect(phone.requiredWhenRowStatus).toBeUndefined();
+    }
   });
 
   test("the count step drives the row list, with no upper bound", () => {
@@ -851,7 +855,8 @@ describe("G — buyer attendance", () => {
       .find((p) => p.id === "iibsadayaal")!;
     const phone = buyers.fields.find((f) => f.id === "telefoon")!;
     expect(phone.showOnlyWhenRowStatus).toBe("jooga");
-    expect(phone.requiredWhenRowStatus).toBe("jooga");
+    // §22 — the phone is never forced, however many buyers there are.
+    expect(phone.requiredWhenRowStatus).toBeUndefined();
   });
 
   test("an absent buyer is never asked for a phone or a photo of their own", () => {
@@ -948,7 +953,7 @@ describe("H — wakiil", () => {
     const buyers = C.sections
       .flatMap((s) => s.parties ?? [])
       .find((p) => p.id === "iibsadayaal")!;
-    expect(buyers.representativeFields?.map((f) => f.id)).toEqual(["magac", "sawir"]);
+    expect(buyers.representativeFields?.map((f) => f.id)).toEqual(["magac", "sawir", "nooca_wakiilka"]);
   });
 
   test("the engine can build a representative through its own API", () => {
@@ -975,7 +980,7 @@ describe("I — maragyo", () => {
     const v = {
       ...createInitialValues(C),
       dejinta: { sub_type: "dhul_banaan", taariikhda_hantida: "2026-01-30", tirada_iibiyayaasha: "1", tirada_iibsadayaasha: "1", nooca_damiinta: "iibiyaha" },
-      iibiyeyaal: [row("s1", { magac: "AHMED CALI", jinsi: "male" })],
+      iibiyeyaal: [{ ...row("s1", { magac: "AHMED CALI", jinsi: "male" }), attendance: { status: "jooga" as const } }],
       iibsadayaal: [{ ...row("b1", { magac: "IIBSADE", jinsi: "female", telefoon: "0622222222" }), attendance: { status: "jooga" } }],
       hantida_dhul_banaan: { sida_hantida_loo_helay: "iibsaday", tixraaca_ma_jiraan: "no", calaamad_dheeraad: "Beer ta Hargeisa" },
       qiimaha: { qiimaha_guud: "1600" },
@@ -1028,7 +1033,7 @@ describe("I2 — review shows collected answers, not storage handles", () => {
   test("a photograph in its own list reads as 'Sawir' — never the Convex storage id", () => {
     const rows = collectFilledValues(C, {
       ...createInitialValues(C),
-      iibiyeyaal: [row("s1", { magac: "AHMED CALI", degan: "Hargeisa" })],
+      iibiyeyaal: [{ ...row("s1", { magac: "AHMED CALI", degan: "Hargeisa" }), attendance: { status: "jooga" as const } }],
       // The row links to the person by ID — the picker never re-asks the name.
       sawirrada: [row("p1", { shakhsiga: "s1", sawir: "k7storageIDabc123" })],
     } as FormValues).flatMap((s) => s.rows);
@@ -1145,9 +1150,9 @@ describe("J — placeholder inventory", () => {
       "MARAGYO",
       "IIBIYEYAAL",
       "IIBSADAYAAL",
+      "WAKIILO_IIBIYEYAAL",
       "WAKIILO_IIBSADAYAAL",
       "KOOXAHA",
-      "WAKIILLO",
       "SAWIRRADA",
       "SAXEEXAYAASHA",
       "SHAXADAHA",
@@ -1300,7 +1305,7 @@ function scanValues(over: Partial<FormValues> = {}): FormValues {
       nooca_damiinta: "qof_3aad",
     },
     hantida_dhul_banaan: { ...PLOT, sida_hantida_loo_helay: "iibsaday" },
-    iibiyeyaal: [row("s1", { magac: "AHMED CALI", degan: "Hargeisa", telefoon: "0611111111" })],
+    iibiyeyaal: [{ ...row("s1", { magac: "AHMED CALI", degan: "Hargeisa", telefoon: "0611111111" }), attendance: { status: "jooga" as const } }],
     iibsadayaal: [row("b1", { magac: "SOMALI JAMAC", degan: "Hargeisa", telefoon: "0622222222" }, "jooga")],
     // Photographs are their OWN list. The Dhul Banaan scan prints three of
     // them on page 1 — for ONE seller, ONE buyer and the guarantor — which is
@@ -1442,8 +1447,10 @@ describe("L — SCAN FIDELITY", () => {
     expect(
       buildRepeatBlockData(C, values).get("SAWIRRADA")!.rows.map((p) => p.MAGAC),
     ).toEqual(["AHMED CALI", "ABDI WAKIIL"]);
-    expect(map["{{WAKIIL_MAGAC}}"]).toBe("ABDI WAKIIL");
-    expect(map["{{WAKIIL_SAWIR}}"]).toBe("stor_rep");
+    // The buyer's wakiil is addressed by its OWN group token — the bare
+    // {{WAKIIL_*}} alias belongs to the first attendance group (the sellers).
+    expect(map["{{IIBSADAHA_WAKIIL_MAGAC}}"]).toBe("ABDI WAKIIL");
+    expect(map["{{IIBSADAHA_WAKIIL_SAWIR}}"]).toBe("stor_rep");
 
     // Seller self-guarantor: no guarantor photo, no guarantor phone, and the
     // guarantor slot carries the SELLER's name.
@@ -1479,7 +1486,7 @@ describe("L — SCAN FIDELITY", () => {
     expect(marag.map((r) => r.NUMBER)).toEqual(["1", "2", "3", "4", "5", "6"]);
 
     // Page 1 photos: seller + the wakiil who signs for the absent buyer.
-    expect(map["{{WAKIIL_SAWIR}}"]).toBe("stor_rep");
+    expect(map["{{IIBSADAHA_WAKIIL_SAWIR}}"]).toBe("stor_rep");
     expect(buildRepeatBlockData(C, values).get("SAWIRRADA")!.rows).toHaveLength(2);
   });
 });
