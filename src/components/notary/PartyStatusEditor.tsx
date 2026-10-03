@@ -91,6 +91,9 @@ export function PartyStatusEditor({
         // for THIS status (Telefoon under Haa) shows its * indicator.
         const visibleFields = partyDef.fields
           .filter((f) => !f.showOnlyWhenRowStatus || f.showOnlyWhenRowStatus === status)
+          // The plural rule: several people → plural wording → no per-person
+          // gender. Same rule as the non-attendance editor.
+          .filter((f) => !(f.hideWhenListHasMany && rows.length > 1))
           .map((f) =>
             f.requiredWhenRowStatus && f.requiredWhenRowStatus === status
               ? { ...f, optional: false, validation: { ...(f.validation ?? {}), required: true } }

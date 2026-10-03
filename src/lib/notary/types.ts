@@ -114,6 +114,18 @@ export interface BaseField {
    */
   showWhenRowValueAnyOf?: { field: string; values: string[] };
   /**
+   * Hidden whenever this list holds MORE THAN ONE row.
+   *
+   * This is the plural rule: a sale with ten sellers uses plural wording
+   * throughout, so asking each of them "Lab mise Dhedig?" would contradict
+   * the wording the document prints and would guess nothing useful. With one
+   * seller the question stays. Never derived from a name — gender is an
+   * answer, never an inference.
+   *
+   * Opt-in: a field that does not declare it is always shown.
+   */
+  hideWhenListHasMany?: boolean;
+  /**
    * Step-2 combined party editor: the field becomes REQUIRED when the row's
    * attendance status equals this value (e.g. Telefoon for a jooga party).
    */

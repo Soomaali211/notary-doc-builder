@@ -241,6 +241,9 @@ function validatePartyList(
       ) {
         continue;
       }
+      // The plural rule: per-person gender is hidden when the list holds more
+      // than one row, so it is N/A here — never rendered, never validated.
+      if (field.hideWhenListHasMany && rows.length > 1) continue;
       let err = validateField(field, row.values?.[field.id] ?? "");
       // Conditional requiredness per row status: Telefoonka qofka waa waajib
       // marka uu JOOGO; waa qarsoon (N/A) marka wakiil matalo.

@@ -785,7 +785,8 @@ describe("F — repeatable parties", () => {
     // gender, never an authority); `koox` links the person to a family name.
     // There is deliberately no `sawir` here — photographs live in their own
     // independent list, so a seller row can never imply a photo.
-    expect(party("iibiyeyaal").fields.map((f) => f.id)).toEqual([
+    const sellerFields = party("iibiyeyaal").fields;
+    expect(sellerFields.map((f) => f.id)).toEqual([
       "magac",
       "jinsi",
       "dooro",
@@ -797,13 +798,18 @@ describe("F — repeatable parties", () => {
       "nooca_matalaada",
       "wakiil",
     ]);
+    // §4 — gender is asked for ONE seller only. Several sellers means plural
+    // wording in the document, so per-person gender is hidden, not guessed.
+    expect(sellerFields.find((f) => f.id === "jinsi")?.hideWhenListHasMany).toBe(true);
     expect(party("iibsadayaal").fields.map((f) => f.id)).toEqual([
       "magac",
       "jinsi",
       "degan",
       "telefoon",
-      "nooca_matalaada",
-      "wakiil",
+      // NO Matalaad and NO wakiil picker here: a buyer's representation is
+      // answered through "Ma Joogaa Heshiiska?" → Maya → Qaybta Wakiilka.
+      // Carrying a second pair of controls asked the same question twice on
+      // one row.
     ]);
   });
 

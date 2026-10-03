@@ -460,6 +460,10 @@ function partyFields(
       label: "Jinsi",
       options: JINSI,
       optional: true,
+      // §4/§5/§24 — asked for ONE person only. With several people the
+      // document uses plural wording, so per-person gender would contradict
+      // it; it is never guessed from a name either.
+      hideWhenListHasMany: true,
       hint: "Wuxuu go'aamiyaa erayada qoraal — ha laga soo saarin magaca.",
     },
     ...(opts.role ? ([
@@ -517,26 +521,39 @@ function partyFields(
         : {}),
       placeholder: "+252 61 5551234",
     },
-    {
-      id: "nooca_matalaada",
-      type: "select",
-      label: "Matalaad",
-      options: NOOCA_MATALAADA,
-      // NO default on purpose. A default value marks an otherwise-empty row
-      // as "filled", which would conjure a nameless phantom party into the
-      // document. Leaving it blank already means "nobody signs for this one".
-      optional: true,
-      hint: "Qof kale ayaa saxiixaya? Hal qof wuxuu matali karaa dad badan.",
-    },
-    {
-      id: "wakiil",
-      type: "person",
-      label: "Wakiilka saxiixaya",
-      personSource: PERSON_SOURCE_REPS,
-      optional: true,
-      showWhenRowValueAnyOf: { field: "nooca_matalaada", values: MATALO_JIRO },
-      description: "Dooro qofka hore u geliyey — wakiilkuna wuxuu yahay qof kale.",
-    },
+    // Representation is asked ONCE per side, in the shape that side needs:
+    //
+    //  · A NON-attendance party (sellers, groups) answers it here — Matalaad
+    //    and then which wakiil from the wakiillo list stands for them.
+    //  · An ATTENDANCE party (buyers) answers "Ma Joogaa Heshiiska?" instead,
+    //    and "Maya" opens Qaybta Wakiilka. Rendering Matalaad/Wakiil there TOO
+    //    asked the same question twice on one row, so attendance parties do
+    //    not get these two fields at all.
+    ...(opts.attendance
+      ? []
+      : ([
+          {
+            id: "nooca_matalaada",
+            type: "select" as const,
+            label: "Matalaad",
+            options: NOOCA_MATALAADA,
+            // NO default on purpose. A default value marks an otherwise-empty
+            // row as "filled", which would conjure a nameless phantom party
+            // into the document. Leaving it blank already means "nobody signs
+            // for this one".
+            optional: true,
+            hint: "Qof kale ayaa saxiixaya? Hal qof wuxuu matali karaa dad badan.",
+          },
+          {
+            id: "wakiil",
+            type: "person" as const,
+            label: "Wakiilka saxiixaya",
+            personSource: PERSON_SOURCE_REPS,
+            optional: true,
+            showWhenRowValueAnyOf: { field: "nooca_matalaada", values: MATALO_JIRO },
+            description: "Dooro qofka hore u geliyey — wakiilkuna wuxuu yahay qof kale.",
+          },
+        ] satisfies FieldDef[])),
   ];
 }
 

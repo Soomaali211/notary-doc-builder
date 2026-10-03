@@ -156,6 +156,10 @@ export function PartyListEditor({
                   const given = (row.values?.[dep.field] ?? "").trim();
                   if (!dep.values.includes(given)) return null;
                 }
+                // The plural rule: with several people in this list the
+                // document speaks in plurals, so per-person gender is not
+                // asked — of anyone.
+                if (field.hideWhenListHasMany && rows.length > 1) return null;
                 return (
                   <FieldRenderer
                     key={field.id}

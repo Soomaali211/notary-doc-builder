@@ -21,6 +21,7 @@ import { SectionStep } from "../src/pages/NewDocumentInterview";
 import { kalaIiibsiHantiConfig as C } from "../src/lib/notary/documents/kalaIiibsiHanti";
 import { buildConditionalWorkflow } from "../src/lib/notary/agreementSetup";
 import { createInitialValues } from "../src/lib/notary/formValues";
+import { validateDocument } from "../src/lib/notary/validation";
 import type { FormValues } from "@/lib/notary/types";
 
 const sec = (id: string) => C.sections.find((s) => s.id === id)!;
@@ -280,6 +281,92 @@ describe("Hanti — step 6 renders guarantor and witnesses (§15, §17)", () => 
 
   test("no undefined/null leaked into the markup", () => {
     expect(html).not.toMatch(/undefined|null/);
+  });
+});
+
+describe("Hanti — §4/§5 gender is asked for ONE person, never several", () => {
+  const sec = (id: string) => C.sections.find((s) => s.id === id)!;
+  const row = (id: string, v: Record<string, string>) => ({ id, values: v });
+  const sellers = (n: number) =>
+    Array.from({ length: n }, (_, i) =>
+      row(`s${i + 1}`, { magac: `IIBIYE ${i + 1}`, jinsi: "male", xaalad: "jooga" }),
+    );
+  const renderSellers = (n: number) => {
+    const values = {
+      ...fullValues,
+      iibiyeyaal: sellers(n),
+      dejinta: {
+        ...(fullValues as any).dejinta,
+        iibiye_mode: n > 1 ? "multiple" : "single",
+        tirada_iibiyayaasha: String(n),
+      },
+    } as unknown as FormValues;
+    return renderToStaticMarkup(
+      <ConvexProvider client={convex}>
+        <SectionStep
+          step={{ kind: "section", section: sec("iibiyaha"), stepTitle: "X" }}
+          values={values}
+          validation={{}}
+          stepErrors={false}
+          setValues={() => {}}
+          config={C}
+        />
+      </ConvexProvider>,
+    );
+  };
+
+  test("one seller is asked their gender", () => {
+    expect((renderSellers(1).match(/Jinsi/g) ?? []).length).toBe(1);
+  });
+
+  test("§4 several sellers are NOT asked gender — not even once", () => {
+    const html = renderSellers(3);
+    expect(html).toContain("IIBIYE 3"); // the rows are really there
+    expect(html).not.toContain("Jinsi");
+  });
+
+  test("§24 the plural rule is config-declared, never inferred from a name", () => {
+    const f = C.sections
+      .flatMap((s) => s.parties ?? [])
+      .find((p) => p.id === "iibiyeyaal")!
+      .fields.find((x) => x.id === "jinsi");
+    expect(f?.hideWhenListHasMany).toBe(true);
+  });
+});
+
+describe("Hanti — §6/§16 a buyer's representation is asked ONCE", () => {
+  const party = C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === "iibsadayaal")!;
+
+  test("§6 the buyer row carries NO second set of representative controls", () => {
+    // "Ma Joogaa Heshiiska?" → Maya → Qaybta Wakiilka is the buyer's ONE way
+    // to name a representative. Matalaad + a wakiil picker beside it asked the
+    // same question twice on the same row.
+    expect(party.fields.map((f) => f.id)).not.toContain("nooca_matalaada");
+    expect(party.fields.map((f) => f.id)).not.toContain("wakiil");
+  });
+
+  test("§6 a SELLER keeps both — a seller has no attendance step to ask instead", () => {
+    const seller = C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === "iibiyeyaal")!;
+    expect(seller.fields.map((f) => f.id)).toContain("nooca_matalaada");
+    expect(seller.fields.map((f) => f.id)).toContain("wakiil");
+  });
+
+  test("§22 the gender a seller answered is not validated when the list is plural", () => {
+    const plural = {
+      ...fullValues,
+      dejinta: {
+        ...(fullValues as any).dejinta,
+        iibiye_mode: "multiple",
+        tirada_iibiyayaasha: "2",
+      },
+      iibiyeyaal: [
+        { id: "s1", values: { magac: "AHMED CALI" } },
+        { id: "s2", values: { magac: "RUUN XASAN" } },
+      ],
+    } as unknown as FormValues;
+    const errs = validateDocument(C, plural);
+    const sellerErrs = errs["iibiyaha"]?.partyErrors["iibiyeyaal"] ?? [];
+    expect(sellerErrs.every((e) => !e.errors.some((x) => x.fieldId === "jinsi"))).toBe(true);
   });
 });
 
