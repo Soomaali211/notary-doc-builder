@@ -219,9 +219,30 @@ export function buildHantiPartyModel(
 
   /* 4 — photographs and signatures. Two independent lists, each linked to a
      person. The counts are whatever the notary entered. */
+  /**
+   * Find the person a photo/signature row names, or ADD them.
+   *
+   * The Beer scan photographs a "D/MAALKA" who is neither one of the
+   * thirteen sellers nor the buyer — he is in the room and on the paper, so
+   * he is a PERSON and the model says so. Dropping his photograph because
+   * he is not in another list would lose a real face off a real document.
+   *
+   * A row with no name at all stays unresolved, and inspectPartyModel reports
+   * it: that is a genuine data problem, not a person we invented.
+   */
+  const ensurePerson = (name: string, id: string): Person => {
+    const known = peopleByName.get(name);
+    if (known) return known;
+    const person: Person = { id, name, gender: "unknown" };
+    people.push(person);
+    peopleByName.set(name, person);
+    return person;
+  };
+
   const photos: PersonPhoto[] = [];
   for (const row of filled(rowsOf(values, HANTI_KEYS.photos))) {
-    const person = peopleByName.get(text(row, FIELD.name));
+    const name = text(row, FIELD.name);
+    const person = name ? ensurePerson(name, row.id) : undefined;
     if (!person) {
       photos.push({ id: row.id, personId: row.id, storageId: text(row, FIELD.photo) });
       continue;
@@ -237,12 +258,13 @@ export function buildHantiPartyModel(
 
   const signatures: PersonSignature[] = [];
   for (const row of filled(rowsOf(values, HANTI_KEYS.signatures))) {
-    const person = peopleByName.get(text(row, FIELD.name));
+    const name = text(row, FIELD.name);
+    // A signature line belongs to somebody; a nameless row stays unresolved
+    // so the inspector can report it.
+    const person = name ? ensurePerson(name, row.id) : undefined;
     const prefix = text(row, FIELD.prefix);
     signatures.push({
       id: row.id,
-      // An unresolved name keeps its own row id so inspectPartyModel can
-      // report the orphan instead of attaching the signature to nobody.
       personId: person ? person.id : row.id,
       ...(prefix ? { prefix } : {}),
     });

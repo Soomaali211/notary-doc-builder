@@ -746,6 +746,17 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
         { id: "jiho_2", type: "text", label: "Xadka / Jiho 2", validation: { required: true }, placeholder: "Tusaale: Jidka Mogadishu" },
         { id: "jiho_3", type: "text", label: "Xadka / Jiho 3", validation: { required: true }, placeholder: "Tusaale: Badda Sooma" },
         {
+          id: "soohdimaha",
+          type: "textarea",
+          label: "Soohdimaha (Xadka)",
+          optional: true,
+          skippable: true,
+          colSpan: 2,
+          placeholder: "Soohdimo / xad-dhaaf ah oo dhulka ku dheereeysan…",
+          description:
+            "Dhul Banaan scan-ku wuxuu qabtay soohdimo dhulka; Beer scan-ku ma qabin.",
+        },
+        {
           id: "sida_hantida_loo_helay",
           type: "select",
           label: "Sida iibiyuhu hantida u helay",
@@ -799,9 +810,32 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       description: "Xuduudaha beeraha la iibsanayo.",
       visibleWhen: isHanti("beer"),
       fields: [
+        {
+          id: "magaca_beerta",
+          type: "text",
+          label: "Magaca Beeraha",
+          validation: { required: true },
+          placeholder: "Tusaale: Beer Daara-Salaam",
+          description:
+            "Beer scan-ku wuxuu qabtay beer magac leh — goobta iyo beerka labo arrimo oo kala duwan.",
+        },
         { id: "goobta", type: "text", label: "Goobta Beeraha", validation: { required: true }, placeholder: "Tusaale: Hargeisa" },
         { id: "degmada_xaafadda", type: "text", label: "Degmada / Xaafadda", validation: { required: true }, placeholder: "Tusaale: Degmada Hargeisa" },
         { id: "cabbirka", type: "text", label: "Cabbirka Beeraha", validation: { required: true }, placeholder: "Tusaale: 80 m²" },
+        {
+          id: "jiho_1",
+          type: "text",
+          label: "Jiho / Xad 1",
+          optional: true,
+          placeholder: "Tusaale: Xarunta Wacatariga",
+        },
+        {
+          id: "jiho_2",
+          type: "text",
+          label: "Jiho / Xad 2",
+          optional: true,
+          placeholder: "Tusaale: Jidka Mogadishu",
+        },
         { id: "nooca_beeraha", type: "text", label: "Nooca Beeraha", validation: { required: true }, placeholder: "Tusaale: Beer Dhab ah" },
         { id: "xuduudaha", type: "text", label: "Xuduudaha Beeraha", optional: true, skippable: true, placeholder: "Tusaale: Bandhig, kalkaaliye" },
         { id: "lambarka_lahaansho", type: "text", label: "Lambar / Aqoonsi Lahaansho", validation: { required: true }, placeholder: "Lambarka lahaanshaha" },

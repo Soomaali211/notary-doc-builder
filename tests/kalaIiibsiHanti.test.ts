@@ -196,6 +196,9 @@ describe("C — the plot (Dhul Banaan)", () => {
   const ids = (s: typeof plotSection) => s.fields.map((f) => f.id);
 
   test("collects exactly the scan's plot data — nothing more", () => {
+    // `soohdimaha` was added when the Dhul Banaan scan's boundaries were
+    // registered in scanEvidence.ts — it is the one field this list was
+    // missing, and it is OPTIONAL because a boundary may be unstated.
     expect(ids(plotSection)).toEqual([
       "degmada",
       "xaafada",
@@ -203,10 +206,12 @@ describe("C — the plot (Dhul Banaan)", () => {
       "jiho_1",
       "jiho_2",
       "jiho_3",
+      "soohdimaha",
       "sida_hantida_loo_helay",
       "notary_ref",
       "beerta",
     ]);
+    expect(plotSection.fields.find((f) => f.id === "soohdimaha")?.optional).toBe(true);
   });
 
   test("the reference is NOT a form question — the system allocates it", () => {

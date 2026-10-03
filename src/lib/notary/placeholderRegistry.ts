@@ -375,6 +375,13 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
     group: "Dhul Banaan",
   },
   {
+    token: "SOOHDIMADA",
+    key: "hantida_dhul_banaan.soohdimaha",
+    fallback: "—",
+    label: "Soohdimaha (Xadka dhulka)",
+    group: "Dhul Banaan",
+  },
+  {
     token: "BEERTA",
     key: "hantida_dhul_banaan.beerta",
     label: "Beerta / warqadda dhaxalka",
@@ -439,6 +446,17 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   { token: "BEER_LAMBARKA_LAHAANSHO", key: "hantida_beer.lambarka_lahaansho", label: "Lambar / Aqoonsi Lahaansho", group: "Beer" },
   { token: "BEER_FAAHFAAHIN", key: "hantida_beer.faahfaahin_dheeraad", fallback: "—", label: "Faahfaahin Dheeraad ah (Beer)", group: "Beer" },
   { token: "BEER_CEEL", key: "hantida_beer.ceel", label: "Beerku wuxuu leeyahay ceel?", group: "Beer" },
+  {
+    // The Beer's OWN name. The Beer scan prints it in its heading, and it is
+    // a different fact from the location — which is why Beer carries a field
+    // Dhul Banaan does not have.
+    token: "BEER_MAGAC",
+    key: "hantida_beer.magaca_beerta",
+    label: "Magaca Beeraha",
+    group: "Beer",
+  },
+  { token: "BEER_JIHO_1", key: "hantida_beer.jiho_1", fallback: "—", label: "Jiho / Xad 1 (Beer)", group: "Beer" },
+  { token: "BEER_JIHO_2", key: "hantida_beer.jiho_2", fallback: "—", label: "Jiho / Xad 2 (Beer)", group: "Beer" },
   { token: "BEER_SHAYADA_CEELKA", key: "hantida_beer.shayada_ceelka", fallback: "—", label: "Shayada Ceelka (Beer)", group: "Beer" },
 
   /* ---- Qiimaha: what was actually paid (optional) ---- */
