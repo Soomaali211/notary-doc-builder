@@ -73,6 +73,70 @@ const NOOCA_DAMIIN: SelectOption[] = [
   { value: "iibiyaha", label: "Iibiyaha oo is-damiinaya" },
 ];
 
+/**
+ * JINSIGA — a person's gender, chosen by the notary.
+ *
+ * It is an ANSWER, never an inference. Nothing in this system reads a gender
+ * out of a name, and there is no "iibiye → iibiso" rule anywhere: gender and
+ * definiteness are two different axes (see partyModel.GENDER_WORDS), which is
+ * exactly why a find-and-replace would corrupt the legal wording.
+ */
+const JINSI: SelectOption[] = [
+  { value: "male", label: "Nin (male)" },
+  { value: "female", label: "Naag (female)" },
+  { value: "unknown", label: "Ma garanayo — halkan lama sheegi karo" },
+];
+
+/**
+ * The ROLE this person holds in the sale — a ROLE, not a gender and not an
+ * authority. "M/QIYAM" and "D/MAALKA" are roles the scans print above a
+ * signature line; neither says anything about who may sign for whom.
+ * OPEN DECISION: the office's full list of role words is not settled — these
+ * are the ones the Beer scan and the approved spec actually show.
+ */
+const DOORO_IIBIYE: SelectOption[] = [
+  { value: "iibiye", label: "Iibiyaha (uu isaga iibsaday)" },
+  { value: "wakiil", label: "Wakiil — wuxuu wakiil ka ah iibiyayaasha kale" },
+  { value: "qiyam", label: "Qiyam (M/QIYAM)" },
+  { value: "dam_maalka", label: "D/MAALKA" },
+];
+
+/**
+ * The two authorities the office distinguishes.
+ *
+ *   Wakiil caadi ah — appointed for someone WHO CAN act for himself; the
+ *     authority is a convenience, not a legal incapacity.
+ *   Wakiil Qayim — appointed for someone WHO CANNOT act alone (a minor, an
+ *     heir without capacity, an absent heir). This says something about the
+ *     REPRESENTED person's legal capacity, so it is not interchangeable with
+ *     an ordinary wakiil and is never defaulted.
+ */
+const NOOCA_WAKIILKA: SelectOption[] = [
+  { value: "wakiil", label: "Wakiil caadi ah (qof siisaba wuxuu u qaadan karaa)" },
+  { value: "wakiil_qayim", label: "Wakiil Qayim (qof aan iskiis u qaadi karin)" },
+];
+
+/** Signature prefixes. Taken from the Beer scan, not invented. */
+const PREFIX_SAXEEX: SelectOption[] = [
+  { value: "IIBIYE", label: "IIBIYE" },
+  { value: "IIBISO", label: "IIBISO" },
+  { value: "IIBIYE/WAKIIL", label: "IIBIYE/WAKIIL" },
+  { value: "IIBISO/WAKIIL", label: "IIBISO/WAKIIL" },
+  { value: "M/QIYAM", label: "M/QIYAM" },
+  { value: "D/MAALKA", label: "D/MAALKA" },
+];
+
+/**
+ * Kinds of supporting paper. MDH/C/… are court/ministry inheritance
+ * certificates and Ref:APN/… is an authorization — both read off the scans.
+ * OPEN DECISION: the office's full list of accepted papers is not settled.
+ */
+const NOOCA_SHAXADAH: SelectOption[] = [
+  { value: "beerta", label: "Beerta / Warqadda Dhaxalka (MDH/C/…)" },
+  { value: "poa", label: "Warqadda Wakiilnimo / POA (Ref:APN/…)" },
+  { value: "notary_ref", label: "Tixraaca Notary / Warqadda Iibka" },
+];
+
 /** Sub-type equals one of the given values. */
 const isHanti = (...values: string[]): Condition => ({
   op: "or",
@@ -146,15 +210,26 @@ const HANTI_TEMPLATES: TemplateSpec[] = [
 ];
 
 /**
- * Identity + photo of one seller or one buyer.
+ * Identity of one seller or one buyer.
  *
- * The phone and the photo belong to the PERSON. For a BUYER they are
- * collected only when he is present: an absent buyer is represented by a
- * wakiil, so asking for the buyer's own phone or photo would ask for data
- * that does not exist. For a SELLER there is no attendance state at all — he
- * always signs his own sale — so those two fields carry no row-status rule.
+ * There is NO photo field here, and that is deliberate. A photograph belongs
+ * to the independent `sawirrada` list, linked to a person by name — because
+ * the document decides how many photographs it prints, not how many sellers
+ * it names. Thirteen sellers may print eight photographs; one seller may
+ * print none. A photo field on this row would silently re-create the
+ * photo-per-seller rule the office forbids, and would put a second, competing
+ * place to enter the same picture.
+ *
+ * `jinsi` is an INPUT (the notary chooses it) and never derived from the
+ * name. `dooro` is the ROLE this person holds — distinct from the gender and
+ * distinct from any authority they may hold. `wakiil` names the person who
+ * signs FOR this one; it is optional, because most people sign for
+ * themselves.
  */
-function partyFields(role: string, opts: { attendance: boolean }): FieldDef[] {
+function partyFields(
+  role: string,
+  opts: { attendance: boolean; role?: boolean },
+): FieldDef[] {
   return [
     {
       id: "magac",
@@ -163,6 +238,31 @@ function partyFields(role: string, opts: { attendance: boolean }): FieldDef[] {
       validation: { required: true },
       placeholder: `Magaca ${role.toLowerCase()}`,
     },
+    {
+      id: "jinsi",
+      type: "select",
+      label: "Jinsi",
+      options: JINSI,
+      optional: true,
+      hint: "Wuxuu go'aamiyaa erayada qoraal — ha laga soo saarin magaca.",
+    },
+    ...(opts.role ? ([
+      {
+        id: "dooro",
+        type: "select" as const,
+        label: "Doorka qofka",
+        options: DOORO_IIBIYE,
+        optional: true,
+        hint: "Doorka waa kala duwan jinsiga iyo wakiilnimo.",
+      },
+      {
+        id: "koox",
+        type: "text" as const,
+        label: "Kooxa / Qoysku u qalmo",
+        optional: true,
+        placeholder: "Tusaale: Ilma Xassan Qaalib",
+      },
+    ] satisfies FieldDef[]) : []),
     {
       id: "degan",
       type: "text",
@@ -181,22 +281,20 @@ function partyFields(role: string, opts: { attendance: boolean }): FieldDef[] {
       placeholder: "+252 61 5551234",
     },
     {
-      id: "sawir",
-      type: "photo",
-      label: `Sawirka ${role}`,
+      id: "wakiil",
+      type: "text",
+      label: "Wakiilka saxiixaya (haddii uu jiro)",
       optional: true,
-      ...(opts.attendance
-        ? { requiredWhenRowStatus: "jooga" as const, showOnlyWhenRowStatus: "jooga" as const }
-        : {}),
-      description: "Sawirka qofka (nolosha, tirakoob badan).",
+      placeholder: "Magaca wakiilka — haddii uu qof kale u matalo",
     },
   ];
 }
 
 /**
- * Per-wakiil data (entered once per representative, shared by all the absent
- * parties they stand for). The scans show only a name and a photo for the
- * person who signs in an absent buyer's place.
+ * Per-wakiil data for the ATTENDANCE flow (an absent buyer's representative),
+ * collected once per representative and shared by every party they stand
+ * for. The scans show a name and a photograph for the person who signs in an
+ * absent buyer's place.
  */
 const REPRESENTATIVE_FIELDS: FieldDef[] = [
   { id: "magac", type: "text", label: "Magaca Wakiilka", validation: { required: true } },
@@ -237,6 +335,14 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
     { blockId: "IIBIYEYAAL", partyId: "iibiyeyaal" },
     { blockId: "IIBSADAYAAL", partyId: "iibsadayaal" },
     { blockId: "WAKIILO_IIBSADAYAAL", partyId: "wakiilo_iibsadayaal", numberPlaceholder: "NUMBER" },
+    // Independent lists. Each block repeats over ITS OWN list — a template
+    // may print eight photographs beside thirteen sellers without the engine
+    // once comparing the two counts.
+    { blockId: "KOOXAHA", partyId: "kooxaha", numberPlaceholder: "NUMBER" },
+    { blockId: "WAKIILLO", partyId: "wakiillo", numberPlaceholder: "NUMBER" },
+    { blockId: "SAWIRRADA", partyId: "sawirrada", numberPlaceholder: "NUMBER" },
+    { blockId: "SAXEEXAYAASHA", partyId: "saxeexayaasha", numberPlaceholder: "NUMBER" },
+    { blockId: "SHAXADAHA", partyId: "shaxadaha", numberPlaceholder: "NUMBER" },
   ],
 
   // {{IF:…}} flags.
@@ -290,6 +396,44 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       elseKey: "iibiyeyaal.magac",
       label: "Magaca damiinka (qof 3aad, ama iibiyaha is-damiinaya)",
     },
+    // The legal role words. GENDER comes from the notary's own answer and
+    // NUMBER from the list length; the two are resolved separately so that
+    // "iibiye → iibisada" (which would change both at once) can never happen.
+    // Singular with no chosen gender prints nothing rather than guessing.
+    {
+      token: "IIBIYE_WORDS",
+      op: "party_gender_word",
+      partyId: "iibiyeyaal",
+      role: "seller",
+      number: "auto",
+      label: "Erayga iibiyaha (jinsi + tirad)",
+    },
+    {
+      token: "IIBIYE_WORD",
+      op: "party_gender_word",
+      partyId: "iibiyeyaal",
+      role: "seller",
+      number: "auto",
+      definite: true,
+      label: "Erayga iibiyaha (definite: iibiyaha / iibisada)",
+    },
+    {
+      token: "IIBSADE_WORDS",
+      op: "party_gender_word",
+      partyId: "iibsadayaal",
+      role: "buyer",
+      number: "auto",
+      label: "Erayga iibsadaha (jinsi + tirad)",
+    },
+    {
+      token: "IIBSADE_WORD",
+      op: "party_gender_word",
+      partyId: "iibsadayaal",
+      role: "buyer",
+      number: "auto",
+      definite: true,
+      label: "Erayga iibsadaha (definite: iibsadaha / iibsatada)",
+    },
   ],
 
   sections: [
@@ -324,12 +468,250 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           // The interview asks "Tirada Iibiyayaasha?" in its own step before
           // the data step — the scan count is whatever the sale actually has.
           countFirst: true,
-          fields: partyFields("Iibiyaha", { attendance: false }),
+          fields: partyFields("Iibiyaha", { attendance: false, role: true }),
         },
       ],
       fields: [],
     },
     {
+      // A family that owns the plot together. The group has a NAME and is
+      // never a person — "Ilma Xassan Qaalib" cannot sign, be photographed
+      // or be represented; its members can. Members ARE the seller rows,
+      // which point back here by name, so one human being stays one person
+      // however many roles he holds.
+      id: "kooxaha",
+      title: "Kooxa / Qoysku Iibiyaha",
+      description:
+        "Magaca kooxka ama qoysku — xubnihuna waa iibiyayaasha.",
+      parties: [
+        {
+          id: "kooxaha",
+          label: "Kooxaha",
+          singular: "Koox",
+          description: "Magaca kooxka ayaa la sheegaa; xubnihana waa iibiyayaasha.",
+          min: 0,
+          optionalList: true,
+          countFirst: true,
+          fields: [
+            {
+              id: "magac",
+              type: "text",
+              label: "Magaca Kooxka / Qoysku",
+              optional: true,
+              placeholder: "Tusaale: Ilma Xassan Qaalib",
+            },
+          ],
+        },
+      ],
+      fields: [],
+    },
+    {
+      // The authorities. A representative may stand for one person or for a
+      // dozen, and two representatives may split the same group between
+      // them. "Wakiil caadi ah" and "Wakiil Qayim" are different answers and
+      // neither is ever assumed from the other.
+      id: "wakiillada",
+      title: "Wakiillada",
+      description: "Qofka ama dadka saxiixaya magaca iibiyayaasha (iyo iibsadaha).",
+      parties: [
+        {
+          id: "wakiillo",
+          label: "Wakiillo",
+          singular: "Wakiil",
+          description:
+            "Hal wakiil oo matalaa dad badan, ama wakiillo kala duwan oo qayb qayb u matalaan.",
+          min: 0,
+          optionalList: true,
+          countFirst: true,
+          fields: [
+            {
+              id: "magac",
+              type: "text",
+              label: "Magaca Wakiilka",
+              validation: { required: true },
+              placeholder: "Tusaale: Ruun Xassan Qaalib",
+            },
+            {
+              id: "nooca_wakiilka",
+              type: "select",
+              label: "Nooca Wakiilnimo",
+              options: NOOCA_WAKIILKA,
+              optional: true,
+              hint: "Wakiil caadi ah iyo Wakiil Qayim waa laba arrimo oo kala duwan.",
+            },
+            {
+              id: "xiriirka_qoyska",
+              type: "text",
+              label: "Xiriirka Qoyska",
+              optional: true,
+              placeholder: "Tusaale: Hooyada",
+              description:
+                "Xiriirku waa xog, ma aha u matalaa. Qof waa hooyada ONA, wakiilna ka yahay QOF KALE.",
+            },
+            {
+              id: "tixraaca_wakiilnimo",
+              type: "text",
+              label: "Tixraaca Wakiilnimo",
+              optional: true,
+              placeholder: "Tusaale: Ref:APN/096/2025",
+            },
+            {
+              id: "xadka_wakiilnimo",
+              type: "text",
+              label: "Xadka Wakiilnimo",
+              optional: true,
+              placeholder: "Muxaadda uu wakiilku matalo",
+            },
+          ],
+        },
+      ],
+      fields: [],
+    },
+    {
+      // PHOTOGRAPHS — a list in its own right.
+      //
+      // Nothing here is derived from the seller list and nothing here is
+      // required: a sale may print eight photographs for thirteen sellers, or
+      // none at all. Each row names the PERSON the picture belongs to.
+      id: "sawirrada",
+      title: "Sawirrada",
+      description: "Sawirka qofka — tiradu ma la xiriirin tirada iibiyayaasha.",
+      parties: [
+        {
+          id: "sawirrada",
+          label: "Sawirro",
+          singular: "Sawir",
+          description: "Hal sawir ama badan. Qofkee sawirkiisa ayaad haysaa?",
+          min: 0,
+          optionalList: true,
+          countFirst: true,
+          fields: [
+            {
+              id: "magac",
+              type: "text",
+              label: "Magaca Qofka",
+              validation: { required: true },
+              placeholder: "Magaca qofka sawirkiisa",
+              description: "Sawirku wuxuu ku xiran yahay QOOFKA, ma aha tirada iibiyayaasha.",
+            },
+            {
+              id: "sawir",
+              type: "photo",
+              label: "Sawirka",
+              optional: true,
+              description: "Sawirka qofka (nolosha, tirakoob badan).",
+            },
+            {
+              id: "caption",
+              type: "text",
+              label: "Caption (haddii template-ku u baahan yahay)",
+              optional: true,
+              placeholder: "Tusaale: Iibsato | Faadumo",
+            },
+          ],
+        },
+      ],
+      fields: [],
+    },
+    {
+      // SIGNATURE LINES — also a list in its own right.
+      //
+      // Being a seller does NOT mean signing, and having a photograph does
+      // NOT mean signing. The prefix is the ROLE printed above the name,
+      // chosen by the notary for that line — never assembled from the name.
+      id: "saxeexayaasha",
+      title: "Saxeexayaasha",
+      description: "Yaa saxeexaya? Kasta hal unug — ma la xiriirin tirada iibiyayaasha.",
+      parties: [
+        {
+          id: "saxeexayaasha",
+          label: "Saxeexayaal",
+          singular: "Saxeex",
+          description: "Hal saxeex ama badan. Hal qof ayaa laga saxixi karaa.",
+          min: 0,
+          optionalList: true,
+          countFirst: true,
+          fields: [
+            {
+              id: "magac",
+              type: "text",
+              label: "Magaca Qofka",
+              validation: { required: true },
+              placeholder: "Magaca qofka saxeexaya",
+            },
+            {
+              id: "prefix",
+              type: "select",
+              label: "Doorka (prefix)",
+              options: PREFIX_SAXEEX,
+              optional: true,
+              hint: "Waa doorka, ma aha jinsiga. Lama soo saarin magaca.",
+            },
+            {
+              id: "shaxad",
+              type: "text",
+              label: "Saxeexda / Aqoonsiga (haddii uu jiro)",
+              optional: true,
+            },
+          ],
+        },
+      ],
+      fields: [],
+    },
+    {
+      // Supporting papers. A single certificate slot cannot carry the four
+      // MDH/C numbers the Beer scan prints alongside a POA reference.
+      id: "shaxadaha",
+      // (the buyers section sits below, after the signatories)
+      title: "Shaxadaha iyo Warqadaha",
+      description: "Beerta, wakiilnimo, tixraac — hal warqad ama badan.",
+      parties: [
+        {
+          id: "shaxadaha",
+          label: "Shaxado",
+          singular: "Shaxad",
+          description: "Hal shaxad ama badan (MDH/C/…, Ref:APN/…).",
+          min: 0,
+          optionalList: true,
+          countFirst: true,
+          fields: [
+            {
+              id: "tixraaca",
+              type: "text",
+              label: "Tixraaca",
+              validation: { required: true },
+              placeholder: "Tusaale: MDH/C/842/2025",
+            },
+            {
+              id: "nooca_shaxadaha",
+              type: "select",
+              label: "Nooca Warqadda",
+              options: NOOCA_SHAXADAH,
+              optional: true,
+            },
+            {
+              id: "haysa",
+              type: "text",
+              label: "Qofka / Kooxka ayay u tidhaahdo",
+              optional: true,
+              placeholder: "Magaca qofka ama kooxka",
+            },
+            {
+              id: "taariikhda",
+              type: "date",
+              label: "Taariikhda La Siiyay",
+              optional: true,
+            },
+          ],
+        },
+      ],
+      fields: [],
+    },
+    {
+      // The BUYERS come after the sellers, their group, the authorities, the
+      // photographs and the signature lines — the order the office reads the
+      // sale aloud in: who is selling, who stands for whom, who is in the
+      // room, who signs, and only then who is buying.
       id: "iibsadaha",
       title: "Iibsadaha",
       description: "Qofka ama dadka hantida iibsanaya.",
@@ -340,8 +722,9 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           singular: "Iibsadaha",
           description: "Hal iibsade oo keliya ama dad badan.",
           min: 1,
-          // Buyers carry attendance: present (signs, with photo) or absent
-          // (a wakiil signs, and the buyer's own photo is not used).
+          // Buyers carry attendance: present (signs in person) or absent (a
+          // wakiil signs). The buyer's own photo is NOT collected here — it
+          // belongs to the independent `sawirrada` list.
           attendance: true,
           countFirst: true,
           representativeFields: REPRESENTATIVE_FIELDS,
@@ -423,6 +806,28 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
         { id: "xuduudaha", type: "text", label: "Xuduudaha Beeraha", optional: true, skippable: true, placeholder: "Tusaale: Bandhig, kalkaaliye" },
         { id: "lambarka_lahaansho", type: "text", label: "Lambar / Aqoonsi Lahaansho", validation: { required: true }, placeholder: "Lambarka lahaanshaha" },
         { id: "faahfaahin_dheeraad", type: "textarea", label: "Faahfaahin Dheeraad ah", optional: true, colSpan: 2, placeholder: "Wax ka badan oo beeraha ku saabsan…" },
+        // A well is part of some Beer agreements and absent from others, so
+        // it is asked as an optional question rather than asserted as a rule.
+        {
+          id: "ceel",
+          type: "yes_no",
+          label: "Beerku wuxuu leeyahay ceel?",
+          optional: true,
+          hint: "Haddii template-ku u baahan yahay.",
+        },
+        {
+          id: "shayada_ceelka",
+          type: "textarea",
+          label: "Shayada Ceelka",
+          optional: true,
+          visibleWhen: {
+            op: "equals",
+            field: "hantida_beer.ceel",
+            value: "yes",
+          },
+          colSpan: 2,
+          placeholder: "Goobta / cabbirka / xaafadda ceelka…",
+        },
       ],
     },
     {
@@ -488,6 +893,17 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           validation: { required: true, min: 0 },
           placeholder: "Tusaale: 1600",
           colSpan: 2,
+        },
+        {
+          id: "lacagta_bixiyay",
+          type: "currency",
+          label: "Lacagta Bixiyay",
+          optional: true,
+          // The amount paid can never exceed the price of the plot. This is a
+          // numeric rule about ONE pair of fields — it says nothing about how
+          // many people, photos or signatures the document has.
+          validation: { min: 0, notMoreThan: "qiimaha.qiimaha_guud" },
+          placeholder: "Tusaale: 600",
         },
       ],
     },

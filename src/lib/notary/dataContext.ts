@@ -16,6 +16,7 @@ import type {
   PartyRow,
 } from "./types";
 import { evaluateCondition, makeGetter } from "./conditions";
+import { genderWord, type PartyGender, type PartyNumber } from "./partyModel";
 import { formatValueByKind, resolveKey, joinNonEmpty } from "./format";
 import { representedByRep } from "./formValues";
 import { representativesKeyFor } from "./types";
@@ -267,6 +268,9 @@ function deriveValue(
     const raw = singularPartyValue(resolveKey(values, key), "");
     return formatValueByKind(raw, derived.format, format);
   }
+  if (derived.op === "party_gender_word") {
+    return partyGenderWord(derived, values);
+  }
   const [first, ...rest] = derived.keys;
   const head = numericValue(resolveKey(values, first));
   if (head === null) return "";
@@ -276,6 +280,46 @@ function deriveValue(
   }, head);
   const clamped = Math.max(0, total);
   return formatValueByKind(String(clamped), derived.format ?? "number", format);
+}
+
+/**
+ * The legal role word for a party list, e.g. "iibisada" / "iibsadayaal".
+ *
+ * GENDER and NUMBER are resolved independently and deliberately:
+ *
+ *   • gender  — read from the person's OWN answer. NEVER inferred from the
+ *               name (a man can be called Halima; the office decides).
+ *   • number  — from the list length when "auto", else exactly as declared.
+ *
+ * A singular word with no chosen gender prints NOTHING. The alternative —
+ * defaulting to the masculine — would put a wrong legal word into a signed
+ * contract, so the empty result is the safe failure: the template's line
+ * stays blank and the notary is asked in the UI instead.
+ *
+ * Empty list → empty string: an unfilled form never prints a legal word.
+ */
+function partyGenderWord(
+  derived: Extract<DerivedValueDef, { op: "party_gender_word" }>,
+  values: FormValues,
+): string {
+  const rows = filledRows(partyRows(values, derived.partyId));
+  if (rows.length === 0) return "";
+  const number: PartyNumber =
+    derived.number === "auto" || derived.number === undefined
+      ? rows.length === 1
+        ? "singular"
+        : "plural"
+      : derived.number;
+  // The plural carries no gender in the table, so a mixed or unchosen
+  // gender is fine for TWO OR MORE people and only the singular needs it.
+  const raw = (rows[0].values?.[derived.genderField ?? "jinsi"] ?? "").trim();
+  const gender = (raw === "male" || raw === "female" ? raw : "unknown") as PartyGender;
+  return genderWord({
+    role: derived.role,
+    gender,
+    number,
+    ...(derived.definite ? { definite: true } : {}),
+  }) ?? "";
 }
 
 /** A form value as a number, or null when it is empty/not a number. */

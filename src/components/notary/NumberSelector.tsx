@@ -61,7 +61,17 @@ export function NumberSelector({
         </Button>
       </div>
       <span className="text-xs text-muted-foreground">
-        {atMax ? `Ugu badnaan ${max}.` : atMin ? "Ugu yaraan 1." : ""}
+        {/* The floor is read from `min`, not assumed to be 1: an OPTIONAL
+            list (photographs, signature lines, certificates) may legally be
+            zero, and telling the user "at least 1" while the selector shows
+            0 is simply wrong. */}
+        {atMax
+          ? `Ugu badnaan ${max}.`
+          : atMin
+            ? min === 0
+              ? "Waa la dooran karaa in la eeyo."
+              : `Ugu yaraan ${min}.`
+            : ""}
       </span>
     </div>
   );

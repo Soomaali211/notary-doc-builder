@@ -1258,7 +1258,11 @@ export default function NewDocumentInterview() {
             Tirada {partyDef.label} ee aad dooranayso:
           </span>
           <NumberSelector
-            value={Math.max(1, count)}
+            // Starts at the list's own minimum. An OPTIONAL list (the
+            // photographs, the signature lines, the certificates) therefore
+            // opens at zero, not at a phantom "1" that would read as
+            // "one of these per seller".
+            value={Math.max(partyDef.min, count)}
             min={partyDef.min}
             {...(partyDef.max ? { max: partyDef.max } : {})}
             label={partyDef.singular}

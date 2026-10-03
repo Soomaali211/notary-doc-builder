@@ -396,6 +396,38 @@ export type DerivedValueDef =
       elseKey: string;
       format?: FormatKind;
       label?: string;
+    }
+  | {
+      token: string;
+      /**
+       * The legal ROLE WORD for a party list — "iibiye" / "iibiso" /
+       * "iibiyayaal", "iibsade" / "iibsato" / "iibsadayaal".
+       *
+       * Two dimensions are decided SEPARATELY and this op keeps them apart:
+       * GENDER (an answer the notary gives; NEVER inferred from the name)
+       * and NUMBER (one person or several). That is why there is no
+       * "feminise the seller word" rule anywhere — "iibiye" → "iibisada"
+       * would change the gender AND the definiteness at once.
+       *
+       * `number: "auto"` reads the list length (1 → singular, 2+ → plural).
+       * The plural is gender-independent; the SINGULAR needs a chosen
+       * gender, and when none was chosen this op prints NOTHING rather than
+       * guessing a gender (see partyModel.OPEN_DECISIONS).
+       *
+       * Declared per document type. Heshiis Kiro declares none, so its
+       * replacement map is unchanged.
+       */
+      op: "party_gender_word";
+      partyId: string;
+      /** Which legal role the word belongs to. */
+      role: "seller" | "buyer" | "guarantor";
+      /** "auto" = singular for one filled row, plural for two or more. */
+      number?: "auto" | "singular" | "plural";
+      /** "iibiyaha" vs "iibiye" — definiteness is NOT the gender. */
+      definite?: boolean;
+      /** Row field holding the person's gender (default "jinsi"). */
+      genderField?: string;
+      label?: string;
     };
 
 export interface DocumentConfig {

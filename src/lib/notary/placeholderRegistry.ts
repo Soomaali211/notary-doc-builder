@@ -338,13 +338,16 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   { token: "IIBIYAHA_MAGAC", key: "iibiyeyaal.magac", label: "Magaca Iibiyaha", group: "Iibiyaha" },
   { token: "IIBIYAHA_DEGAN", key: "iibiyeyaal.degan", label: "Degan Iibiyaha", group: "Iibiyaha" },
   { token: "IIBIYAHA_TELEFOON", key: "iibiyeyaal.telefoon", label: "Telefoonka Iibiyaha", group: "Iibiyaha" },
-  { token: "IIBIYAHA_SAWIR", key: "iibiyeyaal.sawir", label: "Sawirka Iibiyaha", group: "Iibiyaha" },
+  // No {{IIBIYAHA_SAWIR}} / {{IIBSADAHA_SAWIR}} any more. A photograph is
+  // not a property of the seller row: it lives in the independent
+  // {{#SAWIRRADA}} block and is linked to a person, so a seller row can
+  // never imply a photo. Offering a per-seller photo token would invite the
+  // office back into the photo-per-seller rule the scans refuse.
 
   /* ---- Iibsadaha (buyers — single-row view) ---- */
   { token: "IIBSADAHA_MAGAC", key: "iibsadayaal.magac", label: "Magaca Iibsadaha", group: "Iibsadaha" },
   { token: "IIBSADAHA_DEGAN", key: "iibsadayaal.degan", label: "Degan Iibsadaha", group: "Iibsadaha" },
   { token: "IIBSADAHA_TELEFOON", key: "iibsadayaal.telefoon", label: "Telefoonka Iibsadaha", group: "Iibsadaha" },
-  { token: "IIBSADAHA_SAWIR", key: "iibsadayaal.sawir", label: "Sawirka Iibsadaha", group: "Iibsadaha" },
 
   /* ---- Wakiil (computed from the linked representative) ---- */
   { token: "WAKIIL_MAGAC", kind: "computed", label: "Magaca Wakiilka", group: "Wakiil" },
@@ -435,6 +438,11 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   { token: "BEER_XUDUUDAAHA", key: "hantida_beer.xuduudaha", fallback: "—", label: "Xuduudaha Beeraha", group: "Beer" },
   { token: "BEER_LAMBARKA_LAHAANSHO", key: "hantida_beer.lambarka_lahaansho", label: "Lambar / Aqoonsi Lahaansho", group: "Beer" },
   { token: "BEER_FAAHFAAHIN", key: "hantida_beer.faahfaahin_dheeraad", fallback: "—", label: "Faahfaahin Dheeraad ah (Beer)", group: "Beer" },
+  { token: "BEER_CEEL", key: "hantida_beer.ceel", label: "Beerku wuxuu leeyahay ceel?", group: "Beer" },
+  { token: "BEER_SHAYADA_CEELKA", key: "hantida_beer.shayada_ceelka", fallback: "—", label: "Shayada Ceelka (Beer)", group: "Beer" },
+
+  /* ---- Qiimaha: what was actually paid (optional) ---- */
+  { token: "LACAGTA_BIXIYAY", key: "qiimaha.lacagta_bixiyay", format: "currency", label: "Lacagta Bixiyay", group: "Qiimaha" },
 
   /* ---- Qiimaha: the figure, and the SAME figure written in words ---- */
   {
@@ -460,7 +468,7 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
     token: "IIBIYEYAAL",
     kind: "block",
     label: "Iibiyayaal (kasta hal unug)",
-    bodyTokens: ["NUMBER", "MAGAC", "DEGAN", "TELEFOON", "SAWIR"],
+    bodyTokens: ["NUMBER", "MAGAC", "JINSI", "DOORO", "KOOX", "DEGAN", "TELEFOON", "WAKIIL"],
     group: "Iibiyayaal",
   },
   {
@@ -468,7 +476,7 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
     kind: "block",
     label: "Iibsadayaal (kasta hal unug)",
     bodyTokens: [
-      "NUMBER", "MAGAC", "DEGAN", "TELEFOON", "SAWIR",
+      "NUMBER", "MAGAC", "JINSI", "DEGAN", "TELEFOON",
       "WAKIIL", "JOOGA", "MATALAYA",
       "WAKIIL_MAGAC", "WAKIIL_SAWIR",
     ],
@@ -489,6 +497,76 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
     group: "Maragyo",
   },
   { token: "MARAGYO_LIST", kind: "list", label: "Maragyada (liis)", group: "Maragyo" },
+
+  /* ---- Jinsi (gender) — an ANSWER, never read off the name ---- */
+  { token: "IIBIYAHA_JINSI", key: "iibiyeyaal.jinsi", label: "Jinsi Iibiyaha", group: "Iibiyaha" },
+  { token: "IIBSADAHA_JINSI", key: "iibsadayaal.jinsi", label: "Jinsi Iibsadaha", group: "Iibsadaha" },
+  { token: "IIBIYAHA_DOORO", key: "iibiyeyaal.dooro", label: "Doorka Iibiyaha", group: "Iibiyaha" },
+  { token: "IIBIYAHA_KOOX", key: "iibiyeyaal.koox", label: "Kooxa / Qoysku", group: "Iibiyaha" },
+  { token: "IIBIYAHA_WAKIIL", key: "iibiyeyaal.wakiil", label: "Wakiilka saxiixaya iibiyaha", group: "Wakiil" },
+
+  /* ---- Qoraalka jinsiga: the legal role words the engine picks ---- */
+  { token: "IIBIYE_WORD", kind: "computed", label: "Eryada iibiyaha (iibiye / iibiso / iibiyayaal)", group: "Iibiyaha" },
+  { token: "IIBIYE_WORDS", kind: "computed", label: "Eryada iibiyaha (tirad oo la eegay)", group: "Iibiyaha" },
+  { token: "IIBSADE_WORD", kind: "computed", label: "Eryada iibsadaha (iibsade / iibsato / iibsadayaal)", group: "Iibsadaha" },
+  { token: "IIBSADE_WORDS", kind: "computed", label: "Eryada iibsadaha (tirad oo la eegay)", group: "Iibsadaha" },
+
+  /* ---- Repeat blocks: two lists that are NOT tied to the seller count ---- */
+  {
+    token: "KOOXAHA",
+    kind: "block",
+    label: "Kooxaha / Qoysku (magac, ma aha qof)",
+    bodyTokens: ["NUMBER", "MAGAC"],
+    group: "Kooxaha",
+  },
+  {
+    token: "WAKIILLO",
+    kind: "block",
+    label: "Wakiillo (hal qof oo matalaa dad badan)",
+    bodyTokens: [
+      "NUMBER",
+      "MAGAC",
+      "NOOCA_WAKIILKA",
+      "XIRIIRKA_QOYSKA",
+      "TIXRAACA_WAKIILNIMO",
+      "XADKA_WAKIILNIMO",
+    ],
+    group: "Wakiil",
+  },
+  {
+    token: "SAWIRRADA",
+    kind: "block",
+    label: "Sawirrada (tirad madax-bannaan)",
+    bodyTokens: ["NUMBER", "MAGAC", "SAWIR", "CAPTION"],
+    group: "Sawirrada",
+  },
+  {
+    token: "SAXEEXAYAASHA",
+    kind: "block",
+    label: "Saxeexayaasha (tirad madax-bannaan)",
+    bodyTokens: ["NUMBER", "MAGAC", "PREFIX"],
+    group: "Saxeexayaasha",
+  },
+  {
+    token: "SHAXADAHA",
+    kind: "block",
+    label: "Shaxadaha iyo Warqadaha (MDH/C/…, Ref:APN/…)",
+    bodyTokens: ["NUMBER", "TIXRAACA", "NOOCA_SHAXADAH", "HAYSA", "TAARIIKHDA"],
+    group: "Shaxadaha",
+  },
+
+  /* ---- Count flags for the independent lists (countFirst groups) ---- */
+  { token: "KOOXAHA_HAL", kind: "flag", label: "Hal koox", group: "Kooxaha" },
+  { token: "KOOXAHA_BADAN", kind: "flag", label: "Kooxo badan", group: "Kooxaha" },
+  { token: "WAKIILLO_HAL", kind: "flag", label: "Hal wakiil", group: "Wakiil" },
+  { token: "WAKIILLO_BADAN", kind: "flag", label: "Wakiillo badan", group: "Wakiil" },
+  { token: "SAWIRRADA_HAL", kind: "flag", label: "Hal sawir", group: "Sawirrada" },
+  { token: "SAWIRRADA_BADAN", kind: "flag", label: "Sawirro badan", group: "Sawirrada" },
+  { token: "SAXEEXAYAASHA_HAL", kind: "flag", label: "Hal saxeex", group: "Saxeexayaasha" },
+  { token: "SAXEEXAYAASHA_BADAN", kind: "flag", label: "Saxeexyaal badan", group: "Saxeexayaasha" },
+  { token: "SHAXADAHA_HAL", kind: "flag", label: "Hal shaxad", group: "Shaxadaha" },
+  { token: "SHAXADAHA_BADAN", kind: "flag", label: "Shaxado badan", group: "Shaxadaha" },
+
   // NOTE: no {{IIBIYEYAAL_LIST}} / {{IIBSADAYAAL_LIST}}. The sellers and buyers
   // print through their REPEAT BLOCKS ({{#IIBIYEYAAL}} / {{#IIBSADAYAAL}}), and
   // a joined-list token that nothing resolves is an orphan placeholder — the

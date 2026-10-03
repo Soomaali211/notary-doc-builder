@@ -67,7 +67,22 @@ export function emptyPartyRow(partyDef: PartyDef): PartyRow {
 }
 
 export function emptyPartyRows(partyDef: PartyDef): PartyRow[] {
-  return Array.from({ length: Math.max(1, partyDef.min) }, () => emptyPartyRow(partyDef));
+  // An OPTIONAL list starts EMPTY, on purpose.
+  //
+  // The document decides how many photographs, signatures and certificates
+  // it carries — thirteen sellers may print eight photographs or none at
+  // all. Seeding such a list with one row puts a phantom entry in front of
+  // the user (and a "1" on the count selector), which nudges exactly the
+  // one-per-seller rule the office forbids.
+  //
+  // A REQUIRED list keeps at least one row so there is always something to
+  // fill in. Every Heshiis Kiro party declares min ≥ 1, so Kiro's rows are
+  // unchanged by this.
+  const start =
+    partyDef.optionalList || partyDef.min === 0
+      ? partyDef.min
+      : Math.max(1, partyDef.min);
+  return Array.from({ length: start }, () => emptyPartyRow(partyDef));
 }
 
 /** Apply draft migration, then merge over a fresh template. */
