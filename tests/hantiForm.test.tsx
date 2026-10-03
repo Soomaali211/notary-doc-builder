@@ -111,10 +111,49 @@ const buyers = (n: number) =>
 /* The form itself                                                     */
 /* ================================================================== */
 
+/** Every optional list is said to exist, so the WHOLE interview is visible. */
+function withEveryGateOpen() {
+  const v = base();
+  Object.assign(v.dejinta, {
+    wakiillo_ma_jiraan: "yes",
+    sawirro_ma_jiraan: "yes",
+    saxeexo_ma_jiraan: "yes",
+    shaxado_ma_jiraan: "yes",
+  });
+  return v;
+}
+
 describe("THE FLIPPED FORM — steps", () => {
   test("the steps follow the office's reading order", () => {
-    const steps = buildConditionalWorkflow(C, base());
+    const steps = buildConditionalWorkflow(C, withEveryGateOpen());
     expect(steps.map((s) => s.short)).toEqual(SECTION_ORDER_PROBE);
+  });
+
+  test("a list nobody declared does not appear — not even its COUNT step", () => {
+    // The office rule: never ask "how many representatives are there?"
+    // unless the notary has already said there is one. A sale with no
+    // photographs has no "Tirada Sawirro" step either.
+    const steps = buildConditionalWorkflow(C, base()).map((s) => s.short);
+    for (const hidden of [
+      "Wakiillada",
+      "Tirada Wakiillo",
+      "Wakiillo",
+      "Sawirrada",
+      "Tirada Sawirro",
+      "Sawirro",
+      "Saxeexayaasha",
+      "Tirada Saxeexayaal",
+      "Saxeexayaal",
+      "Shaxadaha iyo Warqadaha",
+      "Tirada Shaxado",
+      "Shaxado",
+    ]) {
+      expect(steps).not.toContain(hidden);
+    }
+    // What the notary still has to answer is untouched by any of that.
+    expect(steps).toContain("Maragyo");
+    expect(steps).toContain("Qiimaha Hantida");
+    expect(steps).toContain("Iibiyayaal");
   });
 
   test("EVERY config section is declared in the reading order — none hides at the end", () => {
@@ -208,8 +247,10 @@ describe("THE FLIPPED FORM — sellers are dynamic", () => {
       "magac",
       "jinsi",
       "dooro",
+      "xiriirka_qoyska",
       "koox",
       "degan",
+      "xaalad",
       "telefoon",
       "nooca_matalaada",
       "wakiil",
@@ -268,14 +309,27 @@ describe("THE FLIPPED FORM — optional never blocks", () => {
   });
 
   test("a missing REQUIRED answer is named on the review", () => {
+    // The price is one of the few answers the document cannot be printed
+    // without, so it is one of the few that may still say "you cannot go on".
     const v = base({
       iibiyeyaal: [r("s1", { magac: "AHMED", degan: "Hargeisa" })],
       iibsadayaal: buyers(1),
-      hantida_dhul_banaan: { ...PLOT, degmada: "" },
+      qiimaha: { qiimaha_guud: "" },
     });
     const review = buildHantiReview(C, v);
     expect(review.ready).toBe(false);
-    expect(review.missing.some((m) => m.path === "hantida_dhul_banaan.degmada")).toBe(true);
+    expect(review.missing.some((m) => m.path === "qiimaha.qiimaha_guud")).toBe(true);
+  });
+
+  test("an EMPTY plot does not block — the survey may not describe the land", () => {
+    const v = base({
+      iibiyeyaal: [r("s1", { magac: "AHMED", degan: "Hargeisa" })],
+      iibsadayaal: buyers(1),
+      hantida_dhul_banaan: { ...PLOT, degmada: "", xaafada: "", cabbirka: "" },
+    });
+    const review = buildHantiReview(C, v);
+    expect(review.missing.some((m) => m.path.startsWith("hantida_dhul_banaan."))).toBe(false);
+    expect(review.ready).toBe(true);
   });
 });
 
@@ -412,12 +466,12 @@ describe("REVIEW — the questions the office asks", () => {
       base({
         iibiyeyaal: [r("s1", { magac: "AHMED", degan: "Hargeisa" })],
         iibsadayaal: buyers(1),
-        hantida_dhul_banaan: { ...PLOT, degmada: "" },
+        qiimaha: { qiimaha_guud: "" },
       }),
     );
     const html = renderToStaticMarkup(<HantiReviewSummary review={broken} />);
     expect(html).toContain("Waxa MAQAN (waajibka ah):");
-    expect(html).toContain("Degmada");
+    expect(html).toContain("Qiimaha Guud");
     expect(html).not.toContain("diyaar ma ah");
   });
 });

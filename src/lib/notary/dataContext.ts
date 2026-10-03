@@ -128,6 +128,65 @@ function partyRowTokens(
   return tokens;
 }
 
+/**
+ * Print a `type: "person"` row field as the person's NAME, not the id.
+ *
+ * A person field stores the row id of somebody already entered elsewhere in
+ * the interview — that id is the LINK, and it must never reach the document:
+ * a legal paper must print "AHMED CALI", never "s1".
+ *
+ * This is opt-in per FIELD, not per document type: only a field declared
+ * `type: "person"` resolves this way, and no other document config declares
+ * one. A config with no person fields takes exactly the code path it took
+ * before, so Heshiis Kiro and its frozen template are untouched.
+ *
+ * Returns "" when the id matches nobody — an unresolvable person prints
+ * nothing at all rather than guessing a name or leaking the id.
+ */
+function personRowTokens(
+  config: DocumentConfig,
+  values: FormValues,
+  partyId: string,
+  row: PartyRow,
+): Record<string, string> {
+  const partyDef = config.sections
+    .flatMap((s) => s.parties ?? [])
+    .find((p) => p.id === partyId);
+  if (!partyDef) return {};
+  const tokens: Record<string, string> = {};
+  for (const field of partyDef.fields ?? []) {
+    if (field.type !== "person" || !field.personSource) continue;
+    const id = (row.values?.[field.id] ?? "").trim();
+    const name = id ? personNameFor(config, values, field.personSource, id) : "";
+    tokens[field.id.toUpperCase()] = name;
+    // The name is what prints; the id stays available for a template that
+    // wants a cross-reference, but under a name that says what it is.
+    tokens[`${field.id.toUpperCase()}_ID`] = id;
+  }
+  return tokens;
+}
+
+/** Find a person by row id across the party lists a picker draws from. */
+function personNameFor(
+  config: DocumentConfig,
+  values: FormValues,
+  personSource: string,
+  id: string,
+): string {
+  for (const sourceId of personSource.split(",").map((s) => s.trim())) {
+    if (!sourceId) continue;
+    const def = config.sections
+      .flatMap((s) => s.parties ?? [])
+      .find((p) => p.id === sourceId);
+    const nameField = def?.fields?.find((f) => f.id === "magac")?.id ?? "magac";
+    for (const candidate of partyRows(values, sourceId)) {
+      if (candidate.id !== id) continue;
+      return (candidate.values?.[nameField] ?? "").trim();
+    }
+  }
+  return "";
+}
+
 /* ------------------------------------------------------------------ */
 /* Context builder                                                     */
 /* ------------------------------------------------------------------ */
@@ -524,6 +583,9 @@ export function buildRepeatBlockData(
       ...wakiilRowTokens(config, values, mapping.partyId, row),
       ...(row.values ?? {}),
       ...partyRowTokens(row, mapping),
+      // LAST, so a person field's token is the resolved NAME and not the
+      // raw id that `...row.values` just spread in.
+      ...personRowTokens(config, values, mapping.partyId, row),
     }));
 
     // Phase Revision — representative blocks carry a computed MATALAYA

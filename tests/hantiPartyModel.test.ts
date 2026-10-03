@@ -490,8 +490,33 @@ describe("TEST 10 — one person in several roles, without being duplicated", ()
 
   test("her five roles are five different kinds of fact, not five people", () => {
     expect(ruun[0].groupId).toBe("g");
-    expect(ruun[0].familyRelationship).toBe("wakiil");
+    // ROLE is not FAMILY RELATIONSHIP. "Wakiil" says what she does in this
+    // sale; "Hooyada" would say who she is to somebody. The office keeps
+    // them apart, so one can never be mistaken for the other.
+    expect(ruun[0].role).toBe("wakiil");
+    expect(ruun[0].familyRelationship).toBeUndefined();
     expect(model.signatures[0].prefix).toBe("IIBISO/WAKIIL");
+  });
+
+  test("a family relationship is recorded as itself, never read from the name", () => {
+    // "Hooyada" typed into the relationship box is data. Nothing in the
+    // system decides it from the name Ruun, and nothing may.
+    const withKin = buildHantiPartyModel(
+      values({
+        ...v,
+        iibiyeyaal: [
+          row("s1", {
+            magac: "Ruun Xassan Qaalib",
+            jinsi: "female",
+            koox: "Ilma Xassan Qaalib",
+            xiriirka_qoyska: "Hooyada",
+          }),
+        ],
+      }),
+    );
+    expect(withKin.people[0].familyRelationship).toBe("Hooyada");
+    // The same person with no relationship typed is simply unknown.
+    expect(buildHantiPartyModel(v).people.find((p) => p.id === "s1")!.familyRelationship).toBeUndefined();
   });
 
   test("no duplicate id, no orphan, nothing to report", () => {

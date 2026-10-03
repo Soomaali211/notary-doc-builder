@@ -68,7 +68,7 @@ import {
 } from "@/lib/notary/userTemplate";
 import { deserializeDraft } from "@/lib/notary/engine";
 import { makeGetter } from "@/lib/notary/conditions";
-import { getPartyRows, getRepresentatives, stripSkipMarkers } from "@/lib/notary/formValues";
+import { getPartyRows, getRepresentatives, personChoices, stripSkipMarkers } from "@/lib/notary/formValues";
 import { isFieldRequired } from "@/lib/notary/validation";
 import { FIELD_SKIPPED } from "@/lib/notary/types";
 import { buildHantiReview, type HantiReview } from "@/lib/notary/hantiReview";
@@ -361,9 +361,13 @@ export function SectionStep({
         </div>
       )}
 
-      {/* Non-attendance repeaters (maragyo) render inline as before. */}
+      {/* Non-attendance repeaters render inline — UNLESS the list already has
+          its own workflow step, in which case rendering it here too would show
+          the notary the same editor twice. `renderInline: false` is the
+          document's way of saying "once, please"; a document that omits it
+          (Heshiis Kiro) is unchanged. */}
       {(section.parties ?? [])
-        .filter((p) => !p.attendance)
+        .filter((p) => !p.attendance && p.renderInline !== false)
         .map((partyDef) => (
           <div key={partyDef.id} className="mt-6 border-t border-dashed border-border pt-5">
             <PartyListEditor
@@ -941,7 +945,16 @@ export default function NewDocumentInterview() {
       handleGenerate();
       return;
     }
-    if (currentStepHasErrors()) {
+    // KALA IIBSI HANTI — navigation is NON-BLOCKING. An unfinished step shows
+    // a warning and the notary still moves on: he must be able to keep an
+    // incomplete draft and come back to it. The one thing that still stops is
+    // signing a document that is missing something the office cannot draft
+    // around, and that is checked at generation time, not at every step.
+    //
+    // GATED ON DOCUMENT TYPE — Heshiis Kiro keeps its blocking behaviour, which
+    // its own tests and its signed rental depend on.
+    const nonBlocking = config?.id === "kala_iibsi_hanti";
+    if (!nonBlocking && currentStepHasErrors()) {
       setStepErrors(true);
       toast.error("Waxaa jira xog aan dhammaystirnayn. Fadlan sax meelaha lagu calaamadeeyay.");
       return;
@@ -959,7 +972,10 @@ export default function NewDocumentInterview() {
     // Guided pre-check (CASE B/C/D): required-missing blocks; optional/skip
     // items get an informed choice — "Buuxi hadda" or "Skip oo sii wad".
     const guidance = collectStepGuidance();
-    const hasBlocking = guidance?.fields.some((f) => f.status === "required-missing") ?? false;
+    // The same gate: a required-missing gap warns for Hanti and stops for Kiro.
+    const hasBlocking =
+      !nonBlocking &&
+      (guidance?.fields.some((f) => f.status === "required-missing") ?? false);
     if (guidance && (hasBlocking || !confirmedStepsRef.current.has(currentStep.key))) {
       setGuidedChoice(guidance);
       if (hasBlocking) setStepErrors(true);
@@ -1385,6 +1401,35 @@ export default function NewDocumentInterview() {
     );
   };
 
+  /**
+ * Options for every "person" field of one party list.
+ *
+ * Built ONCE per render from the people already entered anywhere in the form,
+ * so a photograph, a signature line and a representation edge all offer the
+ * SAME list and the name is never typed twice. A field with no `personSource`
+ * declares nothing and is unaffected.
+   */
+  const personChoicesFor = (
+    values: FormValues | undefined,
+    partyDef: PartyDef,
+  ): { value: string; label: string }[] | undefined => {
+    const sources = partyDef.fields
+      .map((f) => f.personSource)
+      .filter((s): s is string => Boolean(s));
+    if (sources.length === 0) return undefined;
+    if (!values) return [];
+    const merged: { value: string; label: string }[] = [];
+    const seen = new Set<string>();
+    for (const source of sources) {
+      for (const choice of personChoices(values, source)) {
+        if (seen.has(choice.value)) continue;
+        seen.add(choice.value);
+        merged.push(choice);
+      }
+    }
+    return merged;
+  };
+
   const renderPartyDataStep = (partyDef: PartyDef) => {
     const rows = (values[partyDef.id] as FormValues[keyof FormValues]) ?? [];
     const sectionId = visibleSections.find((sec) =>
@@ -1401,6 +1446,7 @@ export default function NewDocumentInterview() {
         rows={rows as never}
         errors={stepErrors ? rowErrMap : undefined}
         canAdd={true}
+        personChoices={personChoicesFor(values, partyDef)}
         onFieldChange={(rowIndex, fieldId, value) =>
           setValues((v) => setRepeatableAnswer(v!, partyDef.id, rowIndex, fieldId, value))
         }

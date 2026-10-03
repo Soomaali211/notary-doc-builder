@@ -56,12 +56,15 @@ const FIELD = {
   name: "magac",
   gender: "jinsi",
   role: "dooro",
+  status: "xaalad",
+  relationship: "xiriirka_qoyska",
+  /** A picker value: the person's ID (never their name). */
+  person: "shakhsiga",
   group: "koox",
   representative: "wakiil",
   repType: "nooca_wakiilka",
   repRef: "tixraaca_wakiilnimo",
   repScope: "xadka_wakiilnimo",
-  relationship: "xiriirka_qoyska",
   photo: "sawir",
   caption: "caption",
   prefix: "prefix",
@@ -167,7 +170,14 @@ export function buildHantiPartyModel(
       phone: text(row, FIELD.phone),
     };
     const role = text(row, FIELD.role);
-    if (role) person.familyRelationship = role;
+    // ROLE and FAMILY RELATIONSHIP are different facts, stored separately: a
+    // role is what the person does in THIS sale; a relationship is who they
+    // are to the family. Neither is ever read from the name.
+    if (role) person.role = role;
+    const relationship = text(row, FIELD.relationship);
+    if (relationship) person.familyRelationship = relationship;
+    const status = text(row, FIELD.status);
+    if (status) person.status = status;
     repByRowId.set(person.id, text(row, FIELD.representative));
     const groupName = text(row, FIELD.group);
     const group = groups.find((g) => g.name === groupName);
@@ -194,6 +204,8 @@ export function buildHantiPartyModel(
      who is himself a seller resolves to the same person, not a second copy
      of him (Ruun is both, in the scan). */
   const peopleByName = new Map(people.filter((p) => p.name).map((p) => [p.name, p]));
+  /** ID → person. The picker stores an ID, so this is the REAL link. */
+  const peopleById = new Map(people.map((p) => [p.id, p]));
   const representations: Representation[] = [];
   for (const row of filled(rowsOf(values, HANTI_KEYS.representatives))) {
     const name = text(row, FIELD.name);
@@ -253,10 +265,22 @@ export function buildHantiPartyModel(
     return person;
   };
 
+  /**
+   * Resolve the person a photo/signature/picker row points at.
+   *
+   * The picker stores a person ID — the real link — and the name is only the
+   * label. The name fallback keeps drafts written before the picker readable;
+   * a value that is neither stays unresolved so inspectPartyModel reports it
+   * rather than attaching a photograph to the wrong human being.
+   */
+  const resolvePerson = (value: string): Person | undefined =>
+    (value ? peopleById.get(value) : undefined) ??
+    (value ? peopleByName.get(value) : undefined);
+
   const photos: PersonPhoto[] = [];
   for (const row of filled(rowsOf(values, HANTI_KEYS.photos))) {
-    const name = text(row, FIELD.name);
-    const person = name ? ensurePerson(name, row.id) : undefined;
+    const raw = text(row, FIELD.person) || text(row, FIELD.name);
+    const person = raw ? resolvePerson(raw) ?? ensurePerson(raw, row.id) : undefined;
     if (!person) {
       photos.push({ id: row.id, personId: row.id, storageId: text(row, FIELD.photo) });
       continue;
@@ -272,10 +296,10 @@ export function buildHantiPartyModel(
 
   const signatures: PersonSignature[] = [];
   for (const row of filled(rowsOf(values, HANTI_KEYS.signatures))) {
-    const name = text(row, FIELD.name);
-    // A signature line belongs to somebody; a nameless row stays unresolved
+    const raw = text(row, FIELD.person) || text(row, FIELD.name);
+    // A signature line belongs to somebody; an unresolved row stays unresolved
     // so the inspector can report it.
-    const person = name ? ensurePerson(name, row.id) : undefined;
+    const person = raw ? resolvePerson(raw) ?? ensurePerson(raw, row.id) : undefined;
     const prefix = text(row, FIELD.prefix);
     signatures.push({
       id: row.id,

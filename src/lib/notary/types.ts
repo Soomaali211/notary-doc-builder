@@ -26,7 +26,20 @@ export type FieldType =
    * id string — never the image bytes — so a draft stays small and the DOCX
    * step can fetch the file on demand.
    */
-  | "photo";
+  | "photo"
+  /**
+   * A PICKER over people already entered in this document.
+   *
+   * The value is the person's ID — the real link — with the name shown as the
+   * label. This exists so the same person is never typed twice: a photograph,
+   * a signature line and a representation edge all point at the person the
+   * notary already entered, instead of asking for their name again.
+   *
+   * `BaseField.personSource` names the party lists to offer (e.g.
+   * "iibiyeyaal,iibsadayaal"), so a picker can never offer a person who has
+   * not been entered.
+   */
+  | "person";
 
 export interface SelectOption {
   value: string;
@@ -92,12 +105,27 @@ export interface BaseField {
    */
   showOnlyWhenRowStatus?: AttendanceStatus;
   /**
+   * Shown only when ANOTHER field of the SAME row holds one of these values.
+   *
+   * This is how one row asks a follow-up and no other: pick "Wakiil" and the
+   * representative picker appears; pick "Ma jiro" and it does not. Purely
+   * opt-in — a document that declares none behaves exactly as before, and the
+   * condition engine itself is untouched.
+   */
+  showWhenRowValueAnyOf?: { field: string; values: string[] };
+  /**
    * Step-2 combined party editor: the field becomes REQUIRED when the row's
    * attendance status equals this value (e.g. Telefoon for a jooga party).
    */
   requiredWhenRowStatus?: AttendanceStatus;
   /** For select/radio/multiselect. */
   options?: SelectOption[];
+  /**
+   * For type "person": which party lists the picker offers, comma separated
+   * ("iibiyeyaal,iibsadayaal"). The options are built at RENDER time from the
+   * people actually entered, never from a static list.
+   */
+  personSource?: string;
   /** Applied when creating a fresh interview (checkbox: "yes"/"no"). */
   default?: string;
   validation?: FieldValidation;
@@ -162,6 +190,17 @@ export interface PartyDef {
    * behaviour: the count is decided inside their own setup question.
    */
   countFirst?: boolean;
+  /**
+   * Whether this list renders INSIDE its section step as well as in its own
+   * row step.
+   *
+   * Default (undefined) renders it in the section — Heshiis Kiro's shape,
+   * unchanged. A document that gives the list its OWN step sets
+   * `renderInline: false` so the editor appears exactly once; otherwise the
+   * notary is shown the same list twice and re-enters the same data, which
+   * is the one thing a guided form must never do.
+   */
+  renderInline?: boolean;
   /**
    * FormValues key holding the group's shared representative list.
    * Defaults to `wakiilo_<partyId>`.

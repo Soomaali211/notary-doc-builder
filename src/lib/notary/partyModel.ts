@@ -217,8 +217,29 @@ export interface Person {
   id: string;
   name: string;
   gender: PartyGender;
-  /** "mother", "heir", "brother" … a relationship, NOT an authority. */
+  /**
+   * What this person DOES in this sale ("iibiye", "wakiil", "M/QIYAM",
+   * "D/MAALKA"). A ROLE — not a gender, not an authority, and never derived
+   * from either.
+   */
+  role?: string;
+  /**
+   * "mother", "heir", "brother" … who they are TO the family.
+   *
+   * A relationship is DATA. It grants no authority whatsoever: being the
+   * mother of a seller says nothing about who may sign, and is never inferred
+   * from the name.
+   */
   familyRelationship?: string;
+  /**
+   * Where the person is in the room: "jooga", "maqan",
+   * "wakiil_ku_jooga", "wakiil_qayim_ku_matalaya".
+   *
+   * This CLASSIFIES a person the count already created; it never changes how
+   * many sellers there are. Ten sellers stay ten sellers however many are
+   * present.
+   */
+  status?: string;
   /** Dead heirs are named in the scans but never sign or appear. */
   deceased?: boolean;
   phone?: string;

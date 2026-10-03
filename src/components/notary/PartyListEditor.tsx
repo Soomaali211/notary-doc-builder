@@ -25,6 +25,16 @@ interface PartyListEditorProps {
   onFieldChange: (rowIndex: number, fieldId: string, value: string) => void;
   onAdd: () => void;
   onRemove: (rowIndex: number) => void;
+  /**
+   * People already entered elsewhere in the form, for fields of type
+   * "person". The value stored is the person's ID — the real link — so a
+   * photograph, a signature line or a representation edge never re-asks for
+   * a name the notary has already typed.
+   *
+   * Undefined for a document with no person fields (Heshiis Kiro), which is
+   * why the editor behaves exactly as before without it.
+   */
+  personChoices?: { value: string; label: string }[];
 }
 
 export function PartyListEditor({
@@ -36,6 +46,7 @@ export function PartyListEditor({
   onFieldChange,
   onAdd,
   onRemove,
+  personChoices,
 }: PartyListEditorProps) {
   return (
     <div className="space-y-3">
@@ -136,6 +147,15 @@ export function PartyListEditor({
             <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
               {partyDef.fields.map((field) => {
                 const fieldError = rowErrors?.find((e) => e.fieldId === field.id);
+                // A follow-up that belongs to THIS row only: it appears when
+                // the answer it depends on is given, and disappears when it
+                // is not. Blank counts as "not answered", so nothing is shown
+                // for a row nobody has touched yet.
+                const dep = field.showWhenRowValueAnyOf;
+                if (dep) {
+                  const given = (row.values?.[dep.field] ?? "").trim();
+                  if (!dep.values.includes(given)) return null;
+                }
                 return (
                   <FieldRenderer
                     key={field.id}
@@ -143,6 +163,9 @@ export function PartyListEditor({
                     value={row.values?.[field.id] ?? ""}
                     error={fieldError?.message}
                     disabled={disabled}
+                    {...(field.type === "person" && personChoices
+                      ? { personOptions: personChoices }
+                      : {})}
                     onChange={(value) => onFieldChange(index, field.id, value)}
                   />
                 );

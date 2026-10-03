@@ -111,7 +111,17 @@ describe("B — form flow", () => {
   test("the FLIPPED flow follows the office's reading order", () => {
     const steps = buildConditionalWorkflow(C, {
       ...createInitialValues(C),
-      dejinta: { sub_type: "dhul_banaan", taariikhda_hantida: "2026-01-30" },
+      // Every optional list is declared up front so the WHOLE interview is
+      // visible. Each of these four yes/no gates decides whether its list
+      // exists at all — see the next test.
+      dejinta: {
+        sub_type: "dhul_banaan",
+        taariikhda_hantida: "2026-01-30",
+        wakiillo_ma_jiraan: "yes",
+        sawirro_ma_jiraan: "yes",
+        saxeexo_ma_jiraan: "yes",
+        shaxado_ma_jiraan: "yes",
+      },
     } as FormValues);
     // A non-attendance list (the sellers, the group, the photographs…) and
     // the witnesses render under BOTH their section header and their own row
@@ -148,6 +158,45 @@ describe("B — form flow", () => {
       "Shaxadaha iyo Warqadaha",
       "Tirada Shaxado",
       "Shaxado",
+    ]);
+  });
+
+  test("a sale with no representatives never sees 'Tirada Wakiillo'", () => {
+    const steps = buildConditionalWorkflow(C, {
+      ...createInitialValues(C),
+      // Every gate answered NO: the most common sale of all.
+      dejinta: {
+        sub_type: "dhul_banaan",
+        taariikhda_hantida: "2026-01-30",
+        wakiillo_ma_jiraan: "no",
+        sawirro_ma_jiraan: "no",
+        saxeexo_ma_jiraan: "no",
+        shaxado_ma_jiraan: "no",
+      },
+    } as FormValues).map((s) => s.short);
+    expect(steps).not.toContain("Wakiillada");
+    expect(steps).not.toContain("Tirada Wakiillo");
+    expect(steps).not.toContain("Wakiillo");
+    expect(steps).not.toContain("Sawirro");
+    expect(steps).not.toContain("Tirada Sawirro");
+    expect(steps).not.toContain("Saxeexayaal");
+    expect(steps).not.toContain("Shaxado");
+    // The mandatory middle of the sale is untouched.
+    expect(steps).toEqual([
+      "Dejinta Hantida",
+      "Iibiyaha",
+      "Tirada Iibiyayaal",
+      "Iibiyayaal",
+      "Kooxa / Qoysku Iibiyaha",
+      "Tirada Kooxaha",
+      "Kooxaha",
+      "Tirada Iibsadayaal",
+      "Xogta iyo Xaaladda Iibsadayaal",
+      "Faahfaahinta Dhulka",
+      "Qiimaha Hantida",
+      "Dammaanadda",
+      "Maragyada",
+      "Maragyo",
     ]);
   });
 
@@ -216,12 +265,24 @@ describe("C — the plot (Dhul Banaan)", () => {
 
   test("the reference is NOT a form question — the system allocates it", () => {
     const setup = C.sections.find((s) => s.id === "dejinta")!;
-    expect(setup.fields.map((f) => f.id)).toEqual(["sub_type", "taariikhda_hantida"]);
+    expect(setup.fields.map((f) => f.id)).toEqual([
+      "sub_type",
+      "taariikhda_hantida",
+      // Each asked ONCE, at the top; each decides whether one optional list
+      // exists at all. None of them is ever asked again below.
+      "wakiillo_ma_jiraan",
+      "sawirro_ma_jiraan",
+      "saxeexo_ma_jiraan",
+      "shaxado_ma_jiraan",
+    ]);
   });
 
-  test("degmada / xaafada / cabbirka / jiho_1..3 are required", () => {
+  test("degmada / xaafada / cabbirka / jiho_1..3 are OPTIONAL, never blocking", () => {
+    // No scan proves any of them legally mandatory, and the office ruled that
+    // an unproven field must never BLOCK. A blank plot detail prints nothing.
     for (const id of ["degmada", "xaafada", "cabbirka", "jiho_1", "jiho_2", "jiho_3"]) {
-      expect(plotSection.fields.find((f) => f.id === id)?.validation?.required).toBe(true);
+      expect(plotSection.fields.find((f) => f.id === id)?.validation?.required).toBeUndefined();
+      expect(plotSection.fields.find((f) => f.id === id)?.optional).toBe(true);
     }
   });
 
@@ -363,16 +424,43 @@ describe("E — dammaanadda (always present)", () => {
       damiinka: { gurmadka_dammaanadda: "Reer deggan oo la dhisay.", ...over },
     }) as FormValues;
 
-  test("the nooca dammaanadda choice is required — there is no 'no guarantor' state", () => {
+  test("'Damiin ma jiraa?' has THREE answers — including a real 'Maya'", () => {
+    // This used to assert there was NO "no guarantor" state, because the form
+    // could not express one — so every agreement was forced to invent a
+    // guarantor. The office approved a third answer.
     const section = C.sections.find((s) => s.id === "damiinka")!;
     expect(section.visibleWhen).toBeUndefined();
     expect(section.fields.find((f) => f.id === "nooca_damiinta")?.validation?.required).toBe(
       true,
     );
     expect(section.fields.find((f) => f.id === "nooca_damiinta")?.options?.map((o) => o.value)).toEqual([
+      "ma_jiro",
       "qof_3aad",
       "iibiyaha",
     ]);
+  });
+
+  test("choosing 'Maya' hides EVERY guarantor field", () => {
+    const fields = C.sections.find((s) => s.id === "damiinka")!.fields;
+    // The gate: any answer other than "Maya" reveals the guarantor slot.
+    const gate = { op: "not_equals", field: "damiinka.nooca_damiinta", value: "ma_jiro" };
+    for (const id of ["magaca_damiinka", "telefoonka_damiinka", "sawirka_damiinka", "gurmadka_dammaanadda"]) {
+      expect(fields.find((f) => f.id === id)?.visibleWhen).toEqual(gate);
+    }
+  });
+
+  test("'Maya' is a state the template can SEE — it is its own flag", () => {
+    // Without this, a template cannot tell "Maya" apart from "the notary
+    // never reached that question" and would print a guarantor slot for
+    // nobody. The flag is declared in the config, so the engine emits it.
+    const flags = resolveFlags(C, dam({ nooca_damiinta: "ma_jiro" }));
+    expect(flags.DAMIIN_MA_JIRO).toBe(true);
+    expect(flags.DAMIIN_QOF_3AAD).toBe(false);
+    expect(flags.DAMIIN_IIBIYAHA).toBe(false);
+    // And the stored machine value never reaches the paper.
+    const map = computeReplacements(C, dam({ nooca_damiinta: "ma_jiro" }));
+    expect(map["{{NOOCA_DAMIINTA}}"]).toBe("Damiin ma jiro");
+    expect(JSON.stringify(map)).not.toContain("ma_jiro\"");
   });
 
   test("the gurmad is required in BOTH states — the pledge is always given", () => {
@@ -413,14 +501,16 @@ describe("E — dammaanadda (always present)", () => {
     expect(resolveFlags(C, dam({ nooca_damiinta: "iibiyaha" })).DAMIIN_QOF_3AAD).toBe(false);
   });
 
-  test("the guarantor photo is asked ONLY for a third party", () => {
+  test("the guarantor photo is asked ONLY when a guarantor exists", () => {
     const sawir = C.sections
       .find((s) => s.id === "damiinka")!
       .fields.find((f) => f.id === "sawirka_damiinka");
+    // Gated on "not: no guarantor" — a third party OR the seller himself, and
+    // never shown for an agreement that has no guarantor at all.
     expect(sawir?.visibleWhen).toEqual({
-      op: "equals",
+      op: "not_equals",
       field: "damiinka.nooca_damiinta",
-      value: "qof_3aad",
+      value: "ma_jiro",
     });
   });
 
@@ -437,6 +527,69 @@ describe("E — dammaanadda (always present)", () => {
 describe("F — repeatable parties", () => {
   const party = (id: string) =>
     C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === id)!;
+
+  // A COMPLETE sale, so a test about counts fails only on a count.
+  const linked = (over: Record<string, unknown> = {}) =>
+    ({
+      ...createInitialValues(C),
+      dejinta: { sub_type: "dhul_banaan", reference: "DPN-MG-001", taariikhda_hantida: "2026-01-30", sawirro_ma_jiraan: "yes", saxeexo_ma_jiraan: "yes" },
+      iibiyeyaal: [
+        row("s1", { magac: "AHMED CALI", jinsi: "male", degan: "Hargeisa" }),
+        row("s2", { magac: "OMAR FARAH", jinsi: "male", degan: "Hargeisa" }),
+        row("s3", { magac: "RUUN XASAN", jinsi: "female", degan: "Berbera" }),
+      ],
+      iibsadayaal: [{ ...row("b1", { magac: "IIBSADE 1", jinsi: "female", degan: "Hargeisa", telefoon: "0622222222" }), attendance: { status: "jooga" } }],
+      hantida_dhul_banaan: { sida_hantida_loo_helay: "iibsaday", notary_ref: "Tr No 4471" },
+      qiimaha: { qiimaha_guud: "1600" },
+      damiinka: { nooca_damiinta: "iibiyaha", gurmadka_dammaanadda: "Reer deggan." },
+      maragyo: [row("m1", { magac: "MARAG KOOW" })],
+      // ONE photograph, ONE signature, for THREE sellers. The office rule:
+      // the counts are unrelated, so nothing here may be rejected.
+      sawirrada: [row("p1", { shakhsiga: "s1", sawir: "stor_p1" })],
+      saxeexayaasha: [row("x1", { shakhsiga: "s3", prefix: "IIBISO" })],
+      ...over,
+    }) as FormValues;
+
+  test("a person is CHOSEN, never retyped — the picker offers the sellers", () => {
+    for (const id of ["sawirrada", "saxeexayaasha"]) {
+      const field = party(id).fields.find((f) => f.id === "shakhsiga")!;
+      expect(field.type).toBe("person");
+      expect(field.personSource).toBe("iibiyeyaal,iibsadayaal,wakiillo");
+    }
+    // No free-text name field is left behind on either row.
+    for (const id of ["sawirrada", "saxeexayaasha"]) {
+      expect(party(id).fields.map((f) => f.id)).not.toContain("magac");
+    }
+  });
+
+  test("the chosen person's NAME prints — the internal id never reaches the paper", () => {
+    const blocks = buildDataContext(C, linked()).repeatBlocks;
+    const photo = blocks.get("SAWIRRADA")!.rows[0] as Record<string, string>;
+    expect(photo.SHAKHSIGA).toBe("AHMED CALI");
+    expect(photo.SHAKHSIGA).not.toBe("s1");
+    // The id is still available as a cross-reference, under a name that
+    // says what it is — not as the caption on the photograph.
+    expect(photo.SHAKHSIGA_ID).toBe("s1");
+  });
+
+  test("10 sellers with 1 photo and 1 signature is VALID — counts never compare", () => {
+    const sellers = Array.from({ length: 10 }, (_, i) =>
+      row(`s${i + 1}`, { magac: `IIBIYE ${i + 1}`, jinsi: "male", degan: "Hargeisa" }),
+    );
+    const v = linked({ iibiyeyaal: sellers });
+    const blocks = buildDataContext(C, v).repeatBlocks;
+    expect(blocks.get("IIBIYEYAAL")!.rows).toHaveLength(10);
+    expect(blocks.get("SAWIRRADA")!.rows).toHaveLength(1);
+    expect(blocks.get("SAXEEXAYAASHA")!.rows).toHaveLength(1);
+    expect(Object.keys(validateDocument(C, v))).toEqual([]);
+  });
+
+  test("a photograph that points at nobody prints NO name rather than a wrong one", () => {
+    const v = linked({ sawirrada: [row("p1", { shakhsiga: "nobody", sawir: "stor_p1" })] });
+    const photo = buildDataContext(C, v).repeatBlocks.get("SAWIRRADA")!.rows[0] as Record<string, string>;
+    expect(photo.SHAKHSIGA).toBe("");
+    expect(photo.SHAKHSIGA).not.toContain("nobody");
+  });
 
   test("sellers and buyers are repeatable lists, min 1, with no maximum", () => {
     for (const id of ["iibiyeyaal", "iibsadayaal", "maragyo"]) {
@@ -462,8 +615,10 @@ describe("F — repeatable parties", () => {
       "magac",
       "jinsi",
       "dooro",
+      "xiriirka_qoyska",
       "koox",
       "degan",
+      "xaalad",
       "telefoon",
       "nooca_matalaada",
       "wakiil",
@@ -642,9 +797,11 @@ describe("I — maragyo", () => {
     expect(marag.max).toBeUndefined();
   });
 
-  test("a witness is a name and a phone — nothing else", () => {
+  test("a witness is a name, a phone and an optional address", () => {
     const marag = C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === "maragyo")!;
-    expect(marag.fields.map((f) => f.id)).toEqual(["magac", "telefoon"]);
+    expect(marag.fields.map((f) => f.id)).toEqual(["magac", "telefoon", "degan"]);
+    // Only the NAME blocks; an address the notary does not have is fine.
+    expect(marag.fields.find((f) => f.id === "degan")!.optional).toBe(true);
   });
 
   test("witnesses are numbered 1..n in the repeat block", () => {
@@ -676,10 +833,10 @@ describe("I2 — review shows collected answers, not storage handles", () => {
     const rows = collectFilledValues(C, {
       ...createInitialValues(C),
       iibiyeyaal: [row("s1", { magac: "AHMED CALI", degan: "Hargeisa" })],
-      sawirrada: [row("p1", { magac: "AHMED CALI", sawir: "k7storageIDabc123" })],
+      // The row links to the person by ID — the picker never re-asks the name.
+      sawirrada: [row("p1", { shakhsiga: "s1", sawir: "k7storageIDabc123" })],
     } as FormValues).flatMap((s) => s.rows);
     expect(rows.some((r) => r.value.includes("k7storageIDabc123"))).toBe(false);
-    expect(rows.find((r) => r.label === "Sawir 1")?.value).toBe("AHMED CALI — Sawir");
   });
 
   test("a seller row never shows a photo marker — it has no photo field", () => {

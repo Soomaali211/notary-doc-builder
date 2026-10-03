@@ -20,6 +20,12 @@ interface FieldRendererProps {
   error?: string;
   disabled?: boolean;
   onChange: (value: string) => void;
+  /**
+   * Options for a field of type "person": the people already entered in this
+   * document. Absent for every other field type, and for every document that
+   * declares no person fields — so Heshiis Kiro renders exactly as before.
+   */
+  personOptions?: { value: string; label: string }[];
 }
 
 export function FieldRenderer({
@@ -28,6 +34,7 @@ export function FieldRenderer({
   error,
   disabled,
   onChange,
+  personOptions,
 }: FieldRendererProps) {
   const required = !field.optional && field.validation?.required !== false;
   const skipped = value === FIELD_SKIPPED;
@@ -53,6 +60,24 @@ export function FieldRenderer({
         <div className="neu-inset-sm rounded-md px-3 py-2 text-sm text-muted-foreground italic">
           — Skipped —
         </div>
+      ) : field.type === "person" ? (
+        // The person PICKER. The stored value is the person's ID — the real
+        // link — so nothing downstream has to match on a typed name. When
+        // nobody has been entered yet the list is empty and the field says
+        // so, rather than inviting the notary to type a name that could miss.
+        <select
+          className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">— Dooro qofka —</option>
+          {(personOptions ?? []).map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       ) : field.type === "yes_no" ? (
         <RadioGroup
           value={value || undefined}

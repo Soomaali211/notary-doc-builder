@@ -156,6 +156,35 @@ export function getPartyRows(values: FormValues, partyId: string): PartyRow[] {
   return Array.isArray(v) ? (v as PartyRow[]) : [];
 }
 
+/**
+ * The people already entered, for a "person" picker.
+ *
+ * This is what stops the same name being typed twice: a photograph, a
+ * signature line and a representation edge all offer THIS list, so the
+ * notary picks the person entered earlier instead of retyping a name that may
+ * not even match. The stored value is the person's ID — the real link.
+ *
+ * Purely additive and opt-in: only fields of type "person" declare a
+ * `personSource`, so a document that declares none is unaffected.
+ */
+export function personChoices(
+  values: FormValues,
+  source: string,
+): { value: string; label: string }[] {
+  const seen = new Set<string>();
+  const out: { value: string; label: string }[] = [];
+  for (const partyId of source.split(",").map((s) => s.trim()).filter(Boolean)) {
+    for (const row of getPartyRows(values, partyId)) {
+      const name = (row.values?.magac ?? "").trim();
+      // An unnamed row is nobody — never offered, never chosen.
+      if (!name || seen.has(row.id)) continue;
+      seen.add(row.id);
+      out.push({ value: row.id, label: name });
+    }
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------------ */
 /* Mutators (existing API preserved)                                   */
 /* ------------------------------------------------------------------ */

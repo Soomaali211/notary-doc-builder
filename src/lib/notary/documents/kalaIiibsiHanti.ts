@@ -68,11 +68,64 @@ const SIDA_HANTIDA: SelectOption[] = [
   { value: "iibsaday", label: "Wuu iibsaday (qof kale)" },
 ];
 
-/** Nooca dammaanadda — a third party guarantees, or the seller guarantees. */
+/**
+ * Nooca dammaanadda — THREE answers, because "Maya" is a real answer.
+ *
+ * With only two options the form could never say "there is no guarantor", so
+ * every agreement was forced to invent one. "Iibiyaha ayaa is-damiinaya"
+ * connects the guarantee to the SELLER instead of creating an unnecessary
+ * external person.
+ */
 const NOOCA_DAMIIN: SelectOption[] = [
+  { value: "ma_jiro", label: "Maya — damiin ma jiro" },
   { value: "qof_3aad", label: "Damiin qof 3aad" },
-  { value: "iibiyaha", label: "Iibiyaha oo is-damiinaya" },
+  { value: "iibiyaha", label: "Iibiyaha ayaa is-damiinaya" },
 ];
+
+/**
+ * SOMEBODY GUARANTEES — either a third party OR the seller himself.
+ *
+ * This is what gates every guarantor field, so choosing "Maya" hides them all
+ * instead of asking for a guarantor that does not exist.
+ *
+ * Named for what it MEANS, not for the answer it excludes: this is the
+ * opposite of {@link IS_NO_GUARANTOR}, and mixing the two up would ask every
+ * notary for a guarantor they just said they do not have.
+ */
+const HAS_GUARANTOR: Condition = {
+  op: "not_equals",
+  field: "damiinka.nooca_damiinta",
+  value: "ma_jiro",
+};
+
+/** The sale has NO guarantor at all — the real "Maya" state, as a flag. */
+const IS_NO_GUARANTOR: Condition = {
+  op: "equals",
+  field: "damiinka.nooca_damiinta",
+  value: "ma_jiro",
+};
+
+/**
+ * A yes/no gate in "Dejinta Heshiiska" that reveals one optional list.
+ *
+ * The question is asked ONCE, at the top, and the list it controls simply
+ * does not exist until the answer is "Haa". That is what keeps "Tirada
+ * Wakiillada" off the screen for the many sales that have no representative
+ * at all.
+ */
+const isGate = (fieldId: string): Condition => ({
+  op: "equals",
+  field: `${DEJINTA}.${fieldId}`,
+  value: "yes",
+});
+
+/**
+ * The people a picker may offer: everyone already entered — sellers, buyers
+ * and the representatives — so a name is chosen, never retyped.
+ */
+const PERSON_SOURCE = "iibiyeyaal,iibsadayaal,wakiillo";
+/** The parties a representative can be chosen from. */
+const PERSON_SOURCE_REPS = "iibiyeyaal,iibsadayaal,wakiillo";
 
 /**
  * JINSIGA — a person's gender, chosen by the notary.
@@ -83,9 +136,9 @@ const NOOCA_DAMIIN: SelectOption[] = [
  * exactly why a find-and-replace would corrupt the legal wording.
  */
 const JINSI: SelectOption[] = [
-  { value: "male", label: "Nin (male)" },
-  { value: "female", label: "Naag (female)" },
-  { value: "unknown", label: "Ma garanayo — halkan lama sheegi karo" },
+  { value: "male", label: "Lab" },
+  { value: "female", label: "Dheddig" },
+  { value: "unknown", label: "Lama cayimin" },
 ];
 
 /**
@@ -185,6 +238,20 @@ function ordered(list: SectionDef[]): SectionDef[] {
 }
 
 /** Signature prefixes. Taken from the Beer scan, not invented. */
+/**
+ * Xaaladda iibiyaha — where the person is in the room.
+ *
+ * This CLASSIFIES the sellers the count already created; it never changes how
+ * many there are. Ten sellers stay ten sellers whether all ten are present,
+ * three are absent and a representative signs for them.
+ */
+const XAALADDA_IIBIYE: SelectOption[] = [
+  { value: "jooga", label: "Jooga — isaga isaga ayaa saxiixaya" },
+  { value: "maqan", label: "Maqan — ma soo gaarin" },
+  { value: "wakiil_ku_jooga", label: "Wakiil ku jooga" },
+  { value: "wakiil_qayim_ku_matalaya", label: "Wakiil Qayim ku matalaya" },
+];
+
 const PREFIX_SAXEEX: SelectOption[] = [
   { value: "IIBIYE", label: "IIBIYE" },
   { value: "IIBISO", label: "IIBISO" },
@@ -278,6 +345,12 @@ const HANTI_TEMPLATES: TemplateSpec[] = [
 ];
 
 /**
+ * This person IS represented — the answer that reveals the representative
+ * picker. Blank means "nobody signs for this one", so the picker stays hidden.
+ */
+const MATALO_JIRO = ["wakiil", "wakiil_qayim"];
+
+/**
  * Identity of one seller or one buyer.
  *
  * There is NO photo field here, and that is deliberate. A photograph belongs
@@ -324,6 +397,16 @@ function partyFields(
         hint: "Doorka waa kala duwan jinsiga iyo wakiilnimo.",
       },
       {
+        // A family relationship is DATA about this person ("mother", "heir").
+        // It grants no authority whatsoever and is never read from the name.
+        id: "xiriirka_qoyska",
+        type: "text" as const,
+        label: "Xiriirka Qoyska",
+        optional: true,
+        placeholder: "Tusaale: Hooyada",
+        description: "Xiriirku waa xog — ma aha u matalaa.",
+      },
+      {
         id: "koox",
         type: "text" as const,
         label: "Kooxa / Qoysku u qalmo",
@@ -335,9 +418,20 @@ function partyFields(
       id: "degan",
       type: "text",
       label: `Degan ${role}`,
-      validation: { required: true },
+      optional: true,
       placeholder: "Degmada / Xaafadda / Magaalada",
+      description: "Xog dheeraad ah — haddii uu qorbaadkoodu u baahan yahay.",
     },
+    ...(opts.role ? ([
+      {
+        id: "xaalad",
+        type: "select" as const,
+        label: "Xaaladda",
+        options: XAALADDA_IIBIYE,
+        optional: true,
+        hint: "Wixii xaaladda qofka — tirada iibiyayaasha ma isbedelin.",
+      },
+    ] satisfies FieldDef[]) : []),
     {
       id: "telefoon",
       type: "phone",
@@ -361,10 +455,12 @@ function partyFields(
     },
     {
       id: "wakiil",
-      type: "text",
-      label: "Wakiilka saxiixaya (haddii uu jiro)",
+      type: "person",
+      label: "Wakiilka saxiixaya",
+      personSource: PERSON_SOURCE_REPS,
       optional: true,
-      placeholder: "Magaca wakiilka — haddii uu qof kale u matalo",
+      showWhenRowValueAnyOf: { field: "nooca_matalaada", values: MATALO_JIRO },
+      description: "Dooro qofka hore u geliyey — wakiilkuna wuxuu yahay qof kale.",
     },
   ];
 }
@@ -435,6 +531,17 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
     // The guarantor is somebody else, or the seller himself.
     DAMIIN_QOF_3AAD,
     DAMIIN_IIBIYAHA: { op: "equals", field: "damiinka.nooca_damiinta", value: "iibiyaha" },
+    // The THIRD answer, and a real one: this sale has no guarantor at all.
+    // Without this flag a template cannot tell "Maya" apart from "the notary
+    // never got that far", and would print a guarantor slot for nobody.
+    DAMIIN_MA_JIRO: IS_NO_GUARANTOR,
+    // The four "does this sale have one of those?" gates, so a template can
+    // leave out a heading whose list is empty. Each mirrors exactly what the
+    // notary answered at the top of the interview — nothing is inferred.
+    WAKIILLO_MA_JIRAAN: isGate("wakiillo_ma_jiraan"),
+    SAWIRRO_MA_JIRAAN: isGate("sawirro_ma_jiraan"),
+    SAXEEXO_MA_JIRAAN: isGate("saxeexo_ma_jiraan"),
+    SHAXADO_MA_JIRAAN: isGate("shaxado_ma_jiraan"),
   },
 
   // Same formatting contract as every other document type in the office.
@@ -459,6 +566,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
     "damiinka.nooca_damiinta": {
       qof_3aad: "Damiin qof 3aad",
       iibiyaha: "Iibiyaha oo is-damiinaya",
+      ma_jiro: "Damiin ma jiro",
     },
   },
 
@@ -545,6 +653,38 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           colSpan: 2,
         },
         { id: "taariikhda_hantida", type: "date", label: "Taariikhda Iibka", validation: { required: true } },
+        // ONE place to say which optional lists this sale has. Each answer
+        // decides whether the matching section exists at all — so a notary
+        // with no representative is never asked how many representatives
+        // there are.
+        {
+          id: "wakiillo_ma_jiraan",
+          type: "yes_no",
+          label: "Wakiil ma jiraan?",
+          optional: true,
+          hint: "Haa = qof qalbi wuxuu matalaya qof kale.",
+        },
+        {
+          id: "sawirro_ma_jiraan",
+          type: "yes_no",
+          label: "Sawirro ma jiraan?",
+          optional: true,
+          hint: "Tiradu ma la xiriirin tirada iibiyayaasha.",
+        },
+        {
+          id: "saxeexo_ma_jiraan",
+          type: "yes_no",
+          label: "Saxeexyaal ma jiraan?",
+          optional: true,
+          hint: "Qof kasta oo iibiye ah ma saxeyn karo.",
+        },
+        {
+          id: "shaxado_ma_jiraan",
+          type: "yes_no",
+          label: "Shaxado / Tixraacyo ma jiraan?",
+          optional: true,
+          hint: "Beerta, wakiilnimo, tixraaca notary.",
+        },
       ],
     },
     {
@@ -560,6 +700,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           min: 1,
           // The interview asks "Tirada Iibiyayaasha?" in its own step before
           // the data step — the scan count is whatever the sale actually has.
+          renderInline: false,
           countFirst: true,
           fields: partyFields("Iibiyaha", { attendance: false, role: true }),
         },
@@ -582,6 +723,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           label: "Kooxaha",
           singular: "Koox",
           description: "Magaca kooxka ayaa la sheegaa; xubnihana waa iibiyayaasha.",
+          renderInline: false,
           min: 0,
           optionalList: true,
           countFirst: true,
@@ -606,6 +748,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       id: "wakiillada",
       title: "Wakiillada",
       description: "Qofka ama dadka saxiixaya magaca iibiyayaasha (iyo iibsadaha).",
+      visibleWhen: isGate("wakiillo_ma_jiraan"),
       parties: [
         {
           id: "wakiillo",
@@ -613,6 +756,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           singular: "Wakiil",
           description:
             "Hal wakiil oo matalaa dad badan, ama wakiillo kala duwan oo qayb qayb u matalaan.",
+          renderInline: false,
           min: 0,
           optionalList: true,
           countFirst: true,
@@ -669,23 +813,27 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       id: "sawirrada",
       title: "Sawirrada",
       description: "Sawirka qofka — tiradu ma la xiriirin tirada iibiyayaasha.",
+      visibleWhen: isGate("sawirro_ma_jiraan"),
       parties: [
         {
           id: "sawirrada",
           label: "Sawirro",
           singular: "Sawir",
           description: "Hal sawir ama badan. Qofkee sawirkiisa ayaad haysaa?",
+          renderInline: false,
           min: 0,
           optionalList: true,
           countFirst: true,
           fields: [
             {
-              id: "magac",
-              type: "text",
-              label: "Magaca Qofka",
+              // The person is CHOSEN from those already entered — the value is
+              // that person's ID. The name is never typed a second time.
+              id: "shakhsiga",
+              type: "person",
+              label: "Qofka",
+              personSource: PERSON_SOURCE,
               validation: { required: true },
-              placeholder: "Magaca qofka sawirkiisa",
-              description: "Sawirku wuxuu ku xiran yahay QOOFKA, ma aha tirada iibiyayaasha.",
+              description: "Dooro qofka hore u geliyey — sawirku ma xiranayo tirada iibiyayaasha.",
             },
             {
               id: "sawir",
@@ -715,22 +863,25 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       id: "saxeexayaasha",
       title: "Saxeexayaasha",
       description: "Yaa saxeexaya? Kasta hal unug — ma la xiriirin tirada iibiyayaasha.",
+      visibleWhen: isGate("saxeexo_ma_jiraan"),
       parties: [
         {
           id: "saxeexayaasha",
           label: "Saxeexayaal",
           singular: "Saxeex",
           description: "Hal saxeex ama badan. Hal qof ayaa laga saxixi karaa.",
+          renderInline: false,
           min: 0,
           optionalList: true,
           countFirst: true,
           fields: [
             {
-              id: "magac",
-              type: "text",
-              label: "Magaca Qofka",
+              id: "shakhsiga",
+              type: "person",
+              label: "Qofka saxeexaya",
+              personSource: PERSON_SOURCE,
               validation: { required: true },
-              placeholder: "Magaca qofka saxeexaya",
+              description: "Qof kasta oo iibiye ah ma saxeyn karo.",
             },
             {
               id: "prefix",
@@ -758,12 +909,14 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       // (the buyers section sits below, after the signatories)
       title: "Shaxadaha iyo Warqadaha",
       description: "Beerta, wakiilnimo, tixraac — hal warqad ama badan.",
+      visibleWhen: isGate("shaxado_ma_jiraan"),
       parties: [
         {
           id: "shaxadaha",
           label: "Shaxado",
           singular: "Shaxad",
           description: "Hal shaxad ama badan (MDH/C/…, Ref:APN/…).",
+          renderInline: false,
           min: 0,
           optionalList: true,
           countFirst: true,
@@ -832,12 +985,12 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       description: "Goobta dhulka la iibsanayo iyo caddaynta lahaanshaha.",
       visibleWhen: isHanti("dhul_banaan"),
       fields: [
-        { id: "degmada", type: "text", label: "Degmada", validation: { required: true }, placeholder: "Tusaale: Degmada Waardhiil" },
-        { id: "xaafada", type: "text", label: "Xaafada", validation: { required: true }, placeholder: "Tusaale: Xaafadda Sooma" },
-        { id: "cabbirka", type: "text", label: "Cabbirka", validation: { required: true }, placeholder: "Tusaale: 5,000 m²" },
-        { id: "jiho_1", type: "text", label: "Xadka / Jiho 1", validation: { required: true }, placeholder: "Tusaale: Xarunta Wacatariga" },
-        { id: "jiho_2", type: "text", label: "Xadka / Jiho 2", validation: { required: true }, placeholder: "Tusaale: Jidka Mogadishu" },
-        { id: "jiho_3", type: "text", label: "Xadka / Jiho 3", validation: { required: true }, placeholder: "Tusaale: Badda Sooma" },
+        { id: "degmada", type: "text", label: "Degmada", optional: true, placeholder: "Tusaale: Degmada Waardhiil" },
+        { id: "xaafada", type: "text", label: "Xaafada", optional: true, placeholder: "Tusaale: Xaafadda Sooma" },
+        { id: "cabbirka", type: "text", label: "Cabbirka", optional: true, placeholder: "Tusaale: 5,000 m²" },
+        { id: "jiho_1", type: "text", label: "Xadka / Jiho 1", optional: true, placeholder: "Tusaale: Xarunta Wacatariga" },
+        { id: "jiho_2", type: "text", label: "Xadka / Jiho 2", optional: true, placeholder: "Tusaale: Jidka Mogadishu" },
+        { id: "jiho_3", type: "text", label: "Xadka / Jiho 3", optional: true, placeholder: "Tusaale: Badda Sooma" },
         {
           id: "soohdimaha",
           type: "textarea",
@@ -888,12 +1041,12 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       description: "Xuduudaha guriga la iibsanayo.",
       visibleWhen: isHanti("guri"),
       fields: [
-        { id: "goobta", type: "text", label: "Goobta Guriga", validation: { required: true }, placeholder: "Tusaale: Hargeisa" },
-        { id: "degmada_xaafadda", type: "text", label: "Degmada / Xaafadda", validation: { required: true }, placeholder: "Tusaale: Degmada Hargeisa" },
+        { id: "goobta", type: "text", label: "Goobta Guriga", optional: true, placeholder: "Tusaale: Hargeisa" },
+        { id: "degmada_xaafadda", type: "text", label: "Degmada / Xaafadda", optional: true, placeholder: "Tusaale: Degmada Hargeisa" },
         { id: "cabbirka", type: "text", label: "Cabbirka Guriga", optional: true, skippable: true, placeholder: "Tusaale: 150 m²" },
-        { id: "nooca_guriga", type: "text", label: "Nooca Guriga", validation: { required: true }, placeholder: "Tusaale: Guri Xaas" },
+        { id: "nooca_guriga", type: "text", label: "Nooca Guriga", optional: true, placeholder: "Tusaale: Guri Xaas" },
         { id: "xuduudaha", type: "text", label: "Xuduudaha Guriga", optional: true, skippable: true, placeholder: "Tusaale: Koronto, biyo, dariik" },
-        { id: "lambarka_lahaansho", type: "text", label: "Lambar / Aqoonsi Lahaansho", validation: { required: true }, placeholder: "Lambarka lahaanshaha" },
+        { id: "lambarka_lahaansho", type: "text", label: "Lambar / Aqoonsi Lahaansho", optional: true, placeholder: "Lambarka lahaanshaha" },
         { id: "faahfaahin_dheeraad", type: "textarea", label: "Faahfaahin Dheeraad ah", optional: true, colSpan: 2, placeholder: "Wax ka badan oo guriga ku saabsan…" },
       ],
     },
@@ -907,14 +1060,14 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           id: "magaca_beerta",
           type: "text",
           label: "Magaca Beeraha",
-          validation: { required: true },
+          optional: true,
           placeholder: "Tusaale: Beer Daara-Salaam",
           description:
             "Beer scan-ku wuxuu qabtay beer magac leh — goobta iyo beerka labo arrimo oo kala duwan.",
         },
-        { id: "goobta", type: "text", label: "Goobta Beeraha", validation: { required: true }, placeholder: "Tusaale: Hargeisa" },
-        { id: "degmada_xaafadda", type: "text", label: "Degmada / Xaafadda", validation: { required: true }, placeholder: "Tusaale: Degmada Hargeisa" },
-        { id: "cabbirka", type: "text", label: "Cabbirka Beeraha", validation: { required: true }, placeholder: "Tusaale: 80 m²" },
+        { id: "goobta", type: "text", label: "Goobta Beeraha", optional: true, placeholder: "Tusaale: Hargeisa" },
+        { id: "degmada_xaafadda", type: "text", label: "Degmada / Xaafadda", optional: true, placeholder: "Tusaale: Degmada Hargeisa" },
+        { id: "cabbirka", type: "text", label: "Cabbirka Beeraha", optional: true, placeholder: "Tusaale: 80 m²" },
         {
           id: "jiho_1",
           type: "text",
@@ -929,9 +1082,9 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           optional: true,
           placeholder: "Tusaale: Jidka Mogadishu",
         },
-        { id: "nooca_beeraha", type: "text", label: "Nooca Beeraha", validation: { required: true }, placeholder: "Tusaale: Beer Dhab ah" },
+        { id: "nooca_beeraha", type: "text", label: "Nooca Beeraha", optional: true, placeholder: "Tusaale: Beer Dhab ah" },
         { id: "xuduudaha", type: "text", label: "Xuduudaha Beeraha", optional: true, skippable: true, placeholder: "Tusaale: Bandhig, kalkaaliye" },
-        { id: "lambarka_lahaansho", type: "text", label: "Lambar / Aqoonsi Lahaansho", validation: { required: true }, placeholder: "Lambarka lahaanshaha" },
+        { id: "lambarka_lahaansho", type: "text", label: "Lambar / Aqoonsi Lahaansho", optional: true, placeholder: "Lambarka lahaanshaha" },
         { id: "faahfaahin_dheeraad", type: "textarea", label: "Faahfaahin Dheeraad ah", optional: true, colSpan: 2, placeholder: "Wax ka badan oo beeraha ku saabsan…" },
         // A well is part of some Beer agreements and absent from others, so
         // it is asked as an optional question rather than asserted as a rule.
@@ -965,7 +1118,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
         {
           id: "nooca_damiinta",
           type: "select",
-          label: "Nooca Dammaanadda",
+          label: "Damiin ma jiraa?",
           options: NOOCA_DAMIIN,
           validation: { required: true },
           hint: "Qof 3aad mise iibiyaha isagu?",
@@ -978,7 +1131,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           type: "text",
           label: "Magaca Damiinka",
           optional: true,
-          visibleWhen: DAMIIN_QOF_3AAD,
+          visibleWhen: HAS_GUARANTOR,
           requiredWhen: DAMIIN_QOF_3AAD,
           placeholder: "Magaca damiinka",
         },
@@ -987,14 +1140,15 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           type: "phone",
           label: "Telefoonka Damiinka",
           optional: true,
-          visibleWhen: DAMIIN_QOF_3AAD,
+          visibleWhen: HAS_GUARANTOR,
           placeholder: "+252 61 5551234",
         },
         {
           id: "gurmadka_dammaanadda",
           type: "textarea",
           label: "Gurmadka / Qoraalka Dammaanadda",
-          validation: { required: true },
+          optional: true,
+          visibleWhen: HAS_GUARANTOR,
           colSpan: 2,
           placeholder: "Waxa dammiinku dammaanadda ugu gaddaynayo…",
         },
@@ -1003,7 +1157,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           type: "photo",
           label: "Sawirka Damiinka",
           optional: true,
-          visibleWhen: DAMIIN_QOF_3AAD,
+          visibleWhen: HAS_GUARANTOR,
           description: "Sawirka damiinka marka uu yahay qof 3aad.",
         },
       ],
@@ -1047,9 +1201,11 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           singular: "Marag",
           description: "Ku dar hal ama marag badan.",
           min: 1,
+          renderInline: false,
           fields: [
             { id: "magac", type: "text", label: "Magaca Maraga", validation: { required: true } },
             { id: "telefoon", type: "phone", label: "Telefoon", optional: true },
+            { id: "degan", type: "text", label: "Degan Maraga", optional: true, placeholder: "Degmada / Xaafadda" },
           ],
         },
       ],

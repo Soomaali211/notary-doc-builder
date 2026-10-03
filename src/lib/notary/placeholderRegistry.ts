@@ -420,9 +420,7 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
     key: "damiinka.sawirka_damiinka",
     label: "Sawirka Damiinka (marka uu yahay qof 3aad)",
     group: "Dammaanadda",
-  },
-  {
-    token: "NOOCA_DAMIINTA",
+  },{ token: "NOOCA_DAMIINTA",
     key: "damiinka.nooca_damiinta",
     label: "Nooca dammaanadda (qoraal)",
     group: "Dammaanadda",
@@ -487,7 +485,8 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
     kind: "block",
     label: "Iibiyayaal (kasta hal unug)",
     bodyTokens: [
-      "NUMBER", "MAGAC", "JINSI", "DOORO", "KOOX", "DEGAN", "TELEFOON",
+      "NUMBER", "MAGAC", "JINSI", "DOORO", "XIRIIRKA_QOYSKA", "KOOX",
+      "DEGAN", "XAALAD", "TELEFOON",
       "NOOCA_MATALAADA", "WAKIIL",
     ],
     group: "Iibiyayaal",
@@ -524,6 +523,23 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   { token: "IIBSADAHA_JINSI", key: "iibsadayaal.jinsi", label: "Jinsi Iibsadaha", group: "Iibsadaha" },
   { token: "IIBIYAHA_DOORO", key: "iibiyeyaal.dooro", label: "Doorka Iibiyaha", group: "Iibiyaha" },
   { token: "IIBIYAHA_KOOX", key: "iibiyeyaal.koox", label: "Kooxa / Qoysku", group: "Iibiyaha" },
+  {
+    // FAMILY RELATIONSHIP is its own fact, separate from ROLE and from
+    // representation: "Hooyada" is who she is to somebody. It is an answer
+    // the notary types — never read off the name.
+    token: "IIBIYAHA_XIRIIRKA_QOYSKA",
+    key: "iibiyeyaal.xiriirka_qoyska",
+    label: "Xiriirka Qoyska ee iibiyaha",
+    group: "Iibiyaha",
+  },
+  {
+    // SELLER STATUS is the notary's own statement about where the seller is
+    // today — distinct from attendance, which only the BUYERS carry.
+    token: "IIBIYAHA_XAALAD",
+    key: "iibiyeyaal.xaalad",
+    label: "Xaaladda iibiyaha (jooga / maqan / wakiil ku jooga…)",
+    group: "Iibiyaha",
+  },
   { token: "IIBIYAHA_WAKIIL", key: "iibiyeyaal.wakiil", label: "Wakiilka saxiixaya iibiyaha", group: "Wakiil" },
 
   /* ---- Qoraalka jinsiga: the legal role words the engine picks ---- */
@@ -558,14 +574,16 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
     token: "SAWIRRADA",
     kind: "block",
     label: "Sawirrada (tirad madax-bannaan)",
-    bodyTokens: ["NUMBER", "MAGAC", "SAWIR", "CAPTION"],
+    // SHAKHSIGA prints the person's NAME: the row stores the id of somebody
+    // already entered, and the id is the link, never the text on the paper.
+    bodyTokens: ["NUMBER", "SHAKHSIGA", "SHAKHSIGA_ID", "SAWIR", "CAPTION"],
     group: "Sawirrada",
   },
   {
     token: "SAXEEXAYAASHA",
     kind: "block",
     label: "Saxeexayaasha (tirad madax-bannaan)",
-    bodyTokens: ["NUMBER", "MAGAC", "PREFIX"],
+    bodyTokens: ["NUMBER", "SHAKHSIGA", "SHAKHSIGA_ID", "PREFIX"],
     group: "Saxeexayaasha",
   },
   {
@@ -602,6 +620,9 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   // Nooca dammaanadda — decides WHO is printed in the guarantor slot.
   { token: "DAMIIN_QOF_3AAD", kind: "flag", label: "Damiinku waa qof 3aad", group: "Dammaanadda" },
   { token: "DAMIIN_IIBIYAHA", kind: "flag", label: "Iibiyaha isagu waa damiin", group: "Dammaanadda" },
+  // A REAL third answer. "Maya" is not an empty field the notary forgot —
+  // it is a state the document prints differently, so it needs its own flag.
+  { token: "DAMIIN_MA_JIRO", kind: "flag", label: "Damiin ma jiro", group: "Dammaanadda" },
   { token: "WAKIIL", kind: "flag", label: "Wakiil (hal unug gudihiisa)", group: "Wakiil" },
   { token: "JOOGA", kind: "flag", label: "Jooga (hal unug gudihiisa)", group: "Wakiil" },
 
@@ -610,6 +631,15 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   { token: "IIBIYEYAAL_BADAN", kind: "flag", label: "Iibiyayaal badan", group: "Iibiyayaal" },
   { token: "IIBSADAYAAL_HAL", kind: "flag", label: "Hal iibsade oo keliya", group: "Iibsadayaal" },
   { token: "IIBSADAYAAL_BADAN", kind: "flag", label: "Iibsadayaal badan", group: "Iibsadayaal" },
+
+  /* ---- The four "does this sale have one of those?" gates.
+         Asked once in Dejinta Heshiiska. Each decides whether its list
+         exists at all, so a sale with no photographs has no
+         {{IF:SAWIRRO_MA_JIRAAN}} body to fill. ---- */
+  { token: "WAKIILLO_MA_JIRAAN", kind: "flag", label: "Wakiil ma jiraan?", group: "Wakiil" },
+  { token: "SAWIRRO_MA_JIRAAN", kind: "flag", label: "Sawirro ma jiraan?", group: "Sawirrada" },
+  { token: "SAXEEXO_MA_JIRAAN", kind: "flag", label: "Saxeexyaal ma jiraan?", group: "Saxeexayaasha" },
+  { token: "SHAXADO_MA_JIRAAN", kind: "flag", label: "Shaxado / Tixraacyo ma jiraan?", group: "Shaxadaha" },
 
   /* ---- Attendance-derived flags (resolveFlags(): <GROUP>_JOOGA / _WAKIIL).
          Only the BUYERS carry attendance in this document — a seller always
