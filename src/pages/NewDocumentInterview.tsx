@@ -46,6 +46,7 @@ import {
   removeRepeatableItem,
   serializeDraft,
   referenceAnswer,
+  setupSectionId,
   setAnswer,
   setPartyAttendance,
   setRepeatableAnswer,
@@ -329,6 +330,29 @@ export default function NewDocumentInterview() {
   }, [config, document]);
 
   const saveDraft = useMutation(api.notaryDocuments.saveDraft);
+
+  // Reference allocation — documents that declare a `referenceFormat`.
+  // Kala Iibsi Dhul Banaan prints "Ref/Dpn/MG/001/01/26", and the user must
+  // never type it: the notary_counters table hands out a strictly sequential
+  // serial (never reused, never random) once per draft. Heshiis Kiro
+  // declares no referenceFormat, keeps its own reference field, and this
+  // effect never runs for it.
+  const nextReference = useMutation(api.notaryDocuments.nextReference);
+  const allocatedReferenceRef = useRef(false);
+  useEffect(() => {
+    if (!config?.referenceFormat || !values || allocatedReferenceRef.current) return;
+    if (referenceAnswer(config, values).trim()) return;
+    allocatedReferenceRef.current = true;
+    nextReference({ prefix: config.referencePrefix })
+      .then((reference) =>
+        setValues((v) => (v ? setAnswer(v, setupSectionId(config), "reference", reference) : v)),
+      )
+      .catch(() => {
+        // Keep the draft usable — the user can still type nothing and the
+        // Generate step reports a missing reference instead of inventing one.
+        allocatedReferenceRef.current = false;
+      });
+  }, [config, values, nextReference]);
 
   const persist = useCallback(
     (next: FormValues) => {

@@ -299,11 +299,15 @@ export const HESHIIS_KIRO_PLACEHOLDERS: PlaceholderSpec[] = [
  * quietly given an invented clause.
  */
 export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
-  /* ---- Dejinta (setup) ---- */
+  /* ---- Dejinta (setup) ----
+     REF_NUMBER is written by the pipeline, not typed by the user: the
+     database holds the short serial ("DPN-MG-001") and the document
+     prints "Ref/Dpn/MG/001/01/26" (DocumentConfig.referenceFormat). The
+     key below is only the draft's copy of the allocated serial. */
   {
     token: "REF_NUMBER",
     key: "dejinta.reference",
-    label: "Nambarka Tixraaca",
+    label: "Nambarka Tixraaca (Ref/Dpn/MG/…)",
     aliases: ["REFERENCE_NUMBER"],
     group: "Dejinta",
   },
@@ -332,34 +336,87 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
 
   /* ---- Iibiyaha (sellers — single-row view; the list is a repeat block) ---- */
   { token: "IIBIYAHA_MAGAC", key: "iibiyeyaal.magac", label: "Magaca Iibiyaha", group: "Iibiyaha" },
+  { token: "IIBIYAHA_DEGAN", key: "iibiyeyaal.degan", label: "Degan Iibiyaha", group: "Iibiyaha" },
   { token: "IIBIYAHA_TELEFOON", key: "iibiyeyaal.telefoon", label: "Telefoonka Iibiyaha", group: "Iibiyaha" },
-  { token: "IIBIYAHA_AQOONSI", key: "iibiyeyaal.aqoonsi", label: "Aqoonsiga Iibiyaha", group: "Iibiyaha" },
-  { token: "IIBIYAHA_CINWAAN", key: "iibiyeyaal.cinwaan", fallback: "—", label: "Cinwaanka Iibiyaha", group: "Iibiyaha" },
+  { token: "IIBIYAHA_SAWIR", key: "iibiyeyaal.sawir", label: "Sawirka Iibiyaha", group: "Iibiyaha" },
 
   /* ---- Iibsadaha (buyers — single-row view) ---- */
   { token: "IIBSADAHA_MAGAC", key: "iibsadayaal.magac", label: "Magaca Iibsadaha", group: "Iibsadaha" },
+  { token: "IIBSADAHA_DEGAN", key: "iibsadayaal.degan", label: "Degan Iibsadaha", group: "Iibsadaha" },
   { token: "IIBSADAHA_TELEFOON", key: "iibsadayaal.telefoon", label: "Telefoonka Iibsadaha", group: "Iibsadaha" },
-  { token: "IIBSADAHA_AQOONSI", key: "iibsadayaal.aqoonsi", label: "Aqoonsiga Iibsadaha", group: "Iibsadaha" },
-  { token: "IIBSADAHA_CINWAAN", key: "iibsadayaal.cinwaan", fallback: "—", label: "Cinwaanka Iibsadaha", group: "Iibsadaha" },
+  { token: "IIBSADAHA_SAWIR", key: "iibsadayaal.sawir", label: "Sawirka Iibsadaha", group: "Iibsadaha" },
 
   /* ---- Wakiil (computed from the linked representative) ---- */
   { token: "WAKIIL_MAGAC", kind: "computed", label: "Magaca Wakiilka", group: "Wakiil" },
-  { token: "WAKIIL_TELEFOON", kind: "computed", label: "Telefoonka Wakiilka", group: "Wakiil" },
-  { token: "IIBIYAHA_WAKIIL_MAGAC", kind: "computed", label: "Wakiilka Iibiyaha", group: "Wakiil" },
-  { token: "IIBIYAHA_WAKIIL_TELEFOON", kind: "computed", label: "Telefoonka Wakiilka (Iibiyaha)", group: "Wakiil" },
+  { token: "WAKIIL_SAWIR", kind: "computed", label: "Sawirka Wakiilka", group: "Wakiil" },
   { token: "IIBSADAHA_WAKIIL_MAGAC", kind: "computed", label: "Wakiilka Iibsadaha", group: "Wakiil" },
-  { token: "IIBSADAHA_WAKIIL_TELEFOON", kind: "computed", label: "Telefoonka Wakiilka (Iibsadaha)", group: "Wakiil" },
+  { token: "IIBSADAHA_WAKIIL_SAWIR", kind: "computed", label: "Sawirka Wakiilka (Iibsadaha)", group: "Wakiil" },
 
-  /* ---- Hantida: Dhul Banaan ---- */
-  { token: "DHUL_NOOCA_HANTIDA", key: "hantida_dhul_banaan.nooca_hantida", label: "Nooca Hantida (Dhul)", group: "Dhul Banaan" },
-  { token: "DHUL_GOOBTA", key: "hantida_dhul_banaan.goobta", label: "Goobta / Degmada / Xaafadda", group: "Dhul Banaan" },
-  { token: "DHUL_CABBIRKA", key: "hantida_dhul_banaan.cabbirka", label: "Cabbirka Dhulka", group: "Dhul Banaan" },
-  { token: "DHUL_XADKA_WAQOOYI", key: "hantida_dhul_banaan.xadka_waqooyi", label: "Xadka Waqooyi", group: "Dhul Banaan" },
-  { token: "DHUL_XADKA_BARI", key: "hantida_dhul_banaan.xadka_bari", label: "Xadka Bari", group: "Dhul Banaan" },
-  { token: "DHUL_XADKA_KOONFUR", key: "hantida_dhul_banaan.xadka_koonfur", label: "Xadka Koonfur", group: "Dhul Banaan" },
-  { token: "DHUL_XADKA_GALBEED", key: "hantida_dhul_banaan.xadka_galbeed", label: "Xadka Galbeed", group: "Dhul Banaan" },
-  { token: "DHUL_LAMBARKA_LAHAANSHO", key: "hantida_dhul_banaan.lambarka_lahaansho", label: "Lambar / Aqoonsi Lahaansho", group: "Dhul Banaan" },
-  { token: "DHUL_FAAHFAAHIN", key: "hantida_dhul_banaan.faahfaahin_dheeraad", fallback: "—", label: "Faahfaahin Dheeraad ah (Dhul)", group: "Dhul Banaan" },
+  /* ---- Hantida: Dhul Banaan (goobta dhulka + caddaynta lahaanshaha) ---- */
+  { token: "DEGMADA", key: "hantida_dhul_banaan.degmada", label: "Degmada", group: "Dhul Banaan" },
+  { token: "XAAFADA", key: "hantida_dhul_banaan.xaafada", label: "Xaafada", group: "Dhul Banaan" },
+  { token: "CABBIRKA", key: "hantida_dhul_banaan.cabbirka", label: "Cabbirka", group: "Dhul Banaan" },
+  { token: "JIHOO_1", key: "hantida_dhul_banaan.jiho_1", label: "Xadka / Jiho 1", group: "Dhul Banaan" },
+  { token: "JIHOO_2", key: "hantida_dhul_banaan.jiho_2", label: "Xadka / Jiho 2", group: "Dhul Banaan" },
+  { token: "JIHOO_3", key: "hantida_dhul_banaan.jiho_3", label: "Xadka / Jiho 3", group: "Dhul Banaan" },
+  {
+    token: "SIDA_HANTIDA",
+    key: "hantida_dhul_banaan.sida_hantida_loo_helay",
+    label: "Sida iibiyuhu hantida u helay (qoraal)",
+    group: "Dhul Banaan",
+  },
+  {
+    token: "NOTARY_REF",
+    key: "hantida_dhul_banaan.notary_ref",
+    label: "Tixraaca Notary / warqadda iibka",
+    group: "Dhul Banaan",
+  },
+  {
+    token: "BEERTA",
+    key: "hantida_dhul_banaan.beerta",
+    label: "Beerta / warqadda dhaxalka",
+    group: "Dhul Banaan",
+  },
+
+  /* ---- Dammaanadda — ONE slot, TWO possible names (see DAMIIN_MAGACA) ---- */
+  {
+    token: "DAMIIN_MAGAC",
+    key: "damiinka.magaca_damiinka",
+    label: "Magaca Damiinka (marka uu yahay qof 3aad)",
+    group: "Dammaanadda",
+  },
+  {
+    // Printed when the SELLER guarantees his own sale: the guarantor slot
+    // carries the seller's name, not a second person.
+    token: "DAMIIN_MAGACA",
+    kind: "computed",
+    label: "Magaca damiinka (qof 3aad, ama iibiyaha is-damiinaya)",
+    group: "Dammaanadda",
+  },
+  {
+    token: "DAMIIN_TELEFOON",
+    key: "damiinka.telefoonka_damiinka",
+    label: "Telefoonka Damiinka",
+    group: "Dammaanadda",
+  },
+  {
+    token: "DAMIIN_GURMAD",
+    key: "damiinka.gurmadka_dammaanadda",
+    label: "Gurmadka / qoraalka dammaanadda",
+    group: "Dammaanadda",
+  },
+  {
+    token: "DAMIIN_SAWIR",
+    key: "damiinka.sawirka_damiinka",
+    label: "Sawirka Damiinka (marka uu yahay qof 3aad)",
+    group: "Dammaanadda",
+  },
+  {
+    token: "NOOCA_DAMIINTA",
+    key: "damiinka.nooca_damiinta",
+    label: "Nooca dammaanadda (qoraal)",
+    group: "Dammaanadda",
+  },
 
   /* ---- Hantida: Guri ---- */
   { token: "GURI_GOOBTA", key: "hantida_guri.goobta", label: "Goobta Guriga", group: "Guri" },
@@ -379,105 +436,31 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   { token: "BEER_LAMBARKA_LAHAANSHO", key: "hantida_beer.lambarka_lahaansho", label: "Lambar / Aqoonsi Lahaansho", group: "Beer" },
   { token: "BEER_FAAHFAAHIN", key: "hantida_beer.faahfaahin_dheeraad", fallback: "—", label: "Faahfaahin Dheeraad ah (Beer)", group: "Beer" },
 
-  /* ---- Qiimaha & lacag bixinta ---- */
+  /* ---- Qiimaha: the figure, and the SAME figure written in words ---- */
   {
-    token: "QIIMAHA_IIBKU",
+    token: "QIIMAHA",
     key: "qiimaha.qiimaha_guud",
     format: "currency",
-    label: "Qiimaha Guud ee Hantida",
+    label: "Qiimaha Guud",
     aliases: ["QIIMAHA_HANTIDA"],
     group: "Qiimaha",
   },
   {
     // Same derived pattern as Kiro: the amount in Somali words, computed
     // from the NUMBER. The user only ever types the figure.
-    token: "QIIMAHA_IIBKU_QORAAL",
+    token: "QIIMAHA_QORAAL",
     key: "qiimaha.qiimaha_guud",
     format: "currency_words",
-    label: "Qiimaha Hantida (qoraal)",
+    label: "Qiimaha Guud (qoraal)",
     group: "Qiimaha",
   },
-  {
-    token: "LACAGTA_LA_BIXIYAY",
-    key: "qiimaha.lacagta_bixiyay",
-    format: "currency",
-    label: "Lacagta la Bixiyay",
-    group: "Qiimaha",
-  },
-  {
-    // Lacagta hadhay = qiimaha guud − lacagta la bixiyay. Declared in the
-    // config's derivedValues (kind: subtract) — the user never types it and
-    // can never contradict the two figures it comes from.
-    token: "LACAGTA_HADHAY",
-    kind: "computed",
-    label: "Lacagta Hadhay (qiimaha − bixiyay)",
-    group: "Qiimaha",
-  },
-  {
-    token: "LACAGTA_HADHAY_QORAAL",
-    kind: "computed",
-    label: "Lacagta Hadhay (qoraal)",
-    group: "Qiimaha",
-  },
-  { token: "HABKA_BIXINTA", key: "qiimaha.habka_bixinta", label: "Habka Bixinta", group: "Qiimaha" },
-  { token: "TAARIIKHDA_BIXINTA", key: "qiimaha.taariikhda_bixinta", label: "Taariikhda Bixinta", aliases: ["MUDDADA_BIXINTA"], group: "Qiimaha" },
-  { token: "BANGIGA_HISAABKA", key: "qiimaha.bangiga_hisaabka", fallback: "—", label: "Nambarka Xisaabta Bangiga", group: "Qiimaha" },
-
-  /* ---- Shuruudaha iibka (the ANSWERS are data; the legal prose that reads
-         them aloud lives in the office's own Word template) ---- */
-  {
-    token: "HANTIDA_LAA_WAREEJIYAY",
-    key: "shuruudaha.hantida_wareegay",
-    label: "Hantida waxaa la wareejiyay iibsadaha",
-    group: "Shuruudaha Iibka",
-  },
-  {
-    token: "IIBIYAHU_CADDEEYAA",
-    key: "shuruudaha.iibiyuhu_caddeynayaa",
-    label: "Iibiyuhu wuxuu caddeynayaa lahaanshaha",
-    group: "Shuruudaha Iibka",
-  },
-  {
-    token: "IIBSADAHA_AQBALAY",
-    key: "shuruudaha.iibsaduhu_ahqiiqiyay",
-    label: "Iibsaduhu wuxuu xaqiijinayaa inuu aqbalay",
-    group: "Shuruudaha Iibka",
-  },
-  {
-    token: "DAMMAANAD_LA_BIXIYAY",
-    key: "shuruudaha.iibiyuhu_bixinayaa_dammaanad",
-    label: "Dammaanad ma la bixinay lahaanshaha",
-    group: "Shuruudaha Iibka",
-  },
-  {
-    token: "SHURUUDAHA_IIBKA",
-    key: "shuruudaha.shuruudaha_gaarka_ah",
-    fallback: "—",
-    label: "Shuruudaha Iibka (qoraal dheeraad ah)",
-    group: "Shuruudaha Iibka",
-  },
-
-  /* ---- Conditional flags for the same answers ({{IF:…}} wraps the clause) ---- */
-  { token: "WAREEJINTA_LAA_SAHAN", kind: "flag", label: "Hantida waa la wareejiyay", group: "Shuruudaha Iibka" },
-  { token: "LAHAANSHAHA_CADDEEY", kind: "flag", label: "Iibiyuhu wuxuu caddeeyay lahaanshaha", group: "Shuruudaha Iibka" },
-  { token: "IIBSADAHU_AQBALAY", kind: "flag", label: "Iibsaduhu wuxuu xaqiijiyay inuu aqbalay", group: "Shuruudaha Iibka" },
-
-  /* ---- Rahmad / Aamaanad (conditional on the pledge question) ---- */
-  { token: "RAHMAD_NOOCA", key: "rahmad.nooca_rahmada", label: "Nooca Rahmadda / Aamaanada", group: "Rahmad" },
-  { token: "RAHMAD_DEGMADA", key: "rahmad.degmada_xaafadda", label: "Degmada / Xaafadda (Rahmad)", group: "Rahmad" },
-  { token: "RAHMAD_LAMBARKA_LAHAANSHO", key: "rahmad.lambarka_lahaansho", label: "Lambar Lahaansho / Title Number", group: "Rahmad" },
-  { token: "RAHMAD_FAAHFAAHIN", key: "rahmad.faahfaahin", fallback: "—", label: "Faahfaahin Rahmad", group: "Rahmad" },
 
   /* ---- Repeat blocks (dynamic parties — never {{IIBIYAHA_1}}) ---- */
   {
     token: "IIBIYEYAAL",
     kind: "block",
     label: "Iibiyayaal (kasta hal unug)",
-    bodyTokens: [
-      "NUMBER", "MAGAC", "TELEFOON", "AQOONSI", "CINWAAN", "FAAHFAAHIN_DHEERAAD",
-      "WAKIIL", "JOOGA", "MATALAYA",
-      "WAKIIL_MAGAC", "WAKIIL_TELEFOON", "WAKIIL_AQOONSI", "WAKIIL_CINWAAN",
-    ],
+    bodyTokens: ["NUMBER", "MAGAC", "DEGAN", "TELEFOON", "SAWIR"],
     group: "Iibiyayaal",
   },
   {
@@ -485,31 +468,24 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
     kind: "block",
     label: "Iibsadayaal (kasta hal unug)",
     bodyTokens: [
-      "NUMBER", "MAGAC", "TELEFOON", "AQOONSI", "CINWAAN", "FAAHFAAHIN_DHEERAAD",
+      "NUMBER", "MAGAC", "DEGAN", "TELEFOON", "SAWIR",
       "WAKIIL", "JOOGA", "MATALAYA",
-      "WAKIIL_MAGAC", "WAKIIL_TELEFOON", "WAKIIL_AQOONSI", "WAKIIL_CINWAAN",
+      "WAKIIL_MAGAC", "WAKIIL_SAWIR",
     ],
     group: "Iibsadayaal",
-  },
-  {
-    token: "WAKIILO_IIBIYEYAAL",
-    kind: "block",
-    label: "Wakiillo Iibiyayaal",
-    bodyTokens: ["NUMBER", "MAGAC", "TELEFOON", "AQOONSI", "CINWAAN", "MATALAYA"],
-    group: "Wakiil",
   },
   {
     token: "WAKIILO_IIBSADAYAAL",
     kind: "block",
     label: "Wakiillo Iibsadayaal",
-    bodyTokens: ["NUMBER", "MAGAC", "TELEFOON", "AQOONSI", "CINWAAN", "MATALAYA"],
+    bodyTokens: ["NUMBER", "MAGAC", "SAWIR", "MATALAYA"],
     group: "Wakiil",
   },
   {
     token: "MARAGYO",
     kind: "block",
     label: "Maragyo (kasta hal unug)",
-    bodyTokens: ["NUMBER", "MAGAC", "PHONE", "ID", "CINWAAN"],
+    bodyTokens: ["NUMBER", "MAGAC", "TELEFOON"],
     group: "Maragyo",
   },
   { token: "MARAGYO_LIST", kind: "list", label: "Maragyada (liis)", group: "Maragyo" },
@@ -522,10 +498,11 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   { token: "HANTI_DHUL_BANAAN", kind: "flag", label: "Qaybta Hantida (Dhul Banaan)", group: "Dejinta" },
   { token: "HANTI_GURI", kind: "flag", label: "Qaybta Hantida (Guri)", group: "Dejinta" },
   { token: "HANTI_BEER", kind: "flag", label: "Qaybta Hantida (Beer)", group: "Dejinta" },
-  { token: "BIXINTA_DHAN", kind: "flag", label: "Lacag dhan la bixiyay", group: "Qiimaha" },
-  { token: "BIXINTA_QAYB", kind: "flag", label: "Qayb lacag la bixiyay", group: "Qiimaha" },
-  { token: "BIXINTA_HADHAA", kind: "flag", label: "Lacag hadhay / Balance", group: "Qiimaha" },
-  { token: "RAHMAD_JIRA", kind: "flag", label: "Waxaa jira rahmad / aamaanad", group: "Rahmad" },
+  { token: "HANTIDA_DHAXLAT", kind: "flag", label: "Iibiyuhu wuxuu dhaxlay hantida", group: "Dhul Banaan" },
+  { token: "HANTIDA_IIBSADAY", kind: "flag", label: "Iibiyuhu wuxuu iibsaday hantida", group: "Dhul Banaan" },
+  // Nooca dammaanadda — decides WHO is printed in the guarantor slot.
+  { token: "DAMIIN_QOF_3AAD", kind: "flag", label: "Damiinku waa qof 3aad", group: "Dammaanadda" },
+  { token: "DAMIIN_IIBIYAHA", kind: "flag", label: "Iibiyaha isagu waa damiin", group: "Dammaanadda" },
   { token: "WAKIIL", kind: "flag", label: "Wakiil (hal unug gudihiisa)", group: "Wakiil" },
   { token: "JOOGA", kind: "flag", label: "Jooga (hal unug gudihiisa)", group: "Wakiil" },
 
@@ -535,15 +512,18 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   { token: "IIBSADAYAAL_HAL", kind: "flag", label: "Hal iibsade oo keliya", group: "Iibsadayaal" },
   { token: "IIBSADAYAAL_BADAN", kind: "flag", label: "Iibsadayaal badan", group: "Iibsadayaal" },
 
-  /* ---- Attendance-derived flags (resolveFlags(): <GROUP>_JOOGA / _WAKIIL) ---- */
-  { token: "IIBIYAHA_JOOGA", kind: "flag", label: "Waxaa jooga iibiyaha", group: "Iibiyayaal" },
-  { token: "IIBIYAHA_WAKIIL", kind: "flag", label: "Waxaa jooga iibiyaha u wakiil", group: "Iibiyayaal" },
-  { token: "IIBSADAHA_JOOGA", kind: "flag", label: "Waxaa jooga iibsadaha", group: "Iibsadayaal" },
-  { token: "IIBSADAHA_WAKIIL", kind: "flag", label: "Waxaa jooga iibsadaha u wakiil", group: "Iibsadayaal" },
+  /* ---- Attendance-derived flags (resolveFlags(): <GROUP>_JOOGA / _WAKIIL).
+         Only the BUYERS carry attendance in this document — a seller always
+         signs his own sale, so no iibiyaha attendance flag exists. ---- */
+  { token: "IIBSADAHA_JOOGA", kind: "flag", label: "Waxaa jooga iibsade", group: "Iibsadayaal" },
+  { token: "IIBSADAHA_WAKIIL", kind: "flag", label: "Waxaa jooga iibsade u wakiil", group: "Iibsadayaal" },
 
   /* ---- System-derived values (config.derivedValues) ---- */
-  { token: "TIRADA_IIBIYEYAAL", kind: "computed", label: "Tirada iibiyayaasha", group: "Iibiyayaal" },
-  { token: "TIRADA_IIBSADAYAAL", kind: "computed", label: "Tirada iibsadayaasha", group: "Iibsadayaal" },
+  // Only DAMIIN_MAGACA is derived now. The party COUNTS are not derived
+  // values: the template chooses its singular/plural wording from the
+  // {{IF:IIBIYEYAAL_HAL}} / {{IF:IIBIYEYAAL_BADAN}} count flags above, so a
+  // raw count token would be a second, redundant way to say the same thing.
+  { token: "DAMIIN_MAGACA", kind: "computed", label: "Magaca damiinka (qof 3aad, ama iibiyaha is-damiinaya)", group: "Dammaanadda" },
 ];
 
 /* ------------------------------------------------------------------ */

@@ -18,9 +18,11 @@ import type {
   TemplateSpec,
 } from "./types";
 import { isInterviewComplete } from "./engine";
+import { composeReferenceNumber } from "./referenceNumber";
 import { loadTemplate, selectTemplate } from "./registry";
 import { buildDataContext, computeReplacements } from "./dataContext";
 import { generateDocx, processDocumentXml } from "./docxRenderer";
+import { resolveKey } from "./format";
 import { validateTemplate, type TemplateValidationResult } from "./templateValidator";
 import { convertToPdf } from "./pdfRenderer";
 import {
@@ -122,9 +124,21 @@ export async function generateDocument(input: PipelineInput): Promise<PipelineOu
   // 5–8. Data context → conditions → clauses → repeaters → placeholders →
   // DOCX. The reference number is the single source of truth: the document
   // shows the SAME value that names the archive file.
+  //
+  // A document type that declares `referenceFormat` PRINTS the composed
+  // reference ("Ref/Dpn/MG/001/01/26") while the DATABASE keeps the short
+  // serial ("DPN-MG-001"). Documents that declare none — Heshiis Kiro —
+  // print exactly what the caller passed, byte for byte as before.
+  const printedReference = composeReferenceNumber({
+    format: config.referenceFormat,
+    reference: referenceNumber,
+    date: config.referenceDateKey
+      ? String(resolveKey(values, config.referenceDateKey) ?? "")
+      : undefined,
+  });
   const { blob, ctx } = await generateDocx(bytes, config, values, {
-    "{{REFERENCE_NUMBER}}": referenceNumber,
-    "{{REF_NUMBER}}": referenceNumber,
+    "{{REFERENCE_NUMBER}}": printedReference,
+    "{{REF_NUMBER}}": printedReference,
   });
 
   // 9. Validate the OUTPUT — no unresolved required placeholder may remain.
@@ -157,7 +171,7 @@ export async function generateDocument(input: PipelineInput): Promise<PipelineOu
   // name gets a unique suffix when this reference was generated before —
   // an existing file is never overwritten.
   const baseName = uniqueBaseName(
-    buildFileBaseName(config, referenceNumber, input.subTypeLabel),
+    buildFileBaseName(config, printedReference, input.subTypeLabel),
     input.issuedFileNames,
   );
   const folder = buildOutputFolder(config, subTypeOf(config, values));

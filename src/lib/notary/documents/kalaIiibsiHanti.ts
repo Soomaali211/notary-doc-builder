@@ -1,6 +1,7 @@
 import type {
   Condition,
   DocumentConfig,
+  FieldDef,
   PlaceholderMapping,
   SelectOption,
   TemplateSpec,
@@ -8,13 +9,20 @@ import type {
 import { KALA_IIBSI_HANTI_PLACEHOLDERS } from "../placeholderRegistry";
 
 /**
- * KALA IIBSI HANTI — sale of property (land / house / shop).
+ * KALA IIBSI HANTI — sale of property (dhul banaan / guri / beer).
  *
  * This is pure DATA, exactly like Heshiis Kiro: the interview, validation,
  * review and generation all read from it. Nothing here designs the Word
  * template and nothing here writes legal wording — the office's own .docx
  * owns the prose, this file only says which data exists, how it is
  * validated, and which placeholder carries it.
+ *
+ * The DHUL BANAAN shape (the sub-type the office actually delivers today) is
+ * derived from the scanned sale agreements: one date, the plot's location,
+ * the sellers, the buyers, the guarantor, the price, the witnesses. Every
+ * party is a repeatable row — there is no `iibiyaha_1` / `iibiyaha_2`
+ * anywhere, because the scans contain one seller in every sample and the
+ * count must never be capped by the form.
  *
  * The placeholder list is BUILT from the central Placeholder Registry so
  * the token names can never drift apart from the inventory the office sees.
@@ -47,16 +55,22 @@ const HANTI_SUBTYPES: SelectOption[] = [
   { value: "beer", label: "Beer" },
 ];
 
-/** How the purchase price is being settled. */
-const HABKA_BIXINTA: SelectOption[] = [
-  { value: "dhan", label: "Lacag Dhan (Full Payment)" },
-  { value: "qayb", label: "Qayb Lacag ah (Partial Payment)" },
-  { value: "hadhaa", label: "Hadhaaga (Balance)" },
+/**
+ * Sida hantida la helay. The seller either INHERITED the plot or BOUGHT it,
+ * and the proof of that is a different document in each case: the heirs'
+ * certificate (beerta) when he inherited, the notary/sale reference when he
+ * bought it. Stated once, in the form, so the proof field can never be
+ * collected for the wrong case.
+ */
+const SIDA_HANTIDA: SelectOption[] = [
+  { value: "dhaxlay", label: "Wuu dhaxlay (her / beerta)" },
+  { value: "iibsaday", label: "Wuu iibsaday (qof kale)" },
 ];
 
-const YES_NO: SelectOption[] = [
-  { value: "yes", label: "Haa" },
-  { value: "no", label: "Maya" },
+/** Nooca dammaanadda — a third party guarantees, or the seller guarantees. */
+const NOOCA_DAMIIN: SelectOption[] = [
+  { value: "qof_3aad", label: "Damiin qof 3aad" },
+  { value: "iibiyaha", label: "Iibiyaha oo is-damiinaya" },
 ];
 
 /** Sub-type equals one of the given values. */
@@ -69,11 +83,30 @@ const isHanti = (...values: string[]): Condition => ({
   })),
 });
 
+const HANTIDA_DHUL_BANAAN = "hantida_dhul_banaan";
+
+/** Sida hantida la helay equals one of the given values. */
+const sidaHantida = (...values: string[]): Condition => ({
+  op: "or",
+  conditions: values.map((value) => ({
+    op: "equals" as const,
+    field: `${HANTIDA_DHUL_BANAAN}.sida_hantida_loo_helay`,
+    value,
+  })),
+});
+
+/** The guarantor is a third party (not the seller guaranteeing himself). */
+const DAMIIN_QOF_3AAD: Condition = {
+  op: "equals",
+  field: "damiinka.nooca_damiinta",
+  value: "qof_3aad",
+};
+
 /**
  * Word templates per sub-type. The office designs each .docx; the app only
- * fills placeholders. The three files are added when the office delivers
- * them — until then the generation step reports the missing template instead
- * of producing a document with unresolved placeholders.
+ * fills placeholders. The files are added when the office delivers them —
+ * until then the generation step reports the missing template instead of
+ * producing a document with unresolved placeholders.
  */
 const NOW = 0;
 const HANTI_TEMPLATES: TemplateSpec[] = [
@@ -112,25 +145,62 @@ const HANTI_TEMPLATES: TemplateSpec[] = [
   },
 ];
 
-/** Shared per-row data for a seller or a buyer. */
-function partyFields(role: string) {
+/**
+ * Identity + photo of one seller or one buyer.
+ *
+ * The phone and the photo belong to the PERSON. For a BUYER they are
+ * collected only when he is present: an absent buyer is represented by a
+ * wakiil, so asking for the buyer's own phone or photo would ask for data
+ * that does not exist. For a SELLER there is no attendance state at all — he
+ * always signs his own sale — so those two fields carry no row-status rule.
+ */
+function partyFields(role: string, opts: { attendance: boolean }): FieldDef[] {
   return [
-    { id: "magac", type: "text" as const, label: `Magaca ${role}`, validation: { required: true }, placeholder: `Magaca ${role.toLowerCase()}` },
-    // Telefoon belongs to the PERSON: required when they are present, and
-    // not applicable when a wakiil signs for them.
-    { id: "telefoon", type: "phone" as const, label: `Telefoonka ${role}`, optional: true, requiredWhenRowStatus: "jooga" as const, showOnlyWhenRowStatus: "jooga" as const, placeholder: "+252 61 5551234" },
-    { id: "aqoonsi", type: "text" as const, label: "Nambarka Aqoonsiga / Document", optional: true, skippable: true, showOnlyWhenRowStatus: "jooga" as const, placeholder: "ID / Passport" },
-    { id: "cinwaan", type: "text" as const, label: "Cinwaanka", optional: true, showOnlyWhenRowStatus: "jooga" as const, placeholder: "Degmada, magaalada" },
-    { id: "faahfaahin_dheeraad", type: "textarea" as const, label: "Faahfaahin Dheeraad ah", optional: true, colSpan: 2 as const, showOnlyWhenRowStatus: "jooga" as const },
+    {
+      id: "magac",
+      type: "text",
+      label: `Magaca ${role}`,
+      validation: { required: true },
+      placeholder: `Magaca ${role.toLowerCase()}`,
+    },
+    {
+      id: "degan",
+      type: "text",
+      label: `Degan ${role}`,
+      validation: { required: true },
+      placeholder: "Degmada / Xaafadda / Magaalada",
+    },
+    {
+      id: "telefoon",
+      type: "phone",
+      label: `Telefoonka ${role}`,
+      optional: true,
+      ...(opts.attendance
+        ? { requiredWhenRowStatus: "jooga" as const, showOnlyWhenRowStatus: "jooga" as const }
+        : {}),
+      placeholder: "+252 61 5551234",
+    },
+    {
+      id: "sawir",
+      type: "photo",
+      label: `Sawirka ${role}`,
+      optional: true,
+      ...(opts.attendance
+        ? { requiredWhenRowStatus: "jooga" as const, showOnlyWhenRowStatus: "jooga" as const }
+        : {}),
+      description: "Sawirka qofka (nolosha, tirakoob badan).",
+    },
   ];
 }
 
-/** Shared per-representative data (entered once per wakiil, shared by all). */
-const REPRESENTATIVE_FIELDS = [
-  { id: "magac", type: "text" as const, label: "Magaca Wakiilka", validation: { required: true } },
-  { id: "telefoon", type: "phone" as const, label: "Telefoonka Wakiilka", validation: { required: true }, placeholder: "+252 61 5551234" },
-  { id: "aqoonsi", type: "text" as const, label: "Nambarka Aqoonsiga / Document", optional: true, placeholder: "ID / Passport" },
-  { id: "cinwaan", type: "text" as const, label: "Cinwaanka", optional: true, placeholder: "Degmada, magaalada" },
+/**
+ * Per-wakiil data (entered once per representative, shared by all the absent
+ * parties they stand for). The scans show only a name and a photo for the
+ * person who signs in an absent buyer's place.
+ */
+const REPRESENTATIVE_FIELDS: FieldDef[] = [
+  { id: "magac", type: "text", label: "Magaca Wakiilka", validation: { required: true } },
+  { id: "sawir", type: "photo", label: "Sawirka Wakiilka", optional: true },
 ];
 
 export const kalaIiibsiHantiConfig: DocumentConfig = {
@@ -141,7 +211,15 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
   fileNamePrefix: "Kala-Iibsi-Hanti",
   outputFolder: "KalaIibsiHanti",
   templatePath: "/templates/kala_iiibsi_hanti/guri.docx",
-  referencePrefix: "DPN-H",
+  // The short serial the DATABASE stores. It is allocated by the notary_counters
+  // table (strictly sequential, never reused) and passes the server's
+  // letters/digits/dashes rule untouched.
+  referencePrefix: "DPN-MG",
+  // The reference the DOCUMENT prints — the same serial plus the document's
+  // own month/year, exactly as the scanned agreements show it. Composed for
+  // printing only; the database keeps referencePrefix + serial.
+  referenceFormat: "Ref/Dpn/MG/{serial}/{MM}/{YY}",
+  referenceDateKey: `${DEJINTA}.taariikhda_hantida`,
   // The setup section carries the sub-type; the engine reads it from here
   // instead of assuming "heshiiska".
   setupSectionId: DEJINTA,
@@ -153,28 +231,25 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
 
   // Repeated blocks over the dynamic party lists. A representative list is
   // rendered once per wakiil plus who they stand for ({{MATALAYA}}), so
-  // three absent sellers sharing one wakiil produce ONE wakiil record.
+  // several absent buyers sharing one wakiil produce ONE wakiil record.
   repeatBlocks: [
-    { blockId: "MARAGYO", partyId: "maragyo", numberPlaceholder: "NUMBER", aliases: { PHONE: "telefoon", ID: "aqoonsi" } },
+    { blockId: "MARAGYO", partyId: "maragyo", numberPlaceholder: "NUMBER" },
     { blockId: "IIBIYEYAAL", partyId: "iibiyeyaal" },
     { blockId: "IIBSADAYAAL", partyId: "iibsadayaal" },
-    { blockId: "WAKIILO_IIBIYEYAAL", partyId: "wakiilo_iibiyeyaal", numberPlaceholder: "NUMBER" },
     { blockId: "WAKIILO_IIBSADAYAAL", partyId: "wakiilo_iibsadayaal", numberPlaceholder: "NUMBER" },
   ],
 
-  // {{IF:…}} flags. The property flags come from the chosen sub-type; the
-  // rest from the answers in the shuruudaha section.
+  // {{IF:…}} flags.
   conditionFlags: {
     HANTI_DHUL_BANAAN: { op: "equals", field: `${DEJINTA}.sub_type`, value: "dhul_banaan" },
     HANTI_GURI: { op: "equals", field: `${DEJINTA}.sub_type`, value: "guri" },
     HANTI_BEER: { op: "equals", field: `${DEJINTA}.sub_type`, value: "beer" },
-    BIXINTA_DHAN: { op: "equals", field: "qiimaha.habka_bixinta", value: "dhan" },
-    BIXINTA_QAYB: { op: "equals", field: "qiimaha.habka_bixinta", value: "qayb" },
-    BIXINTA_HADHAA: { op: "equals", field: "qiimaha.habka_bixinta", value: "hadhaa" },
-    RAHMAD_JIRA: { op: "is_true", field: "shuruudaha.iibiyuhu_bixinayaa_dammaanad" },
-    WAREEJINTA_LAA_SAHAN: { op: "is_true", field: "shuruudaha.hantida_wareegay" },
-    LAHAANSHAHA_CADDEEY: { op: "is_true", field: "shuruudaha.iibiyuhu_caddeynayaa" },
-    IIBSADAHU_AQBALAY: { op: "is_true", field: "shuruudaha.iibsaduhu_ahqiiqiyay" },
+    // Proof of how the seller got the plot: inherited → beerta, bought → ref.
+    HANTIDA_DHAXLAT: sidaHantida("dhaxlay"),
+    HANTIDA_IIBSADAY: sidaHantida("iibsaday"),
+    // The guarantor is somebody else, or the seller himself.
+    DAMIIN_QOF_3AAD,
+    DAMIIN_IIBIYAHA: { op: "equals", field: "damiinka.nooca_damiinta", value: "iibiyaha" },
   },
 
   // Same formatting contract as every other document type in the office.
@@ -184,7 +259,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
   },
 
   // Somali wording for stored values. The form stores machine values
-  // ("dhul_banaan", "dhan"); the document must read as Somali prose, so
+  // ("dhul_banaan", "dhaxlay"); the document must read as Somali prose, so
   // the mapping lives here and a raw storage value can never be printed.
   derivedText: {
     [`${DEJINTA}.sub_type`]: {
@@ -192,48 +267,46 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       guri: "Guri",
       beer: "Beer",
     },
-    "qiimaha.habka_bixinta": {
-      dhan: "Lacag Dhan (Full Payment)",
-      qayb: "Qayb Lacag ah (Partial Payment)",
-      hadhaa: "Hadhaaga (Balance)",
+    [`${HANTIDA_DHUL_BANAAN}.sida_hantida_loo_helay`]: {
+      dhaxlay: "Hantida waxuu iibiyuhu dhaxlay",
+      iibsaday: "Hantida waxuu iibiyuhu iibsaday",
     },
-    "shuruudaha.hantida_wareegay": { yes: "Hantida waxaa la wareejiyay iibsadaha", no: "Hantida weli ma la wareejin" },
-    "shuruudaha.iibiyuhu_caddeynayaa": { yes: "Iibiyuhu wuxuu caddeynayaa inuu hantida u leeyahay", no: "Iibiyuhu ma caddeynayso lahaanshaha" },
-    "shuruudaha.iibsaduhu_ahqiiqiyay": { yes: "Iibsaduhu wuxuu xaqiijinayaa inuu iibka uu qabtay", no: "Iibsaduhu weli ma xaqiijin aqbalashada" },
-    "shuruudaha.iibiyuhu_bixinayaa_dammaanad": { yes: "Dammaanad ma la bixiyay lahaanshaha", no: "Dammaanad ma jiro" },
+    "damiinka.nooca_damiinta": {
+      qof_3aad: "Damiin qof 3aad",
+      iibiyaha: "Iibiyaha oo is-damiinaya",
+    },
   },
 
   // Values the SYSTEM derives — the user never types them, so they can
   // never contradict the answers they come from.
-  //   LACAGTA_HADHAY  = qiimaha_guud − lacagta_bixiyay (never negative)
-  //   TIRADA_…        = number of filled sellers / buyers
+  //   DAMIIN_MAGACA = the third-party guarantor's name, or the SELLER's own
+  //                  name when he guarantees his own sale (one slot, one name).
   derivedValues: [
     {
-      token: "LACAGTA_HADHAY",
-      op: "subtract",
-      keys: ["qiimaha.qiimaha_guud", "qiimaha.lacagta_bixiyay"],
-      format: "currency",
-      label: "Lacagta Hadhay (qiimaha − bixiyay)",
+      token: "DAMIIN_MAGACA",
+      op: "conditional",
+      when: DAMIIN_QOF_3AAD,
+      thenKey: "damiinka.magaca_damiinka",
+      elseKey: "iibiyeyaal.magac",
+      label: "Magaca damiinka (qof 3aad, ama iibiyaha is-damiinaya)",
     },
-    {
-      token: "LACAGTA_HADHAY_QORAAL",
-      op: "subtract",
-      keys: ["qiimaha.qiimaha_guud", "qiimaha.lacagta_bixiyay"],
-      format: "currency_words",
-      label: "Lacagta Hadhay (qoraal)",
-    },
-    { token: "TIRADA_IIBIYEYAAL", op: "party_count", partyId: "iibiyeyaal", format: "number", label: "Tirada iibiyayaasha" },
-    { token: "TIRADA_IIBSADAYAAL", op: "party_count", partyId: "iibsadayaal", format: "number", label: "Tirada iibsadayaasha" },
   ],
 
   sections: [
     {
       id: DEJINTA,
       title: "Dejinta Hantida",
-      description: "Nooca hantida la iibsaday, nambarka tixraaca iyo taariikhda.",
+      description: "Nooca hantida la iibsaday iyo taariikhda iibka.",
       fields: [
-        { id: "sub_type", type: "select", label: "Nooca Hantida", options: HANTI_SUBTYPES, validation: { required: true }, hint: "Dhul Banaan, Guri ama Beer", colSpan: 2 },
-        { id: "reference", type: "text", label: "Nambarka Tixraaca (Reference Number)", optional: true, placeholder: "Si toos ah ayaa la abuurayaa" },
+        {
+          id: "sub_type",
+          type: "select",
+          label: "Nooca Hantida",
+          options: HANTI_SUBTYPES,
+          validation: { required: true },
+          hint: "Dhul Banaan, Guri ama Beer",
+          colSpan: 2,
+        },
         { id: "taariikhda_hantida", type: "date", label: "Taariikhda Iibka", validation: { required: true } },
       ],
     },
@@ -248,12 +321,10 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           singular: "Iibiyaha",
           description: "Hal iibiy oo keliya ama dad badan.",
           min: 1,
-          attendance: true,
-          // The interview asks "Tirada Iibiyayaasha?" in its own step
-          // before the data/attendance step.
+          // The interview asks "Tirada Iibiyayaasha?" in its own step before
+          // the data step — the scan count is whatever the sale actually has.
           countFirst: true,
-          representativeFields: REPRESENTATIVE_FIELDS,
-          fields: partyFields("Iibiyaha"),
+          fields: partyFields("Iibiyaha", { attendance: false }),
         },
       ],
       fields: [],
@@ -269,32 +340,62 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           singular: "Iibsadaha",
           description: "Hal iibsade oo keliya ama dad badan.",
           min: 1,
+          // Buyers carry attendance: present (signs, with photo) or absent
+          // (a wakiil signs, and the buyer's own photo is not used).
           attendance: true,
           countFirst: true,
           representativeFields: REPRESENTATIVE_FIELDS,
-          fields: partyFields("Iibsadaha"),
+          fields: partyFields("Iibsadaha", { attendance: true }),
         },
       ],
       fields: [],
     },
     {
-      id: "hantida_dhul_banaan",
+      id: HANTIDA_DHUL_BANAAN,
       title: "Faahfaahinta Dhulka",
-      description: "Xuduudaha dhulka la iibsanayo.",
+      description: "Goobta dhulka la iibsanayo iyo caddaynta lahaanshaha.",
       visibleWhen: isHanti("dhul_banaan"),
       fields: [
-        { id: "nooca_hantida", type: "text", label: "Nooca Hantida (Nooca Dhulka)", validation: { required: true }, placeholder: "Tusaale: Dhul Degmada, Dhul Beere, Dhul Miisa" },
-        { id: "goobta", type: "text", label: "Goobta / Degmada / Xaafadda", validation: { required: true }, placeholder: "Tusaale: Degmada Waardhiil, Xaafadda Sooma" },
-        { id: "cabbirka", type: "text", label: "Cabbirka Dhulka", validation: { required: true }, placeholder: "Tusaale: 5,000 m²" },
-        { id: "xadka_waqooyi", type: "text", label: "Xadka Waqooyi", optional: true, placeholder: "Waxaa ku jira xad" },
-        { id: "xadka_bari", type: "text", label: "Xadka Bari", optional: true, placeholder: "Waxaa ku jira xad" },
-        { id: "xadka_koonfur", type: "text", label: "Xadka Koonfur", optional: true, placeholder: "Waxaa ku jira xad" },
-        { id: "xadka_galbeed", type: "text", label: "Xadka Galbeed", optional: true, placeholder: "Waxaa ku jira xad" },
-        { id: "lambarka_lahaansho", type: "text", label: "Lambar / Aqoonsi Lahaansho", optional: true, skippable: true, placeholder: "Lambarka lahaanshaha (haddii jiro)" },
-        { id: "faahfaahin_dheeraad", type: "textarea", label: "Faahfaahin Dheeraad ah", optional: true, colSpan: 2, placeholder: "Wax ka badan oo dhulka ku saabsan…" },
+        { id: "degmada", type: "text", label: "Degmada", validation: { required: true }, placeholder: "Tusaale: Degmada Waardhiil" },
+        { id: "xaafada", type: "text", label: "Xaafada", validation: { required: true }, placeholder: "Tusaale: Xaafadda Sooma" },
+        { id: "cabbirka", type: "text", label: "Cabbirka", validation: { required: true }, placeholder: "Tusaale: 5,000 m²" },
+        { id: "jiho_1", type: "text", label: "Xadka / Jiho 1", validation: { required: true }, placeholder: "Tusaale: Xarunta Wacatariga" },
+        { id: "jiho_2", type: "text", label: "Xadka / Jiho 2", validation: { required: true }, placeholder: "Tusaale: Jidka Mogadishu" },
+        { id: "jiho_3", type: "text", label: "Xadka / Jiho 3", validation: { required: true }, placeholder: "Tusaale: Badda Sooma" },
+        {
+          id: "sida_hantida_loo_helay",
+          type: "select",
+          label: "Sida iibiyuhu hantida u helay",
+          options: SIDA_HANTIDA,
+          validation: { required: true },
+          hint: "Wuxuu dhaxlay mise wuu iibsaday?",
+          colSpan: 2,
+        },
+        // The proof of that: the heirs' certificate when the plot was
+        // inherited, the notary reference when it was bought. Collect one —
+        // the other is never asked for in that case.
+        {
+          id: "notary_ref",
+          type: "text",
+          label: "Tixraaca Notary / Warqadda Iibka",
+          optional: true,
+          requiredWhen: sidaHantida("iibsaday"),
+          placeholder: "Tusaale: Nambarka warqadda iibka / File No / Tr No",
+        },
+        {
+          id: "beerta",
+          type: "text",
+          label: "Beerta / Warqadda Dhaxalka",
+          optional: true,
+          requiredWhen: sidaHantida("dhaxlay"),
+          placeholder: "Tusaale: Ilmo Hebel / Tr No",
+        },
       ],
     },
     {
+      // Guri and Beer keep the sections the office already approved for them.
+      // Only Dhul Banaan was re-shaped from the scans — the other two sub-types
+      // are untouched, so selecting them still collects their own property data.
       id: "hantida_guri",
       title: "Faahfaahinta Guriga",
       description: "Xuduudaha guriga la iibsanayo.",
@@ -325,43 +426,69 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       ],
     },
     {
+      id: "damiinka",
+      title: "Dammaanadda",
+      description: "Qofka dammaanadda bixinaya — qof 3aad, ama iibiyaha isagu.",
+      fields: [
+        {
+          id: "nooca_damiinta",
+          type: "select",
+          label: "Nooca Dammaanadda",
+          options: NOOCA_DAMIIN,
+          validation: { required: true },
+          hint: "Qof 3aad mise iibiyaha isagu?",
+          colSpan: 2,
+        },
+        // A third-party guarantor needs his own identity; when the seller
+        // guarantees, the seller's name already stands in this slot.
+        {
+          id: "magaca_damiinka",
+          type: "text",
+          label: "Magaca Damiinka",
+          optional: true,
+          visibleWhen: DAMIIN_QOF_3AAD,
+          requiredWhen: DAMIIN_QOF_3AAD,
+          placeholder: "Magaca damiinka",
+        },
+        {
+          id: "telefoonka_damiinka",
+          type: "phone",
+          label: "Telefoonka Damiinka",
+          optional: true,
+          visibleWhen: DAMIIN_QOF_3AAD,
+          placeholder: "+252 61 5551234",
+        },
+        {
+          id: "gurmadka_dammaanadda",
+          type: "textarea",
+          label: "Gurmadka / Qoraalka Dammaanadda",
+          validation: { required: true },
+          colSpan: 2,
+          placeholder: "Waxa dammiinku dammaanadda ugu gaddaynayo…",
+        },
+        {
+          id: "sawirka_damiinka",
+          type: "photo",
+          label: "Sawirka Damiinka",
+          optional: true,
+          visibleWhen: DAMIIN_QOF_3AAD,
+          description: "Sawirka damiinka marka uu yahay qof 3aad.",
+        },
+      ],
+    },
+    {
       id: "qiimaha",
-      title: "Qiimaha & Habka Lacag Bixinta",
-      description: "Qiimaha guud, lacagta la bixiyay iyo habka bixinta.",
+      title: "Qiimaha Hantida",
+      description: "Qiimaha guud ee dhulka. Qoraalka waxuu system-ka iska soo saaraa.",
       fields: [
-        { id: "qiimaha_guud", type: "currency", label: "Qiimaha Guud ee Hantida", validation: { required: true, min: 0 }, placeholder: "Tusaale: 12500" },
-        { id: "habka_bixinta", type: "select", label: "Habka Bixinta", options: HABKA_BIXINTA, validation: { required: true }, colSpan: 2 },
-        // Required as soon as any part of the price is still outstanding,
-        // and never more than the total price.
-        { id: "lacagta_bixiyay", type: "currency", label: "Lacagta la Bixiyay", optional: true, requiredWhen: { op: "or", conditions: [{ op: "equals", field: "qiimaha.habka_bixinta", value: "qayb" }, { op: "equals", field: "qiimaha.habka_bixinta", value: "hadhaa" }] }, validation: { min: 0, notMoreThan: "qiimaha_guud" }, placeholder: "Waxaa la bixiyay" },
-        { id: "taariikhda_bixinta", type: "date", label: "Taariikhda Bixinta", optional: true, skippable: true },
-        { id: "bangiga_hisaabka", type: "text", label: "Bangi / Account", optional: true, skippable: true, placeholder: "Nambarka xisaabta (haddii bangi la bixiyo)" },
-      ],
-    },
-    {
-      id: "shuruudaha",
-      title: "Xuduudaha & Shuruudaha Iibka",
-      description: "Wareejinta, lahaanshaha, dammaanadda iyo qoraalka dheeraad ah.",
-      fields: [
-        { id: "hantida_wareegay", type: "yes_no", label: "Hantida waxaa la wareejiyay iibsadaha?", options: YES_NO, validation: { required: true }, colSpan: 2 },
-        { id: "iibiyuhu_caddeynayaa", type: "yes_no", label: "Iibiyuhu wuxuu caddeynayaa inuu hantida u leeyahay?", options: YES_NO, validation: { required: true }, colSpan: 2 },
-        { id: "iibsaduhu_ahqiiqiyay", type: "yes_no", label: "Iibsaduhu wuxuu xaqiijinayaa inuu iibka uu qabtay?", options: YES_NO, validation: { required: true }, colSpan: 2 },
-        { id: "iibiyuhu_bixinayaa_dammaanad", type: "yes_no", label: "Dammaanad ma la bixinay lahaanshaha (rah mad / aamaanad)?", options: YES_NO, validation: { required: true }, description: "Haddii Haa, tallaabada xiga ah ayaa muuqan doonta", colSpan: 2 },
-        { id: "shuruudaha_gaarka_ah", type: "textarea", label: "Shuruudaha Iibka (Qoraal Dheeraad ah)", optional: true, colSpan: 2, placeholder: "Shuruudo dheeraad ah oo iibka ku saabsan (haddii jira)…" },
-      ],
-    },
-    {
-      id: "rahmad",
-      title: "Rahmad / Aamaanad",
-      description: "Xogta rahmadda ama aamaanada hantida leh.",
-      // The whole section exists only when the pledge question was Haa —
-      // when there is no pledge, this part simply does not appear.
-      visibleWhen: { op: "is_true", field: "shuruudaha.iibiyuhu_bixinayaa_dammaanad" },
-      fields: [
-        { id: "nooca_rahmada", type: "text", label: "Nooca Rahmadda / Aamaanada", validation: { required: true }, placeholder: "Tusaale: Dabadeed, Reer, Ishaan" },
-        { id: "degmada_xaafadda", type: "text", label: "Degmada / Xaafadda", validation: { required: true }, placeholder: "Tusaale: Degmada Hargeisa" },
-        { id: "lambarka_lahaansho", type: "text", label: "Lambar Lahaansho / Title Number", validation: { required: true }, placeholder: "Lambarka rahmadda" },
-        { id: "faahfaahin", type: "textarea", label: "Faahfaahin", optional: true, colSpan: 2, placeholder: "Wax ka badan oo rahmadda ku saabsan…" },
+        {
+          id: "qiimaha_guud",
+          type: "currency",
+          label: "Qiimaha Guud",
+          validation: { required: true, min: 0 },
+          placeholder: "Tusaale: 1600",
+          colSpan: 2,
+        },
       ],
     },
     {
@@ -373,13 +500,11 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           id: "maragyo",
           label: "Maragyo",
           singular: "Marag",
-          description: "Ku dar hal ama dhowr marag.",
+          description: "Ku dar hal ama marag badan.",
           min: 1,
           fields: [
             { id: "magac", type: "text", label: "Magaca Maraga", validation: { required: true } },
             { id: "telefoon", type: "phone", label: "Telefoon", optional: true },
-            { id: "aqoonsi", type: "text", label: "Aqoonsi", optional: true },
-            { id: "cinwaan", type: "text", label: "Cinwaan", optional: true },
           ],
         },
       ],

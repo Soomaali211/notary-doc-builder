@@ -20,7 +20,13 @@ export type FieldType =
   | "radio"
   | "checkbox"
   | "multiselect"
-  | "yes_no";
+  | "yes_no"
+  /**
+   * Photo of a person, uploaded to Convex storage. The VALUE is the storage
+   * id string — never the image bytes — so a draft stays small and the DOCX
+   * step can fetch the file on demand.
+   */
+  | "photo";
 
 export interface SelectOption {
   value: string;
@@ -374,6 +380,22 @@ export type DerivedValueDef =
       partyId: string;
       format?: FormatKind;
       label?: string;
+    }
+  | {
+      token: string;
+      /**
+       * `thenKey` when `when` holds, otherwise `elseKey` — ONE token, ONE
+       * value. Used where the same document slot holds different people
+       * depending on a stored answer (e.g. the guarantor slot prints the
+       * third-party guarantor OR the seller himself), so the template never
+       * has to choose between two tokens.
+       */
+      op: "conditional";
+      when: Condition;
+      thenKey: string;
+      elseKey: string;
+      format?: FormatKind;
+      label?: string;
     };
 
 export interface DocumentConfig {
@@ -399,6 +421,24 @@ export interface DocumentConfig {
   templatePath: string;
   /** Reference number prefix, e.g. "DPN-K". */
   referencePrefix: string;
+  /**
+   * The reference string that is PRINTED in the document, composed from the
+   * serial the database stores plus values the system already has.
+   * Supported tokens: {serial} (the digits of the stored reference) and the
+   * document-date parts {MM} / {YY}.
+   *
+   * The database keeps the short serial (e.g. "DPN-MG-001") — that value is
+   * what `referencePrefix` is for and it stays unchanged. Documents that
+   * declare no `referenceFormat` print exactly what the database holds,
+   * which is why Heshiis Kiro is untouched by this.
+   */
+  referenceFormat?: string;
+  /**
+   * Form key holding the document's own date ("dejinta.taariikhda_hantida"),
+   * used to fill {MM}/{YY} of `referenceFormat`. Only read when a
+   * `referenceFormat` is declared.
+   */
+  referenceDateKey?: string;
   sections: SectionDef[];
   placeholders: PlaceholderMapping[];
   clauses: ClauseMapping[];

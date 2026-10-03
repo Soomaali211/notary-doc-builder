@@ -256,6 +256,17 @@ function deriveValue(
   if (derived.op === "party_count") {
     return String(filledRows(partyRows(values, derived.partyId)).length);
   }
+  if (derived.op === "conditional") {
+    // ONE token, ONE name: the same document slot holds different people
+    // depending on a stored answer (a third-party guarantor, or the seller
+    // guaranteeing his own sale). The singular-party rule still applies — a
+    // party LIST key yields its first filled row, never a joined list.
+    const key = evaluateCondition(derived.when, makeGetter(values))
+      ? derived.thenKey
+      : derived.elseKey;
+    const raw = singularPartyValue(resolveKey(values, key), "");
+    return formatValueByKind(raw, derived.format, format);
+  }
   const [first, ...rest] = derived.keys;
   const head = numericValue(resolveKey(values, first));
   if (head === null) return "";

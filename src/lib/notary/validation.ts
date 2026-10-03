@@ -491,6 +491,16 @@ export function collectFilledValues(
       for (const field of orderedFields(section)) {
         if (field.visibleWhen && !evaluateCondition(field.visibleWhen, get)) continue;
         const raw = resolveKey(values, `${section.id}.${field.id}`);
+        // A photo's stored value is an opaque storage HANDLE, not something a
+        // notary should read. Printing it would put an internal id on the
+        // review screen (and, in a template that has not yet learned to place
+        // images, into the document text). Show that a photo exists instead.
+        if (field.type === "photo") {
+          if (String(raw ?? "").trim()) {
+            rows.push({ label: field.label, value: "Sawir waa la soo roobay" });
+          }
+          continue;
+        }
         const kind =
           field.type === "date"
             ? "date"
@@ -513,7 +523,13 @@ export function collectFilledValues(
         if (!name) return;
         const details = partyDef.fields
           .slice(1)
-          .map((f) => row.values?.[f.id] ?? "")
+          // Same rule as the section fields above: a photo's stored value is
+          // an opaque storage handle, so review shows that a photo exists.
+          .map((f) =>
+            f.type === "photo"
+              ? ((row.values?.[f.id] ?? "").trim() ? "Sawir" : "")
+              : (row.values?.[f.id] ?? ""),
+          )
           .filter(Boolean)
           .join(" — ");
         let value = details ? `${name} — ${details}` : name;

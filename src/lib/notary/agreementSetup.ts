@@ -191,19 +191,21 @@ export function buildConditionalWorkflow(
     }
 
     for (const partyDef of section.parties ?? []) {
-      if (!partyDef.attendance) {
-        steps.push({ key: `party-${partyDef.id}`, short: partyDef.label, detail: { kind: "party-data", partyDef } });
-        continue;
-      }
       // Count-first groups ask "how many?" in their own step, immediately
-      // before the combined data/attendance step. The chosen count is
-      // written straight into the row list (setRepeatableCount).
+      // before the step that collects their rows. The chosen count is
+      // written straight into the row list (setRepeatableCount). Asked for
+      // attendance groups AND for plain data groups — a seller list that
+      // declares countFirst is just as dynamic as a buyer list.
       if (partyDef.countFirst) {
         steps.push({
           key: `count-${partyDef.id}`,
           short: `Tirada ${partyDef.label}`,
           detail: { kind: "party-count", partyDef },
         });
+      }
+      if (!partyDef.attendance) {
+        steps.push({ key: `party-${partyDef.id}`, short: partyDef.label, detail: { kind: "party-data", partyDef } });
+        continue;
       }
       // Step 2 — "Xogta iyo Xaaladda Kireeyaha/Kiraystaha": ONE combined
       // step (identity + Ma Joogaa Haa/Maya + inline wakiil inputs). The

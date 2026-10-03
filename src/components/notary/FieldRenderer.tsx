@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { FIELD_SKIPPED, type FieldDef } from "@/lib/notary/types";
+import { PhotoField } from "./PhotoField";
 
 interface FieldRendererProps {
   field: FieldDef;
@@ -131,6 +132,10 @@ export function FieldRenderer({
             );
           })}
         </div>
+      ) : field.type === "photo" ? (
+        // Its own component: the upload needs Convex, and this branch only
+        // ever mounts for a field explicitly typed "photo".
+        <PhotoField value={value} disabled={disabled} error={error} onChange={onChange} />
       ) : field.type === "email" ? (
         <Input
           type="email"
