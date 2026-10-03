@@ -191,6 +191,22 @@ export interface PartyDef {
    */
   countFirst?: boolean;
   /**
+   * Where the count is asked, when it is asked somewhere OTHER than this
+   * group's own step — a form path like "dejinta.tirada_iibiyayaasha".
+   *
+   * The office rule is ONE question, asked once. A group that names a
+   * `countFrom` gets NO "Tirada …?" step of its own: the number comes from
+   * the setup step and is written straight into this row list, so the same
+   * figure can never be asked in two places or disagree with itself.
+   *
+   * Additive and opt-in: no Heshiis Kiro party declares it, so a config that
+   * omits it produces exactly the steps it produced before.
+   *
+   * The `_HAL` / `_BADAN` count flags still come from `countFirst` — a group
+   * keeps its plural wording either way.
+   */
+  countFrom?: string;
+  /**
    * Whether this list renders INSIDE its section step as well as in its own
    * row step.
    *

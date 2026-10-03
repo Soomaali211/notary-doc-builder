@@ -36,7 +36,6 @@ import { HantiReviewSummary } from "../src/pages/NewDocumentInterview";
 const SECTION_ORDER_PROBE = [
   "Dejinta Hantida",
   "Iibiyaha",
-  "Tirada Iibiyayaal",
   "Iibiyayaal",
   "Kooxa / Qoysku Iibiyaha",
   "Tirada Kooxaha",
@@ -44,7 +43,6 @@ const SECTION_ORDER_PROBE = [
   "Wakiillada",
   "Tirada Wakiillo",
   "Wakiillo",
-  "Tirada Iibsadayaal",
   "Xogta iyo Xaaladda Iibsadayaal",
   "Faahfaahinta Dhulka",
   "Qiimaha Hantida",

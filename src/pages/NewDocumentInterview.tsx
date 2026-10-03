@@ -73,6 +73,7 @@ import { isFieldRequired } from "@/lib/notary/validation";
 import { FIELD_SKIPPED } from "@/lib/notary/types";
 import { buildHantiReview, type HantiReview } from "@/lib/notary/hantiReview";
 import type {
+  DocumentConfig,
   FieldDef,
   FormValues,
   PartyDef,
@@ -247,6 +248,24 @@ export function HantiReviewSummary({
   );
 }
 
+/**
+ * The party list whose count is asked by this exact section field, if any.
+ *
+ * Returns undefined for every ordinary field, and for every document type
+ * that does not declare `countFrom` — so the wiring is inert everywhere it
+ * was not asked for, including all of Heshiis Kiro.
+ */
+function countTargetFor(
+  config: DocumentConfig,
+  sectionId: string,
+  fieldId: string,
+): PartyDef | undefined {
+  const path = `${sectionId}.${fieldId}`;
+  return config.sections
+    .flatMap((s) => s.parties ?? [])
+    .find((p) => p.countFrom === path);
+}
+
 export function SectionStep({
   step,
   values,
@@ -348,13 +367,25 @@ export function SectionStep({
             const err = stepErrors
               ? validation[section.id]?.fieldErrors[field.id]
               : undefined;
+            // A count asked HERE (PartyDef.countFrom) is the single source of
+            // truth for that list: writing the number resizes the rows too,
+            // so the notary never answers "how many sellers?" a second time
+            // and the two answers can never disagree.
+            const counted = countTargetFor(config, section.id, field.id);
             return (
               <FieldRenderer
                 key={field.id}
                 field={field}
                 value={getAnswer(values, section.id, field.id)}
                 error={err}
-                onChange={(value) => setValues((v) => setAnswer(v!, section.id, field.id, value))}
+                onChange={(value) =>
+                  setValues((v) => {
+                    const next = setAnswer(v!, section.id, field.id, value);
+                    return counted
+                      ? setRepeatableCount(next, counted, Number(value) || 0)
+                      : next;
+                  })
+                }
               />
             );
           })}
@@ -1402,6 +1433,14 @@ export default function NewDocumentInterview() {
   };
 
   /**
+ * The party list whose count is asked by this exact setup field, if any.
+ *
+ * Returns undefined for every ordinary field, and for every document type
+ * that does not declare `countFrom` — so the wiring is inert everywhere it
+ * was not asked for, including all of Heshiis Kiro.
+ */
+
+/**
  * Options for every "person" field of one party list.
  *
  * Built ONCE per render from the people already entered anywhere in the form,

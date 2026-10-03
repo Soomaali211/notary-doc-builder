@@ -319,6 +319,17 @@ export interface PartyModel {
   photos: PersonPhoto[];
   signatures: PersonSignature[];
   certificates: PersonCertificate[];
+  /**
+   * One name placed on BOTH sides of the same sale.
+   *
+   * A sale has a selling side and a buying side, and the office refuses a
+   * person who is on both — buying what you are selling is not a sale. The
+   * two sides are separate lists with separate row ids, so the clash shows
+   * up as the same NAME on a seller row and a buyer row. Names are matched
+   * here for this consistency check ONLY; every relationship in this model is
+   * linked by id, never by name (see HANTI_PARTIES).
+   */
+  roleConflicts?: { sellerId: string; buyerId: string; name: string }[];
 }
 
 /* ------------------------------------------------------------------ */

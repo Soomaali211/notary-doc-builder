@@ -196,7 +196,11 @@ export function buildConditionalWorkflow(
       // written straight into the row list (setRepeatableCount). Asked for
       // attendance groups AND for plain data groups — a seller list that
       // declares countFirst is just as dynamic as a buyer list.
-      if (partyDef.countFirst) {
+      //
+      // A group whose count is asked ELSEWHERE (PartyDef.countFrom) gets NO
+      // step of its own: the setup step already holds that number, and a
+      // second "Tirada …?" would be the same question asked twice.
+      if (partyDef.countFirst && !partyDef.countFrom) {
         steps.push({
           key: `count-${partyDef.id}`,
           short: `Tirada ${partyDef.label}`,

@@ -120,7 +120,10 @@ function mergeWithFresh(config: DocumentConfig, stored: FormValues): FormValues 
       }
     }
   }
-  return merged;
+  // A restored draft re-applies its OWN setup count, so the row lists always
+  // match the number the notary gave. Without this a draft saved before the
+  // rows were grown would come back with the right answer and the wrong list.
+  return applyCountedParties(config, merged);
 }
 
 export function createInitialValues(config: DocumentConfig): FormValues {
@@ -134,7 +137,44 @@ export function createInitialValues(config: DocumentConfig): FormValues {
       values[section.id] = emptySectionValues(section);
     }
   }
-  return values;
+  return applyCountedParties(config, values);
+}
+
+/**
+ * Resize every list whose count is asked somewhere else (PartyDef.countFrom).
+ *
+ * The setup number is the single source of truth, so a loaded draft, a fresh
+ * form and a restored session all rebuild exactly the rows that number
+ * describes. Adding a row never changes the answer, and the answer is never
+ * asked again anywhere else.
+ *
+ * A config with no `countFrom` is returned untouched, byte for byte — which
+ * is every Heshiis Kiro list.
+ */
+export function applyCountedParties(config: DocumentConfig, values: FormValues): FormValues {
+  let out = values;
+  for (const partyDef of config.sections.flatMap((s) => s.parties ?? [])) {
+    if (!partyDef.countFrom) continue;
+    // Read the "section.field" path directly rather than through the engine:
+    // the engine imports THIS module, and going back the other way would
+    // close an import cycle.
+    const [sectionId, fieldId] = partyDef.countFrom.split(".");
+    const raw = sectionId && fieldId ? getSectionValues(values, sectionId)[fieldId] : "";
+    // An UNANSWERED count is not the number zero. Number("") === 0 would
+    // resize a restored draft's real rows down to the list's minimum and
+    // throw away names the notary had already typed.
+    const rawText = String(raw ?? "").trim();
+    if (rawText === "") continue;
+    const wanted = Number(rawText);
+    // An unanswered or nonsense count leaves the list as it is: the setup
+    // step still asks the question, and guessing a number would be inventing
+    // data.
+    if (!Number.isFinite(wanted) || wanted < 0) continue;
+    const current = getPartyRows(out, partyDef.id).length;
+    if (current === wanted) continue;
+    out = setPartyCount(out, partyDef, wanted);
+  }
+  return out;
 }
 
 /* ------------------------------------------------------------------ */

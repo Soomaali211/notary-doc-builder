@@ -23,7 +23,7 @@
 
 import type { DocumentConfig, FormValues, PartyRow } from "./types";
 import { validateDocument } from "./validation";
-import { HANTI_KEYS, buildHantiPartyModel } from "./hantiParties";
+import { HANTI_KEYS, buildHantiPartyModel, inspectHantiParties } from "./hantiParties";
 import {
   genderWord,
   representedPeople,
@@ -302,6 +302,12 @@ export function buildHantiReview(
     for (const message of result.general ?? []) {
       missing.push({ path: sectionId, message });
     }
+  }
+  // A person on BOTH sides of one sale is not a blank answer the notary can
+  // go back and fill — it is a contradiction, so it is named here and it
+  // keeps the document from being signed.
+  for (const issue of inspectHantiParties(model).filter((i) => i.code === "seller_is_buyer")) {
+    missing.push({ path: `iibsadayaal.${issue.personId ?? ""}`, message: issue.message });
   }
 
   return { blocks, missing, ready: missing.length === 0 };

@@ -41,6 +41,7 @@ import {
 } from "../src/lib/notary/placeholderRegistry";
 import {
   addRepresentative,
+  applyCountedParties,
   createInitialValues,
   getPartyRows,
   representedByRep,
@@ -94,11 +95,12 @@ describe("A — document type registration", () => {
     ]);
   });
 
-  test("Dhul Banaan, Guri and Beer are all offered", () => {
+  test("Dhul Banaan, Guri, Beer and Hanti Kale are all offered", () => {
     expect(C.subTypes.map((s) => s.value)).toEqual([
       "dhul_banaan",
       "guri",
       "beer",
+      "hanti_kale",
     ]);
   });
 });
@@ -134,7 +136,6 @@ describe("B — form flow", () => {
     expect(steps.map((s) => s.short)).toEqual([
       "Dejinta Hantida",
       "Iibiyaha",
-      "Tirada Iibiyayaal",
       "Iibiyayaal",
       "Kooxa / Qoysku Iibiyaha",
       "Tirada Kooxaha",
@@ -142,7 +143,6 @@ describe("B — form flow", () => {
       "Wakiillada",
       "Tirada Wakiillo",
       "Wakiillo",
-      "Tirada Iibsadayaal",
       "Xogta iyo Xaaladda Iibsadayaal",
       "Faahfaahinta Dhulka",
       "Qiimaha Hantida",
@@ -185,12 +185,10 @@ describe("B — form flow", () => {
     expect(steps).toEqual([
       "Dejinta Hantida",
       "Iibiyaha",
-      "Tirada Iibiyayaal",
       "Iibiyayaal",
       "Kooxa / Qoysku Iibiyaha",
       "Tirada Kooxaha",
       "Kooxaha",
-      "Tirada Iibsadayaal",
       "Xogta iyo Xaaladda Iibsadayaal",
       "Faahfaahinta Dhulka",
       "Qiimaha Hantida",
@@ -200,15 +198,41 @@ describe("B — form flow", () => {
     ]);
   });
 
-  test("the seller count is asked in its OWN step, before the seller rows", () => {
+  test("the seller count is asked ONCE, in Dejinta — never in its own step", () => {
+    // The office rule: one question, one source of truth. The count lives in
+    // the setup step, so the seller list emits NO "Tirada Iibiyayaal" step.
     const steps = buildConditionalWorkflow(C, {
       ...createInitialValues(C),
       dejinta: { sub_type: "dhul_banaan", taariikhda_hantida: "2026-01-30" },
     } as FormValues);
-    const count = steps.findIndex((s) => s.detail.kind === "party-count" && s.detail.partyDef.id === "iibiyeyaal");
-    const data = steps.findIndex((s) => s.detail.kind === "party-data" && s.detail.partyDef.id === "iibiyeyaal");
-    expect(count).toBeGreaterThanOrEqual(0);
-    expect(count).toBeLessThan(data);
+    expect(steps.map((s) => s.short)).not.toContain("Tirada Iibiyayaal");
+    expect(steps.map((s) => s.short)).not.toContain("Tirada Iibsadayaal");
+    // And the question really is there, exactly once, in the setup step.
+    const countFields = C.sections
+      .find((s) => s.id === "dejinta")!
+      .fields.filter((f) => f.id === "tirada_iibiyayaasha" || f.id === "tirada_iibsadayaasha");
+    expect(countFields.map((f) => f.id)).toEqual(["tirada_iibiyayaasha", "tirada_iibsadayaasha"]);
+    const party = C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === "iibiyeyaal")!;
+    expect(party.countFrom).toBe("dejinta.tirada_iibiyayaasha");
+  });
+
+  test("the setup count BUILDS the rows — one number, that many people", () => {
+    const values = {
+      ...createInitialValues(C),
+      dejinta: { sub_type: "dhul_banaan", taariikhda_hantida: "2026-01-30", tirada_iibiyayaasha: "10", tirada_iibsadayaasha: "2" },
+    } as unknown as FormValues;
+    const grown = applyCountedParties(C, values);
+    expect(getPartyRows(grown, "iibiyeyaal")).toHaveLength(10);
+    expect(getPartyRows(grown, "iibsadayaal")).toHaveLength(2);
+  });
+
+  test("an unanswered count invents nothing — the list keeps its own floor", () => {
+    const values = {
+      ...createInitialValues(C),
+      dejinta: { sub_type: "dhul_banaan", taariikhda_hantida: "2026-01-30" },
+    } as unknown as FormValues;
+    const kept = applyCountedParties(C, values);
+    expect(getPartyRows(kept, "iibiyeyaal")).toHaveLength(1);
   });
 
   test("the plot section is Dhul Banaan-only — Guri sees its own section", () => {
@@ -270,10 +294,12 @@ describe("C — the plot (Dhul Banaan)", () => {
       "taariikhda_hantida",
       // Each asked ONCE, at the top; each decides whether one optional list
       // exists at all. None of them is ever asked again below.
-      "wakiillo_ma_jiraan",
-      "sawirro_ma_jiraan",
-      "saxeexo_ma_jiraan",
-      "shaxado_ma_jiraan",
+    "wakiillo_ma_jiraan",
+    "sawirro_ma_jiraan",
+    "saxeexo_ma_jiraan",
+    "shaxado_ma_jiraan",
+    "tirada_iibiyayaasha",
+    "tirada_iibsadayaasha",
     ]);
   });
 
@@ -463,11 +489,20 @@ describe("E — dammaanadda (always present)", () => {
     expect(JSON.stringify(map)).not.toContain("ma_jiro\"");
   });
 
-  test("the gurmad is required in BOTH states — the pledge is always given", () => {
+  test("the gurmad NEVER blocks — not even before a guarantor is chosen", () => {
+    // The office rule is explicit: a field the notary has not been asked for
+    // yet cannot stop them. Every guarantor state validates without a pledge
+    // written — including "no guarantor at all".
     expect(
       errorsOf(dam({ nooca_damiinta: "qof_3aad", magaca_damiinka: "KHALID NOOR" }), "damiinka"),
     ).toBe("");
     expect(errorsOf(dam({ nooca_damiinta: "iibiyaha" }), "damiinka")).toBe("");
+    expect(errorsOf(dam({ nooca_damiinta: "ma_jiro" }), "damiinka")).toBe("");
+    expect(C.sections.find((s) => s.id === "damiinka")!.fields.find((f) => f.id === "gurmadka_dammaanadda")?.optional).toBe(true);
+    // Only the THREE-WAY QUESTION itself can block, which §13 requires a
+    // sale to answer. Before it is answered, the pledge is not even asked
+    // for — so it cannot be the thing that stops the notary.
+    expect(errorsOf(dam({}), "damiinka")).toBe("Fadlan buuxi: Damiin ma jiraa?");
   });
 
   test("a third-party guarantor must be named — his phone stays optional (S1 has none)", () => {

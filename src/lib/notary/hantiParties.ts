@@ -104,6 +104,18 @@ function named(rows: PartyRow[]): PartyRow[] {
   return filled(rows).filter((r) => text(r, FIELD.name) !== "");
 }
 
+/**
+ * Two names are the same name for the SELLER/BUYER clash check only.
+ *
+ * Case and surrounding space are noise; nothing else is. This is not fuzzy
+ * matching and it is not an identity: "Ahmed Cali" and "Ahmed Cali" clash,
+ * "Ahmed" and "Ahmed Cali" do not. Every other link in this model is by id.
+ */
+function sameName(a: string, b: string): boolean {
+  const norm = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
+  return norm(a) !== "" && norm(a) === norm(b);
+}
+
 const text = (row: PartyRow | undefined, field: string): string =>
   (row?.values?.[field] ?? "").trim();
 
@@ -189,11 +201,20 @@ export function buildHantiPartyModel(
   }
   // Names resolve from the SAME people list, so a buyer without a name is
   // never a link target either.
+  const roleConflicts: { sellerId: string; buyerId: string; name: string }[] = [];
   for (const row of named(rowsOf(values, HANTI_KEYS.buyers))) {
     repByRowId.set(row.id, text(row, FIELD.representative));
+    const name = text(row, FIELD.name);
+    // A person cannot sell and buy the same plot. The two sides are separate
+    // lists, so the only way to see the clash is the name the notary typed —
+    // used HERE, for this check, and nowhere else in the model.
+    const clash = sellerRows.find((s) => sameName(text(s, FIELD.name), name));
+    if (clash) {
+      roleConflicts.push({ sellerId: clash.id, buyerId: row.id, name });
+    }
     people.push({
       id: row.id,
-      name: text(row, FIELD.name),
+      name,
       gender: genderOf(row),
       address: text(row, FIELD.address),
       phone: text(row, FIELD.phone),
@@ -329,7 +350,16 @@ export function buildHantiPartyModel(
     });
   }
 
-  return { people, groups, representations, photos, signatures, certificates };
+  return {
+    people,
+    groups,
+    representations,
+    photos,
+    signatures,
+    certificates,
+    // Only when there IS a clash — a clean sale carries no conflicts at all.
+    ...(roleConflicts.length > 0 ? { roleConflicts } : {}),
+  };
 }
 
 
@@ -353,11 +383,18 @@ export interface HantiPartyIssue {
  * the office gets wrong.
  */
 export function inspectHantiParties(model: PartyModel): HantiPartyIssue[] {
-  return inspectPartyModel(model).map((issue) => ({
+  const structural = inspectPartyModel(model).map((issue) => ({
     code: issue.code,
     message: issue.message,
     ...(issue.personId ? { personId: issue.personId } : {}),
   }));
+  // Selling and buying the same plot is refused, not warned about.
+  const both = (model.roleConflicts ?? []).map((c) => ({
+    code: "seller_is_buyer",
+    message: `${c.name}: qof isku mid ah lama siin karo iibin iyo iibsad role isla heshiiska.`,
+    personId: c.buyerId,
+  }));
+  return [...structural, ...both];
 }
 
 /**

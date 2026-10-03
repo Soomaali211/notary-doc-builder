@@ -50,10 +50,20 @@ function registryPlaceholders(
 /** Dejinta (the setup section) — sub-type is chosen here. */
 const DEJINTA = "dejinta";
 
+/**
+ * The four property kinds the office sells.
+ *
+ * OPEN DECISION — "Hanti Kale" has NO scan. It is offered because the office
+ * named it, and selecting it reveals NOTHING beyond the shared property
+ * questions: no field, clause or wording has been invented for it. When the
+ * Hanti Kale scan arrives, its fields are added here and nowhere else.
+ * (See OPEN_DECISIONS.hantiKaleScan.)
+ */
 const HANTI_SUBTYPES: SelectOption[] = [
   { value: "dhul_banaan", label: "Dhul Banaan" },
   { value: "guri", label: "Guri" },
   { value: "beer", label: "Beer" },
+  { value: "hanti_kale", label: "Hanti Kale" },
 ];
 
 /**
@@ -558,6 +568,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       dhul_banaan: "Dhul Banaan",
       guri: "Guri",
       beer: "Beer",
+      hanti_kale: "Hanti Kale",
     },
     [`${HANTIDA_DHUL_BANAAN}.sida_hantida_loo_helay`]: {
       dhaxlay: "Hantida waxuu iibiyuhu dhaxlay",
@@ -685,6 +696,35 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           optional: true,
           hint: "Beerta, wakiilnimo, tixraaca notary.",
         },
+        // THE COUNTS — asked HERE, once, and nowhere else.
+        //
+        // The office rule: this is the single source of truth for how many
+        // sellers and how many buyers there are. Writing a number builds
+        // exactly that many rows (PartyDef.countFrom), so the rows can never
+        // disagree with the answer, and no later step asks the same question
+        // again. A representative, a photograph or a signature never changes
+        // either number.
+        {
+          id: "tirada_iibiyayaasha",
+          type: "number",
+          label: "Tirada Iibiyayaasha",
+          // NOT blocking. A sale still needs one seller, but that floor
+          // belongs to the SELLER LIST, which already enforces it and already
+          // words the error in Somali. Asking it again here would be the same
+          // rule twice, and would stop a notary who simply has not counted
+          // yet (req: optional never blocks).
+          optional: true,
+          hint: "Hal sawir ama hal saxeex kasta ma qayb aha — tiradu waxay ka duul tahay.",
+          colSpan: 2,
+        },
+        {
+          id: "tirada_iibsadayaasha",
+          type: "number",
+          label: "Tirada Iibsadayaasha",
+          optional: true,
+          hint: "Hal sawir ama hal saxeex kasta ma qayb aha.",
+          colSpan: 2,
+        },
       ],
     },
     {
@@ -698,10 +738,13 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           singular: "Iibiyaha",
           description: "Hal iibiy oo keliya ama dad badan.",
           min: 1,
-          // The interview asks "Tirada Iibiyayaasha?" in its own step before
-          // the data step — the scan count is whatever the sale actually has.
+          // The interview asks "Tirada Iibiyayaasha?" ONCE, in Dejinta
+          // Heshiiska, and this list is built from that number — so it gets
+          // NO count step of its own. The scan count is whatever the sale
+          // actually has; it is never guessed from the people below.
           renderInline: false,
           countFirst: true,
+          countFrom: `${DEJINTA}.tirada_iibiyayaasha`,
           fields: partyFields("Iibiyaha", { attendance: false, role: true }),
         },
       ],
@@ -973,6 +1016,9 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           // belongs to the independent `sawirrada` list.
           attendance: true,
           countFirst: true,
+          // The buyer count is asked ONCE, in Dejinta Heshiiska — so this
+          // list gets NO "Tirada Iibsadayaasha" step of its own.
+          countFrom: `${DEJINTA}.tirada_iibsadayaasha`,
           representativeFields: REPRESENTATIVE_FIELDS,
           fields: partyFields("Iibsadaha", { attendance: true }),
         },
