@@ -54,7 +54,7 @@ function sale(over: Partial<FormValues> = {}): FormValues {
       tirada_iibiyayaasha: "1",
       tirada_iibsadayaasha: "1",
       wakiillo_ma_jiraan: "no",
-      sawirro_ma_jiaran: "no",
+      sawirro_ma_jiraan: "no",
       saxeexo_ma_jiraan: "no",
       shaxado_ma_jiraan: "no",
     },
@@ -209,25 +209,51 @@ describe("SPEC §22 — the sixteen acceptance cases", () => {
   });
 
   /* --- 11 --- */
-  test("TEST 11 — no guarantor means the guarantor fields are hidden", () => {
-    const fields = C.sections.find((s) => s.id === "damiinka")!.fields;
-    const gate = { op: "not_equals", field: "damiinka.nooca_damiinta", value: "ma_jiro" };
-    for (const id of ["magaca_damiinka", "telefoonka_damiinka", "sawirka_damiinka", "gurmadka_dammaanadda"]) {
+  test("TEST 11 — sellers self-guaranteeing creates NO third-party person", () => {
+    // A sale is ALWAYS guaranteed: by a third party, or by the sellers. The
+    // "sellers guarantee" branch collects no new person at all.
+    const self = sale({
+      dejinta: { ...(sale().dejinta as Record<string, string>), nooca_damiinta: "iibiyaha" },
+      damiinka: { gurmadka_dammaanadda: "Reer deggan." },
+    } as Partial<FormValues>);
+    expect(Object.keys(validateDocument(C, self))).toEqual([]);
+    // The seller's own name stands in the guarantor slot.
+    expect(computeReplacements(C, self)["{{DAMIIN_MAGACA}}"]).toBe("IIBIYE 1");
+    expect(computeReplacements(C, self)["{{DAMIIN_TELEFOON}}"]).toBe("");
+    expect(computeReplacements(C, self)["{{DAMIIN_SAWIR}}"]).toBe("");
+    // The person fields are gated on the THIRD PARTY branch only.
+    const fields = C.sections.find((x) => x.id === "damiinka")!.fields;
+    const gate = { op: "equals", field: "dejinta.nooca_damiinta", value: "qof_3aad" };
+    for (const id of ["magaca_damiinka", "telefoonka_damiinka", "degan_damiinka", "sawirka_damiinka"]) {
       expect(fields.find((f) => f.id === id)!.visibleWhen).toEqual(gate);
     }
-    // And "Maya" is a state the template can see, not an empty answer.
-    const flags = resolveFlags(C, sale({ damiinka: { nooca_damiinta: "ma_jiro" } } as Partial<FormValues>));
-    expect(flags.DAMIIN_MA_JIRO).toBe(true);
-    expect(computeReplacements(C, sale({ damiinka: { nooca_damiinta: "ma_jiro" } } as Partial<FormValues>))["{{NOOCA_DAMIINTA}}"]).toBe("Damiin ma jiro");
+  });
+
+  test("TEST 11b — a third party IS asked for, and the question is asked ONCE", () => {
+    // The decision lives in Step 1 and is never repeated in Step 6.
+    const setup = C.sections.find((s) => s.id === "dejinta")!;
+    expect(setup.fields.find((f) => f.id === "nooca_damiinta")!.options!.map((o) => o.value)).toEqual([
+      "qof_3aad",
+      "iibiyaha",
+    ]);
+    const dam = C.sections.find((s) => s.id === "damiinka")!;
+    expect(dam.fields.map((f) => f.id)).not.toContain("nooca_damiinta");
+    const third = sale({
+      dejinta: { ...(sale().dejinta as Record<string, string>), nooca_damiinta: "qof_3aad" },
+      damiinka: { magaca_damiinka: "KHALID NOOR", gurmadka_dammaanadda: "Reer deggan." },
+    } as Partial<FormValues>);
+    expect(computeReplacements(C, third)["{{DAMIIN_MAGACA}}"]).toBe("KHALID NOOR");
+    expect(resolveFlags(C, third).DAMIIN_QOF_3AAD).toBe(true);
   });
 
   /* --- 12 --- */
   test("TEST 12 — Guri shows Guri questions and NEVER a Kiro question", () => {
     const v = sale({ dejinta: { ...(sale().dejinta as Record<string, string>), sub_type: "guri" } } as Partial<FormValues>);
-    const steps = buildConditionalWorkflow(C, v).map((s) => s.short);
-    expect(steps).toContain("Faahfaahinta Guriga");
-    expect(steps).not.toContain("Faahfaahinta Dhulka");
-    expect(steps).not.toContain("Faahfaahinta Beeraha");
+    // Step 4 is titled once; the sub-type decides what it holds.
+    const steps = buildConditionalWorkflow(C, v);
+    expect(steps).toHaveLength(6);
+    const step4 = steps[3].detail as { kind: "section"; sectionIds: string[] };
+    expect(step4.sectionIds).toEqual(["hantida_guri"]);
     for (const rental of [
       "Deebaajiga",
       "Mudada Kirada",
@@ -235,7 +261,7 @@ describe("SPEC §22 — the sixteen acceptance cases", () => {
       "Shuruudaha Joogta",
       "Ogaysiinta",
     ]) {
-      expect(steps.some((s) => s.includes(rental))).toBe(false);
+      expect(steps.some((s) => s.short.includes(rental))).toBe(false);
     }
     // No Kiro field id is reachable from this document at all.
     const guriIds = C.sections.filter((s) => (s.fields ?? []).some((f) => f.id === "goobta" && s.id === "hantida_guri"));
@@ -246,10 +272,10 @@ describe("SPEC §22 — the sixteen acceptance cases", () => {
   /* --- 13 --- */
   test("TEST 13 — Beer shows Beer questions and nothing unrelated", () => {
     const v = sale({ dejinta: { ...(sale().dejinta as Record<string, string>), sub_type: "beer" } } as Partial<FormValues>);
-    const steps = buildConditionalWorkflow(C, v).map((s) => s.short);
-    expect(steps).toContain("Faahfaahinta Beeraha");
-    expect(steps).not.toContain("Faahfaahinta Guriga");
-    expect(steps).not.toContain("Faahfaahinta Dhulka");
+    const steps = buildConditionalWorkflow(C, v);
+    expect(steps).toHaveLength(6);
+    const step4 = steps[3].detail as { kind: "section"; sectionIds: string[] };
+    expect(step4.sectionIds).toEqual(["hantida_beer"]);
     // The Beer's OWN name is a Beer fact Dhul Banaan does not have.
     const beer = C.sections.find((s) => s.id === "hantida_beer")!.fields.map((f) => f.id);
     expect(beer).toContain("magaca_beerta");

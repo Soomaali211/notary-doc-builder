@@ -34,30 +34,12 @@ import { HantiReviewSummary } from "../src/pages/NewDocumentInterview";
  * from the order the notary reads aloud, THIS list fails.
  */
 const SECTION_ORDER_PROBE = [
-  "Dejinta Hantida",
-  "Iibiyaha",
-  "Iibiyayaal",
-  "Kooxa / Qoysku Iibiyaha",
-  "Tirada Kooxaha",
-  "Kooxaha",
-  "Wakiillada",
-  "Tirada Wakiillo",
-  "Wakiillo",
-  "Xogta iyo Xaaladda Iibsadayaal",
-  "Faahfaahinta Dhulka",
-  "Qiimaha Hantida",
-  "Dammaanadda",
-  "Sawirrada",
-  "Tirada Sawirro",
-  "Sawirro",
-  "Saxeexayaasha",
-  "Tirada Saxeexayaal",
-  "Saxeexayaal",
-  "Maragyada",
-  "Maragyo",
-  "Shaxadaha iyo Warqadaha",
-  "Tirada Shaxado",
-  "Shaxado",
+  "Dejinta Heshiiska",
+  "Xogta & Xaaladda Iibiyayaasha",
+  "Xogta & Xaaladda Iibsadayaasha",
+  "Xogta Hantida & Faahfaahinta Hantida",
+  "Qiimaha & Faahfaahinta Lacagta",
+  "Xogta Damiinka & Maragyada",
 ];
 
 function r(id: string, v: Record<string, string>): PartyRow {
@@ -125,33 +107,27 @@ describe("THE FLIPPED FORM — steps", () => {
   test("the steps follow the office's reading order", () => {
     const steps = buildConditionalWorkflow(C, withEveryGateOpen());
     expect(steps.map((s) => s.short)).toEqual(SECTION_ORDER_PROBE);
+    expect(steps).toHaveLength(6);
   });
 
   test("a list nobody declared does not appear — not even its COUNT step", () => {
     // The office rule: never ask "how many representatives are there?"
     // unless the notary has already said there is one. A sale with no
     // photographs has no "Tirada Sawirro" step either.
-    const steps = buildConditionalWorkflow(C, base()).map((s) => s.short);
-    for (const hidden of [
-      "Wakiillada",
-      "Tirada Wakiillo",
-      "Wakiillo",
-      "Sawirrada",
-      "Tirada Sawirro",
-      "Sawirro",
-      "Saxeexayaasha",
-      "Tirada Saxeexayaal",
-      "Saxeexayaal",
-      "Shaxadaha iyo Warqadaha",
-      "Tirada Shaxado",
-      "Shaxado",
-    ]) {
-      expect(steps).not.toContain(hidden);
+    // Still the same six steps — the undeclared lists are simply not inside
+    // them, so no question is asked about a list that does not exist.
+    const steps = buildConditionalWorkflow(C, base());
+    expect(steps.map((s) => s.short)).toEqual(SECTION_ORDER_PROBE);
+    const inside = new Set(
+      steps.flatMap((s) => (s.detail.kind === "section" ? s.detail.sectionIds : [])),
+    );
+    for (const hidden of ["wakiillada", "sawirrada", "saxeexayaasha", "shaxadaha"]) {
+      expect(inside.has(hidden)).toBe(false);
     }
-    // What the notary still has to answer is untouched by any of that.
-    expect(steps).toContain("Maragyo");
-    expect(steps).toContain("Qiimaha Hantida");
-    expect(steps).toContain("Iibiyayaal");
+    // The mandatory middle of the sale is untouched by any of that.
+    expect(inside.has("iibiyaha")).toBe(true);
+    expect(inside.has("qiimaha")).toBe(true);
+    expect(inside.has("maragyada")).toBe(true);
   });
 
   test("EVERY config section is declared in the reading order — none hides at the end", () => {
@@ -187,19 +163,22 @@ describe("THE FLIPPED FORM — steps", () => {
   test("Beer shows Beer questions only — Dhul Banaan's never appear", () => {
     const beer = base();
     (beer.dejinta as Record<string, string>).sub_type = "beer";
-    const steps = buildConditionalWorkflow(C, beer).map((s) => s.short);
-    expect(steps).toContain("Faahfaahinta Beeraha");
-    expect(steps).not.toContain("Faahfaahinta Dhulka");
-    expect(steps).not.toContain("Faahfaahinta Guriga");
+    // Step 4 is titled once; the SUB-TYPE decides which questions it holds.
+    const steps = buildConditionalWorkflow(C, beer);
+    const step4 = steps[3].detail as { kind: "section"; sectionIds: string[] };
+    expect(step4.sectionIds).toEqual(["hantida_beer"]);
+    expect(step4.sectionIds).not.toContain("hantida_dhul_banaan");
+    expect(step4.sectionIds).not.toContain("hantida_guri");
   });
 
   test("Guri shows Guri questions only", () => {
     const guri = base();
     (guri.dejinta as Record<string, string>).sub_type = "guri";
-    const steps = buildConditionalWorkflow(C, guri).map((s) => s.short);
-    expect(steps).toContain("Faahfaahinta Guriga");
-    expect(steps).not.toContain("Faahfaahinta Dhulka");
-    expect(steps).not.toContain("Faahfaahinta Beeraha");
+    const steps = buildConditionalWorkflow(C, guri);
+    const step4 = steps[3].detail as { kind: "section"; sectionIds: string[] };
+    expect(step4.sectionIds).toEqual(["hantida_guri"]);
+    expect(step4.sectionIds).not.toContain("hantida_dhul_banaan");
+    expect(step4.sectionIds).not.toContain("hantida_beer");
   });
 
   test("no step is empty — every step has something to answer", () => {

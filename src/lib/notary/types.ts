@@ -304,6 +304,18 @@ export interface SectionDef {
   /** Display order; falls back to array position. */
   order?: number;
   fields: FieldDef[];
+  /**
+   * Which numbered flow step this section belongs to.
+   *
+   * A document that declares it on EVERY section walks its sections grouped
+   * into these steps instead of one step per section: the notary gets the
+   * small fixed interview the office expects, and each step renders all of
+   * its sections and all of their lists in order.
+   *
+   * Opt-in and additive: no Heshiis Kiro section declares it, so Kiro keeps
+   * its one-section-per-step flow exactly as it was.
+   */
+  flowStep?: { n: number; title: string; order?: number };
   parties?: PartyDef[];
   /**
    * Conditional section: when this rule evaluates false the whole section

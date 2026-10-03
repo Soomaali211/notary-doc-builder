@@ -104,7 +104,16 @@ const DOCX_MIME =
 /* ------------------------------------------------------------------ */
 
 type StepKind =
-  | { kind: "section"; section: SectionDef }
+  | {
+    kind: "section";
+    /**
+     * Every section this step renders. A fixed flow step holds several; an
+     * ordinary document type holds exactly one, and `section` is that one.
+     */
+    sections: SectionDef[];
+    /** The FIRST section — what the single-section code paths mean. */
+    section: SectionDef;
+  }
   | { kind: "party-data"; partyDef: PartyDef }
   | { kind: "party-count"; partyDef: PartyDef }
   | { kind: "party-status"; partyDef: PartyDef };
@@ -276,7 +285,13 @@ export function SectionStep({
   setupSummarySlot,
   onSetupValues,
 }: {
-  step: Extract<InterviewStep["detail"], { kind: "section" }>;
+  /**
+   * The section to render. The prop keeps its historical `step` name and
+   * `{ kind, section }` shape so every existing caller — including the
+   * shared UI-render tests — is unaffected; a fixed flow step simply renders
+   * once per section it holds.
+   */
+  step: { kind: "section"; section: SectionDef; stepTitle?: string };
   values: FormValues;
   validation: Record<string, import("@/lib/notary/validation").SectionErrors>;
   stepErrors: boolean;
@@ -288,6 +303,7 @@ export function SectionStep({
   onSetupValues?: (next: FormValues) => void;
 }) {
   const section = step.section;
+  const flowTitle = step.stepTitle;
   // Step 1 (Dejinta Heshiiska): setup controls drive the whole workflow.
   // The rich setup cards belong to the rental document only — a document
   // type whose setup section is named differently renders its plain fields.
@@ -306,6 +322,11 @@ export function SectionStep({
 
   return (
     <>
+      {flowTitle && (
+        <p className="mb-4 border-l-2 border-primary/40 pl-3 text-sm font-semibold text-primary">
+          {flowTitle}
+        </p>
+      )}
       {isSetup ? (
         <div className="space-y-6">
           {/* Conditional fields on Step 1 (start/end dates) update IMMEDIATELY
@@ -612,8 +633,18 @@ export default function NewDocumentInterview() {
     const out: InterviewStep[] = [];
     for (const s of buildConditionalWorkflow(config, values)) {
       if (s.detail.kind === "section") {
-        const section = byId.get(s.detail.sectionId);
-        if (section) out.push({ key: s.key, short: s.short, detail: { kind: "section", section } });
+        // A step may carry SEVERAL sections (a fixed flow step), or exactly
+        // one (every other document type). A step whose sections have all
+        // been hidden simply does not appear.
+        const sections = s.detail.sectionIds
+          .map((id) => byId.get(id))
+          .filter((x): x is SectionDef => x !== undefined);
+        if (sections.length > 0)
+          out.push({
+            key: s.key,
+            short: s.short,
+            detail: { kind: "section", sections, section: sections[0] },
+          });
       } else {
         out.push(s as InterviewStep);
       }
@@ -722,6 +753,9 @@ export default function NewDocumentInterview() {
   const totalSteps = steps.length + 1; // + review step
   const isReview = step >= steps.length;
   const currentStep = isReview ? null : steps[step];
+  // Hoisted out of the JSX so the narrowing survives into the .map() below.
+  const flowSections =
+    currentStep?.detail.kind === "section" ? currentStep.detail.sections : null;
 
   const validation = useMemo(
     () => (values && config ? validateDocument(config, values) : {}),
@@ -1655,30 +1689,49 @@ export default function NewDocumentInterview() {
                   )}
                 </header>
 
-                {currentStep.detail.kind === "section" && (
-                  <SectionStep
-                    step={currentStep.detail}
-                    values={values}
-                    validation={validation}
-                    stepErrors={stepErrors}
-                    config={config}
-                    setValues={(updater) =>
-                      setValues((v) => (v ? updater(v) : v))
-                    }
-                    setupSummarySlot={
-                      setup && setupComplete ? (
-                        <SetupSummaryCard
-                          config={config}
-                          setup={setup}
-                          complete={setupComplete}
-                          onEdit={() => setStep(0)}
-                          onContinue={() => setStep(1)}
-                        />
-                      ) : undefined
-                    }
-                    onSetupValues={guardedSetValues}
-                  />
-                )}
+                {flowSections &&
+                  flowSections.map((section) => (
+                    <div key={section.id}>
+                      <SectionStep
+                        step={{
+                          kind: "section",
+                          section,
+                          ...(flowSections.length > 1 ? { stepTitle: currentStep!.short } : {}),
+                        }}
+                        values={values}
+                        validation={validation}
+                        stepErrors={stepErrors}
+                        config={config}
+                        setValues={(updater) =>
+                          setValues((v) => (v ? updater(v) : v))
+                        }
+                        setupSummarySlot={
+                          setup && setupComplete && section === flowSections[0] ? (
+                            <SetupSummaryCard
+                              config={config}
+                              setup={setup}
+                              complete={setupComplete}
+                              onEdit={() => setStep(0)}
+                              onContinue={() => setStep(1)}
+                            />
+                          ) : undefined
+                        }
+                        onSetupValues={guardedSetValues}
+                      />
+                      {/* Attendance lists (the buyers) collect identity AND
+                          presence AND representation in the same place. In a
+                          fixed flow they belong to the step, not to a step of
+                          their own — otherwise the notary would be shown the
+                          buyers twice. */}
+                      {(section.parties ?? [])
+                        .filter((p) => p.attendance)
+                        .map((partyDef) => (
+                          <div key={partyDef.id} className="mt-6 border-t border-dashed border-border pt-5">
+                            {renderPartyStatusStep(partyDef)}
+                          </div>
+                        ))}
+                    </div>
+                  ))}
 
                 {currentStep.detail.kind === "party-count" &&
                   renderPartyCountStep(currentStep.detail.partyDef)}

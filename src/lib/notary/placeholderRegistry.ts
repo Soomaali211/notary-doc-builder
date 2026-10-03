@@ -359,9 +359,54 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   { token: "DEGMADA", key: "hantida_dhul_banaan.degmada", label: "Degmada", group: "Dhul Banaan" },
   { token: "XAAFADA", key: "hantida_dhul_banaan.xaafada", label: "Xaafada", group: "Dhul Banaan" },
   { token: "CABBIRKA", key: "hantida_dhul_banaan.cabbirka", label: "Cabbirka", group: "Dhul Banaan" },
-  { token: "JIHOO_1", key: "hantida_dhul_banaan.jiho_1", label: "Xadka / Jiho 1", group: "Dhul Banaan" },
-  { token: "JIHOO_2", key: "hantida_dhul_banaan.jiho_2", label: "Xadka / Jiho 2", group: "Dhul Banaan" },
-  { token: "JIHOO_3", key: "hantida_dhul_banaan.jiho_3", label: "Xadka / Jiho 3", group: "Dhul Banaan" },
+  {
+    token: "TIXRAACA_NOOCA",
+    key: "hantida_dhul_banaan.nooca_tixraaca",
+    label: "Nooca Tixraaca (File / TR / Notary)",
+    group: "Dhul Banaan",
+  },
+  {
+    token: "LAMBARKA_TIXRAACA",
+    key: "hantida_dhul_banaan.lambarka_tixraaca",
+    label: "Lambarka / Tixraaca (hantida)",
+    group: "Dhul Banaan",
+  },
+  {
+    token: "CALAAMAD_DHEERAAD",
+    key: "hantida_dhul_banaan.calaamad_dheeraad",
+    fallback: "—",
+    label: "Calaamad Dheeraad ah (hantida)",
+    group: "Dhul Banaan",
+  },
+  {
+    // The four compass sides. Each side resolves to the ONE word that fits —
+    // "Waddo" or "Dhisme" — and to nothing at all when the notary left that
+    // side blank. The old {{JIHOO_1}}..{{JIHOO_3}} tokens are gone because the
+    // fields they read no longer exist; leaving them registered would promise
+    // the office a value the engine can never produce.
+    token: "JIHO_WAQOOYI",
+    key: "hantida_dhul_banaan.jiho_waqooyi",
+    label: "Jiho Waqooyi (Waddo / Dhisme)",
+    group: "Dhul Banaan",
+  },
+  {
+    token: "JIHO_KOONFUR",
+    key: "hantida_dhul_banaan.jiho_koonfur",
+    label: "Jiho Koonfur (Waddo / Dhisme)",
+    group: "Dhul Banaan",
+  },
+  {
+    token: "JIHO_BARI",
+    key: "hantida_dhul_banaan.jiho_bari",
+    label: "Jiho Bari (Waddo / Dhisme)",
+    group: "Dhul Banaan",
+  },
+  {
+    token: "JIHO_GALBEED",
+    key: "hantida_dhul_banaan.jiho_galbeed",
+    label: "Jiho Galbeed (Waddo / Dhisme)",
+    group: "Dhul Banaan",
+  },
   {
     token: "SIDA_HANTIDA",
     key: "hantida_dhul_banaan.sida_hantida_loo_helay",
@@ -370,7 +415,7 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   },
   {
     token: "NOTARY_REF",
-    key: "hantida_dhul_banaan.notary_ref",
+    key: "hantida_dhul_banaan.lambarka_tixraaca",
     label: "Tixraaca Notary / warqadda iibka",
     group: "Dhul Banaan",
   },
@@ -382,8 +427,10 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
     group: "Dhul Banaan",
   },
   {
+    // ONE number is typed, in the setup branch above, and BOTH of these
+    // tokens read it — so the office never types the same reference twice.
     token: "BEERTA",
-    key: "hantida_dhul_banaan.beerta",
+    key: "hantida_dhul_banaan.lambarka_tixraaca",
     label: "Beerta / warqadda dhaxalka",
     group: "Dhul Banaan",
   },
@@ -620,9 +667,9 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   // Nooca dammaanadda — decides WHO is printed in the guarantor slot.
   { token: "DAMIIN_QOF_3AAD", kind: "flag", label: "Damiinku waa qof 3aad", group: "Dammaanadda" },
   { token: "DAMIIN_IIBIYAHA", kind: "flag", label: "Iibiyaha isagu waa damiin", group: "Dammaanadda" },
-  // A REAL third answer. "Maya" is not an empty field the notary forgot —
-  // it is a state the document prints differently, so it needs its own flag.
-  { token: "DAMIIN_MA_JIRO", kind: "flag", label: "Damiin ma jiro", group: "Dammaanadda" },
+  // NO {{DAMIIN_MA_JIRO}}: a sale is ALWAYS guaranteed — by a third party or
+  // by the sellers themselves. "Maya" means the sellers guarantee, so there is
+  // no third state and no flag for one.
   { token: "WAKIIL", kind: "flag", label: "Wakiil (hal unug gudihiisa)", group: "Wakiil" },
   { token: "JOOGA", kind: "flag", label: "Jooga (hal unug gudihiisa)", group: "Wakiil" },
 

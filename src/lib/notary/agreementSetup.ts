@@ -11,7 +11,7 @@
  * Future document types inherit the same conditional behavior.
  */
 
-import type { DocumentConfig, FormValues, PartyDef } from "./types";
+import type { DocumentConfig, FormValues, PartyDef, SectionDef } from "./types";
 import { getAnswer, getSections } from "./engine";
 import { getPartyRows } from "./formValues";
 
@@ -128,7 +128,18 @@ export function setupSummaryRows(
 /* ------------------------------------------------------------------ */
 
 export type WorkflowStepKind =
-  | { kind: "section"; sectionId: string }
+  /**
+   * One or more sections rendered together in a single step.
+   *
+   * A document that declares `SectionDef.flowStep` gets its sections grouped
+   * into the fixed steps it names, so the notary walks six screens instead of
+   * twenty. A config that declares none produces exactly one section per step,
+   * byte for byte as before — which is every Heshiis Kiro section.
+   *
+   * `sectionId` stays alongside `sectionIds` as the FIRST section, so every
+   * consumer written against the single-section shape keeps working unchanged.
+   */
+  | { kind: "section"; sectionIds: string[]; sectionId: string }
   | { kind: "party-data"; partyDef: PartyDef }
   /**
    * "Tirada …?" — how many of this group. Emitted ONLY for a group that
@@ -153,7 +164,53 @@ export interface WorkflowStep {
 /** The Step 1 setup step itself. */
 export function setupStep(config: DocumentConfig): WorkflowStep {
   const section = config.sections.find((s) => s.id === "heshiiska")!;
-  return { key: "sec-heshiiska", short: section.title, detail: { kind: "section", sectionId: section.id } };
+  return {
+    key: "sec-heshiiska",
+    short: section.title,
+    detail: { kind: "section", sectionIds: [section.id], sectionId: section.id },
+  };
+}
+
+/**
+ * Group the visible sections into the fixed steps the config declares.
+ *
+ * Returns null when the document declares no flow at all, so the caller
+ * falls through to its ordinary one-section-per-step behaviour. That is the
+ * whole isolation story: Heshiis Kiro names no `flowStep`, gets null, and
+ * is unaffected.
+ *
+ * A step is dropped entirely when every section inside it is hidden — a Guri
+ * sale never sees the Dhul Banaan questions, so it never sees a step made
+ * only of them. A step that would be EMPTY is never emitted: no header with
+ * nothing under it.
+ */
+function buildFlowSteps(
+  config: DocumentConfig,
+  sections: SectionDef[],
+): WorkflowStep[] | null {
+  const declared = config.sections.filter((s) => s.flowStep);
+  if (declared.length === 0) return null;
+
+  const byNumber = new Map<number, { title: string; order: number; ids: string[] }>();
+  for (const section of declared) {
+    const step = section.flowStep!;
+    const slot = byNumber.get(step.n) ?? { title: step.title, order: step.order ?? step.n, ids: [] };
+    slot.ids.push(section.id);
+    byNumber.set(step.n, slot);
+  }
+
+  const visible = new Set(sections.map((s) => s.id));
+  const steps: WorkflowStep[] = [];
+  for (const slot of [...byNumber.values()].sort((a, b) => a.order - b.order)) {
+    const ids = slot.ids.filter((id) => visible.has(id));
+    if (ids.length === 0) continue;
+    steps.push({
+      key: `flow-${slot.order}`,
+      short: slot.title,
+      detail: { kind: "section", sectionIds: ids, sectionId: ids[0] },
+    });
+  }
+  return steps;
 }
 
 /**
@@ -173,6 +230,12 @@ export function buildConditionalWorkflow(
   const sections = getSections(config, values); // config-driven visibility
   const steps: WorkflowStep[] = [];
 
+  // A document that lays its sections out in named flow steps walks those
+  // steps and nothing else. Handled first and returned early, so the
+  // one-section-per-step path below is untouched for everyone else.
+  const flow = buildFlowSteps(config, sections);
+  if (flow) return flow;
+
   for (const section of sections) {
     // Header-only sections (no scalar fields, no inline non-attendance
     // repeaters) would render an EMPTY step — a card with a title and
@@ -186,7 +249,7 @@ export function buildConditionalWorkflow(
       steps.push({
         key: `sec-${section.id}`,
         short: section.title,
-        detail: { kind: "section", sectionId: section.id },
+        detail: { kind: "section", sectionIds: [section.id], sectionId: section.id },
       });
     }
 

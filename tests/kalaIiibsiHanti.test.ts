@@ -134,34 +134,46 @@ describe("B — form flow", () => {
     // sold, what it costs — and only then the evidence that goes on the
     // paper (photographs, signatures, witnesses, certificates).
     expect(steps.map((s) => s.short)).toEqual([
-      "Dejinta Hantida",
-      "Iibiyaha",
-      "Iibiyayaal",
-      "Kooxa / Qoysku Iibiyaha",
-      "Tirada Kooxaha",
-      "Kooxaha",
-      "Wakiillada",
-      "Tirada Wakiillo",
-      "Wakiillo",
-      "Xogta iyo Xaaladda Iibsadayaal",
-      "Faahfaahinta Dhulka",
-      "Qiimaha Hantida",
-      "Dammaanadda",
-      "Sawirrada",
-      "Tirada Sawirro",
-      "Sawirro",
-      "Saxeexayaasha",
-      "Tirada Saxeexayaal",
-      "Saxeexayaal",
-      "Maragyada",
-      "Maragyo",
-      "Shaxadaha iyo Warqadaha",
-      "Tirada Shaxado",
-      "Shaxado",
+      "Dejinta Heshiiska",
+      "Xogta & Xaaladda Iibiyayaasha",
+      "Xogta & Xaaladda Iibsadayaasha",
+      "Xogta Hantida & Faahfaahinta Hantida",
+      "Qiimaha & Faahfaahinta Lacagta",
+      "Xogta Damiinka & Maragyada",
     ]);
   });
 
-  test("a sale with no representatives never sees 'Tirada Wakiillo'", () => {
+  test("SIX steps, exactly — never a seventh and never a hidden count step", () => {
+    // The office's fixed interview. Every optional list renders INSIDE its
+    // own step, so nothing extra is ever asked.
+    const steps = buildConditionalWorkflow(C, {
+      ...createInitialValues(C),
+      dejinta: {
+        sub_type: "dhul_banaan",
+        taariikhda_hantida: "2026-01-30",
+        wakiillo_ma_jiraan: "yes",
+        sawirro_ma_jiraan: "yes",
+        saxeexo_ma_jiraan: "yes",
+        shaxado_ma_jiraan: "yes",
+      },
+    } as FormValues);
+    expect(steps).toHaveLength(6);
+    // No list asks for its own count step inside a fixed flow.
+    for (const s of steps) {
+      if (s.detail.kind === "section") {
+        for (const id of s.detail.sectionIds) {
+          const section = C.sections.find((x) => x.id === id)!;
+          for (const p of section.parties ?? []) {
+            if (p.countFirst && !p.countFrom) {
+              expect(steps.some((t) => t.detail.kind === "party-count" && t.detail.partyDef.id === p.id)).toBe(false);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  test("a sale with no representatives never sees the representative form", () => {
     const steps = buildConditionalWorkflow(C, {
       ...createInitialValues(C),
       // Every gate answered NO: the most common sale of all.
@@ -173,29 +185,26 @@ describe("B — form flow", () => {
         saxeexo_ma_jiraan: "no",
         shaxado_ma_jiraan: "no",
       },
-    } as FormValues).map((s) => s.short);
-    expect(steps).not.toContain("Wakiillada");
-    expect(steps).not.toContain("Tirada Wakiillo");
-    expect(steps).not.toContain("Wakiillo");
-    expect(steps).not.toContain("Sawirro");
-    expect(steps).not.toContain("Tirada Sawirro");
-    expect(steps).not.toContain("Saxeexayaal");
-    expect(steps).not.toContain("Shaxado");
-    // The mandatory middle of the sale is untouched.
-    expect(steps).toEqual([
-      "Dejinta Hantida",
-      "Iibiyaha",
-      "Iibiyayaal",
-      "Kooxa / Qoysku Iibiyaha",
-      "Tirada Kooxaha",
-      "Kooxaha",
-      "Xogta iyo Xaaladda Iibsadayaal",
-      "Faahfaahinta Dhulka",
-      "Qiimaha Hantida",
-      "Dammaanadda",
-      "Maragyada",
-      "Maragyo",
+    } as FormValues);
+    // Still exactly six steps — the gated lists simply are not inside them.
+    expect(steps.map((s) => s.short)).toEqual([
+      "Dejinta Heshiiska",
+      "Xogta & Xaaladda Iibiyayaasha",
+      "Xogta & Xaaladda Iibsadayaasha",
+      "Xogta Hantida & Faahfaahinta Hantida",
+      "Qiimaha & Faahfaahinta Lacagta",
+      "Xogta Damiinka & Maragyada",
     ]);
+    // Step 2 carries the sellers and their family, and no representative.
+    const step2 = steps[1].detail as { kind: "section"; sectionIds: string[] };
+    expect(step2.sectionIds).toContain("iibiyaha");
+    expect(step2.sectionIds).not.toContain("wakiillada");
+    // Step 4 keeps the property questions and drops every optional list.
+    const step4 = steps[3].detail as { kind: "section"; sectionIds: string[] };
+    expect(step4.sectionIds).toContain("hantida_dhul_banaan");
+    expect(step4.sectionIds).not.toContain("sawirrada");
+    expect(step4.sectionIds).not.toContain("saxeexayaasha");
+    expect(step4.sectionIds).not.toContain("shaxadaha");
   });
 
   test("the seller count is asked ONCE, in Dejinta — never in its own step", () => {
@@ -241,9 +250,21 @@ describe("B — form flow", () => {
         ...createInitialValues(C),
         dejinta: { sub_type: sub, taariikhda_hantida: "2026-01-30" },
       } as FormValues).map((s) => s.short);
-    expect(forSub("guri")).toContain("Faahfaahinta Guriga");
-    expect(forSub("guri")).not.toContain("Faahfaahinta Dhulka");
-    expect(forSub("dhul_banaan")).not.toContain("Faahfaahinta Guriga");
+    // Step 4 is titled once; WHICH property questions live inside it is what
+    // the sub-type decides.
+    const step4 = (sub: string) => {
+      const s = buildConditionalWorkflow(C, {
+        ...createInitialValues(C),
+        dejinta: { sub_type: sub, taariikhda_hantida: "2026-01-30" },
+      } as FormValues)[3];
+      return s.detail.kind === "section" ? s.detail.sectionIds : [];
+    };
+    expect(forSub("guri")).toContain("Xogta Hantida & Faahfaahinta Hantida");
+    expect(step4("guri")).toEqual(["hantida_guri"]);
+    expect(step4("dhul_banaan")).toEqual(["hantida_dhul_banaan"]);
+    expect(step4("beer")).toEqual(["hantida_beer"]);
+    expect(step4("guri")).not.toContain("hantida_dhul_banaan");
+    expect(step4("dhul_banaan")).not.toContain("hantida_guri");
   });
 
   test("every visible step has something to answer", () => {
@@ -272,19 +293,54 @@ describe("C — the plot (Dhul Banaan)", () => {
     // `soohdimaha` was added when the Dhul Banaan scan's boundaries were
     // registered in scanEvidence.ts — it is the one field this list was
     // missing, and it is OPTIONAL because a boundary may be unstated.
+    // The four compass sides each answer ONE question (Waddo / Dhisme), and
+    // the office reference branches into File / TR / Notary or a
+    // "Calaamad Dheeraad ah" instead of forcing a number that may not exist.
     expect(ids(plotSection)).toEqual([
       "degmada",
       "xaafada",
       "cabbirka",
-      "jiho_1",
-      "jiho_2",
-      "jiho_3",
+      "jiho_waqooyi",
+      "jiho_koonfur",
+      "jiho_bari",
+      "jiho_galbeed",
       "soohdimaha",
       "sida_hantida_loo_helay",
-      "notary_ref",
-      "beerta",
+      "tixraaca_ma_jiraan",
+      "nooca_tixraaca",
+      "lambarka_tixraaca",
+      "calaamad_dheeraad",
     ]);
     expect(plotSection.fields.find((f) => f.id === "soohdimaha")?.optional).toBe(true);
+  });
+
+  test("every compass side asks the SAME binary question — Waddo or Dhisme", () => {
+    for (const side of ["waqooyi", "koonfur", "bari", "galbeed"]) {
+      const f = plotSection.fields.find((x) => x.id === `jiho_${side}`)!;
+      expect(f.type).toBe("select");
+      expect(f.options?.map((o) => o.value)).toEqual(["waddo", "dhisme"]);
+      // Never defaulted: an unanswered side prints nothing.
+      expect(f.validation?.required).toBeUndefined();
+      expect(f.options).toHaveLength(2);
+    }
+  });
+
+  test("the File / TR / Notary branch NEVER forces a number that does not exist", () => {
+    const yes = { op: "equals", field: "hantida_dhul_banaan.tixraaca_ma_jiraan", value: "yes" };
+    const no = { op: "equals", field: "hantida_dhul_banaan.tixraaca_ma_jiraan", value: "no" };
+    // "Haa" -> which kind, then the number.
+    expect(plotSection.fields.find((f) => f.id === "nooca_tixraaca")?.visibleWhen).toEqual(yes);
+    expect(plotSection.fields.find((f) => f.id === "nooca_tixraaca")?.options?.map((o) => o.value)).toEqual([
+      "file_no",
+      "tr_no",
+      "notary_reference",
+    ]);
+    expect(plotSection.fields.find((f) => f.id === "lambarka_tixraaca")?.visibleWhen).toEqual(yes);
+    // "Maya" -> a Calaamad Dheeraad ah, and nothing else is asked.
+    expect(plotSection.fields.find((f) => f.id === "calaamad_dheeraad")?.visibleWhen).toEqual(no);
+    // The number is typed ONCE. The old notary_ref / beerta pair is gone.
+    expect(ids(plotSection)).not.toContain("notary_ref");
+    expect(ids(plotSection)).not.toContain("beerta");
   });
 
   test("the reference is NOT a form question — the system allocates it", () => {
@@ -300,13 +356,25 @@ describe("C — the plot (Dhul Banaan)", () => {
     "shaxado_ma_jiraan",
     "tirada_iibiyayaasha",
     "tirada_iibsadayaasha",
+    "nooca_damiinta",
     ]);
   });
 
   test("degmada / xaafada / cabbirka / jiho_1..3 are OPTIONAL, never blocking", () => {
     // No scan proves any of them legally mandatory, and the office ruled that
     // an unproven field must never BLOCK. A blank plot detail prints nothing.
-    for (const id of ["degmada", "xaafada", "cabbirka", "jiho_1", "jiho_2", "jiho_3"]) {
+    for (const id of [
+      "degmada",
+      "xaafada",
+      "cabbirka",
+      "jiho_waqooyi",
+      "jiho_koonfur",
+      "jiho_bari",
+      "jiho_galbeed",
+      "tixraaca_ma_jiraan",
+      "nooca_tixraaca",
+      "calaamad_dheeraad",
+    ]) {
       expect(plotSection.fields.find((f) => f.id === id)?.validation?.required).toBeUndefined();
       expect(plotSection.fields.find((f) => f.id === id)?.optional).toBe(true);
     }
@@ -344,25 +412,37 @@ describe("C2 — sida hantida uu loo helay", () => {
       hantida_dhul_banaan: { ...plot, ...proof },
     }) as FormValues;
 
-  test("DHAXLAY → the beerta is required and the notary ref is not", () => {
-    const errs = errorsOf(withProof({ sida_hantida_loo_helay: "dhaxlay" }), "hantida_dhul_banaan");
-    expect(errs).toContain("Beerta");
-    expect(errs).not.toContain("Notary");
-  });
-
-  test("IIBSADAY → the notary ref is required and the beerta is not", () => {
+  test("no File/TR/Notary number → the Calaamad Dheeraad ah is asked, nothing else", () => {
     const errs = errorsOf(
-      withProof({ sida_hantida_loo_helay: "iibsaday" }),
+      withProof({ sida_hantida_loo_helay: "dhaxlay", tixraaca_ma_jiraan: "no" }),
       "hantida_dhul_banaan",
     );
-    expect(errs).toContain("Notary");
-    expect(errs).not.toContain("Beerta");
+    // The notary is NEVER pushed into inventing a reference that does not
+    // exist — the description is the answer.
+    expect(errs).not.toContain("Lambarka");
+    expect(errs).not.toContain("Nooca Tixraaca");
+    expect(
+      C.sections
+        .find((s) => s.id === "hantida_dhul_banaan")!
+        .fields.find((f) => f.id === "calaamad_dheeraad")!.optional,
+    ).toBe(true);
+  });
+
+  test("File / TR / Notary chosen → the number is asked, once", () => {
+    const fields = C.sections.find((s) => s.id === "hantida_dhul_banaan")!.fields;
+    const yes = { op: "equals", field: "hantida_dhul_banaan.tixraaca_ma_jiraan", value: "yes" };
+    expect(fields.find((f) => f.id === "lambarka_tixraaca")?.requiredWhen).toEqual(yes);
+    // The number is typed in exactly one place.
+    const numberFields = fields.filter((f) =>
+      ["lambarka_tixraaca", "notary_ref", "beerta"].includes(f.id),
+    );
+    expect(numberFields.map((f) => f.id)).toEqual(["lambarka_tixraaca"]);
   });
 
   test("one proof given → the section validates clean", () => {
     expect(
       errorsOf(
-        withProof({ sida_hantida_loo_helay: "dhaxlay", beerta: "Ilmo Hebel 1998" }),
+        withProof({ sida_hantida_loo_helay: "dhaxlay", tixraaca_ma_jiraan: "yes", nooca_tixraaca: "tr_no", lambarka_tixraaca: "Ilmo Hebel 1998" }),
         "hantida_dhul_banaan",
       ),
     ).toBe("");
@@ -401,6 +481,10 @@ describe("D — price", () => {
     expect(section.fields.map((f) => f.id)).toEqual([
       "qiimaha_guud",
       "lacagta_bixiyay",
+      "sida_lacagta",
+      "lacagta_baaqiga_ah",
+      "habka_bixinta",
+      "faahfaahin_lacageed",
     ]);
     // Only the price itself is required; what was actually paid is optional.
     expect(section.fields[0].validation?.required).toBe(true);
@@ -441,123 +525,98 @@ describe("D — price", () => {
 /* E — the guarantor is ALWAYS present                                  */
 /* ------------------------------------------------------------------ */
 
-describe("E — dammaanadda (always present)", () => {
+describe("E — dammaanadda (the decision is made in Step 1)", () => {
+  /** The guarantor choice lives in Dejinta Heshiiska, not here. */
   const dam = (over: Record<string, string>): FormValues =>
     ({
       ...createInitialValues(C),
-      dejinta: { sub_type: "dhul_banaan", reference: "DPN-MG-001", taariikhda_hantida: "2026-01-30" },
+      dejinta: {
+        sub_type: "dhul_banaan",
+        reference: "DPN-MG-001",
+        taariikhda_hantida: "2026-01-30",
+        nooca_damiinta: "qof_3aad",
+        ...over,
+      },
       iibiyeyaal: [row("s1", { magac: "AHMED CALI", degan: "Hargeisa", telefoon: "0611111111" })],
-      damiinka: { gurmadka_dammaanadda: "Reer deggan oo la dhisay.", ...over },
-    }) as FormValues;
+      damiinka: { gurmadka_dammaanadda: "Reer deggan oo la dhisay.", ...(over.gurmadka_dammaanadda ? { gurmadka_dammaanadda: over.gurmadka_dammaanadda } : {}) },
+    }) as unknown as FormValues;
 
-  test("'Damiin ma jiraa?' has THREE answers — including a real 'Maya'", () => {
-    // This used to assert there was NO "no guarantor" state, because the form
-    // could not express one — so every agreement was forced to invent a
-    // guarantor. The office approved a third answer.
-    const section = C.sections.find((s) => s.id === "damiinka")!;
-    expect(section.visibleWhen).toBeUndefined();
-    expect(section.fields.find((f) => f.id === "nooca_damiinta")?.validation?.required).toBe(
-      true,
-    );
-    expect(section.fields.find((f) => f.id === "nooca_damiinta")?.options?.map((o) => o.value)).toEqual([
-      "ma_jiro",
-      "qof_3aad",
-      "iibiyaha",
-    ]);
+  /** Same, but the guarantor DETAILS land in the damiinka section. */
+  const dam2 = (nooca: string, det: Record<string, string> = {}): FormValues =>
+    ({
+      ...createInitialValues(C),
+      dejinta: { sub_type: "dhul_banaan", reference: "DPN-MG-001", taariikhda_hantida: "2026-01-30", nooca_damiinta: nooca },
+      iibiyeyaal: [row("s1", { magac: "AHMED CALI", degan: "Hargeisa", telefoon: "0611111111" })],
+      damiinka: { gurmadka_dammaanadda: "Reer deggan oo la dhisay.", ...det },
+    }) as unknown as FormValues;
+
+  test("'Damiin ma jiraa?' has TWO answers, and is asked ONCE in Step 1", () => {
+    // A sale is ALWAYS guaranteed: by a third party, or by the sellers. There
+    // is no third state, so there are only two doors.
+    const setup = C.sections.find((s) => s.id === "dejinta")!;
+    const q = setup.fields.find((f) => f.id === "nooca_damiinta")!;
+    expect(q.options?.map((o) => o.value)).toEqual(["qof_3aad", "iibiyaha"]);
+    // Asked here…
+    expect(setup.flowStep).toEqual({ n: 1, title: "Dejinta Heshiiska" });
+    // …and NEVER again in the guarantor step.
+    const dam = C.sections.find((s) => s.id === "damiinka")!;
+    expect(dam.fields.map((f) => f.id)).not.toContain("nooca_damiinta");
+    expect(dam.visibleWhen).toBeUndefined();
   });
 
-  test("choosing 'Maya' hides EVERY guarantor field", () => {
+  test("the seller self-guarantor branch creates NO third-party person", () => {
+    // "Maya" means the sellers guarantee themselves: their names already
+    // stand in the guarantor slot, so no one new is created.
+    const self = computeReplacements(C, dam2("iibiyaha"));
+    expect(self["{{DAMIIN_MAGACA}}"]).toBe("AHMED CALI");
+    expect(self["{{DAMIIN_TELEFOON}}"]).toBe("");
+    expect(self["{{DAMIIN_SAWIR}}"]).toBe("");
+    expect(resolveFlags(C, dam2("iibiyaha")).DAMIIN_IIBIYAHA).toBe(true);
+    expect(resolveFlags(C, dam2("iibiyaha")).DAMIIN_QOF_3AAD).toBe(false);
+  });
+
+  test("a third party IS asked for, and named", () => {
+    const third = computeReplacements(C, dam2("qof_3aad", { magaca_damiinka: "KHALID NOOR" }));
+    expect(third["{{DAMIIN_MAGACA}}"]).toBe("KHALID NOOR");
+    expect(resolveFlags(C, dam2("qof_3aad")).DAMIIN_QOF_3AAD).toBe(true);
+  });
+
+  test("the guarantor PERSON fields exist only for a third party", () => {
     const fields = C.sections.find((s) => s.id === "damiinka")!.fields;
-    // The gate: any answer other than "Maya" reveals the guarantor slot.
-    const gate = { op: "not_equals", field: "damiinka.nooca_damiinta", value: "ma_jiro" };
-    for (const id of ["magaca_damiinka", "telefoonka_damiinka", "sawirka_damiinka", "gurmadka_dammaanadda"]) {
+    const gate = { op: "equals", field: "dejinta.nooca_damiinta", value: "qof_3aad" };
+    for (const id of ["magaca_damiinka", "telefoonka_damiinka", "degan_damiinka", "sawirka_damiinka"]) {
       expect(fields.find((f) => f.id === id)?.visibleWhen).toEqual(gate);
     }
+    // The pledge itself is always there — a guaranteed sale has a pledge.
+    expect(fields.find((f) => f.id === "gurmadka_dammaanadda")?.visibleWhen).toBeUndefined();
   });
 
-  test("'Maya' is a state the template can SEE — it is its own flag", () => {
-    // Without this, a template cannot tell "Maya" apart from "the notary
-    // never reached that question" and would print a guarantor slot for
-    // nobody. The flag is declared in the config, so the engine emits it.
-    const flags = resolveFlags(C, dam({ nooca_damiinta: "ma_jiro" }));
-    expect(flags.DAMIIN_MA_JIRO).toBe(true);
-    expect(flags.DAMIIN_QOF_3AAD).toBe(false);
-    expect(flags.DAMIIN_IIBIYAHA).toBe(false);
-    // And the stored machine value never reaches the paper.
-    const map = computeReplacements(C, dam({ nooca_damiinta: "ma_jiro" }));
-    expect(map["{{NOOCA_DAMIINTA}}"]).toBe("Damiin ma jiro");
-    expect(JSON.stringify(map)).not.toContain("ma_jiro\"");
-  });
-
-  test("the gurmad NEVER blocks — not even before a guarantor is chosen", () => {
-    // The office rule is explicit: a field the notary has not been asked for
-    // yet cannot stop them. Every guarantor state validates without a pledge
-    // written — including "no guarantor at all".
-    expect(
-      errorsOf(dam({ nooca_damiinta: "qof_3aad", magaca_damiinka: "KHALID NOOR" }), "damiinka"),
-    ).toBe("");
-    expect(errorsOf(dam({ nooca_damiinta: "iibiyaha" }), "damiinka")).toBe("");
-    expect(errorsOf(dam({ nooca_damiinta: "ma_jiro" }), "damiinka")).toBe("");
-    expect(C.sections.find((s) => s.id === "damiinka")!.fields.find((f) => f.id === "gurmadka_dammaanadda")?.optional).toBe(true);
-    // Only the THREE-WAY QUESTION itself can block, which §13 requires a
-    // sale to answer. Before it is answered, the pledge is not even asked
-    // for — so it cannot be the thing that stops the notary.
-    expect(errorsOf(dam({}), "damiinka")).toBe("Fadlan buuxi: Damiin ma jiraa?");
-  });
-
-  test("a third-party guarantor must be named — his phone stays optional (S1 has none)", () => {
-    const errs = errorsOf(dam({ nooca_damiinta: "qof_3aad" }), "damiinka");
+  test("a third-party guarantor must be named — his phone and address stay optional", () => {
+    const errs = errorsOf(dam2("qof_3aad"), "damiinka");
     expect(errs).toContain("Magaca Damiinka");
-    const phone = C.sections
-      .find((s) => s.id === "damiinka")!
-      .fields.find((f) => f.id === "telefoonka_damiinka");
-    expect(phone?.optional).toBe(true);
+    const fields = C.sections.find((s) => s.id === "damiinka")!.fields;
+    expect(fields.find((f) => f.id === "telefoonka_damiinka")?.optional).toBe(true);
+    expect(fields.find((f) => f.id === "degan_damiinka")?.optional).toBe(true);
   });
 
-  test("DAMIIN_MAGACA is ONE token with ONE value: the guarantor, or the seller", () => {
-    const third = computeReplacements(
-      C,
-      dam({ nooca_damiinta: "qof_3aad", magaca_damiinka: "KHALID NOOR" }),
-    );
-    expect(third["{{DAMIIN_MAGACA}}"]).toBe("KHALID NOOR");
-
-    const self = computeReplacements(C, dam({ nooca_damiinta: "iibiyaha" }));
-    expect(self["{{DAMIIN_MAGACA}}"]).toBe("AHMED CALI");
+  test("the gurmad NEVER blocks", () => {
+    expect(errorsOf(dam2("qof_3aad", { magaca_damiinka: "KHALID NOOR" }), "damiinka")).toBe("");
+    expect(errorsOf(dam2("iibiyaha"), "damiinka")).toBe("");
+    expect(C.sections.find((s) => s.id === "damiinka")!.fields.find((f) => f.id === "gurmadka_dammaanadda")?.optional).toBe(true);
+    // The guarantor DETAILS section is not even asked for on the sellers'
+    // branch, so it cannot be the thing that stops the notary.
+    expect(errorsOf(dam2("iibiyaha"), "damiinka")).not.toContain("Magaca Damiinka");
+    void dam;
   });
 
-  test("the seller self-guarantor branch creates no guarantor photo / phone / signature data", () => {
-    const self = computeReplacements(
-      C,
-      dam({ nooca_damiinta: "iibiyaha", sawirka_damiinka: "", telefoonka_damiinka: "" }),
-    );
-    expect(self["{{DAMIIN_SAWIR}}"]).toBe("");
-    expect(self["{{DAMIIN_TELEFOON}}"]).toBe("");
-    expect(resolveFlags(C, dam({ nooca_damiinta: "iibiyaha" })).DAMIIN_IIBIYAHA).toBe(true);
-    expect(resolveFlags(C, dam({ nooca_damiinta: "iibiyaha" })).DAMIIN_QOF_3AAD).toBe(false);
-  });
-
-  test("the guarantor photo is asked ONLY when a guarantor exists", () => {
-    const sawir = C.sections
-      .find((s) => s.id === "damiinka")!
-      .fields.find((f) => f.id === "sawirka_damiinka");
-    // Gated on "not: no guarantor" — a third party OR the seller himself, and
-    // never shown for an agreement that has no guarantor at all.
-    expect(sawir?.visibleWhen).toEqual({
-      op: "not_equals",
-      field: "damiinka.nooca_damiinta",
-      value: "ma_jiro",
-    });
-  });
-
-  test("the stored guarantor type never prints raw", () => {
-    const map = computeReplacements(C, dam({ nooca_damiinta: "iibiyaha" }));
-    expect(map["{{NOOCA_DAMIINTA}}"]).toBe("Iibiyaha oo is-damiinaya");
+  test("no dead 'no guarantor' flag survives the two-way answer", () => {
+    // There is no such state, so the template must not be offered a flag for
+    // it — an orphan token is a promise the engine cannot keep.
+    expect("DAMIIN_MA_JIRO" in resolveFlags(C, dam2("iibiyaha"))).toBe(false);
+    expect("DAMIIN_MA_JIRO" in resolveFlags(C, dam2("qof_3aad"))).toBe(false);
   });
 });
 
-/* ------------------------------------------------------------------ */
-/* F — repeatable parties, never fixed fields                         */
-/* ------------------------------------------------------------------ */
 
 describe("F — repeatable parties", () => {
   const party = (id: string) =>
@@ -576,7 +635,7 @@ describe("F — repeatable parties", () => {
       iibsadayaal: [{ ...row("b1", { magac: "IIBSADE 1", jinsi: "female", degan: "Hargeisa", telefoon: "0622222222" }), attendance: { status: "jooga" } }],
       hantida_dhul_banaan: { sida_hantida_loo_helay: "iibsaday", notary_ref: "Tr No 4471" },
       qiimaha: { qiimaha_guud: "1600" },
-      damiinka: { nooca_damiinta: "iibiyaha", gurmadka_dammaanadda: "Reer deggan." },
+      damiinka: { gurmadka_dammaanadda: "Reer deggan." },
       maragyo: [row("m1", { magac: "MARAG KOOW" })],
       // ONE photograph, ONE signature, for THREE sellers. The office rule:
       // the counts are unrelated, so nothing here may be rejected.
@@ -627,7 +686,9 @@ describe("F — repeatable parties", () => {
   });
 
   test("sellers and buyers are repeatable lists, min 1, with no maximum", () => {
-    for (const id of ["iibiyeyaal", "iibsadayaal", "maragyo"]) {
+    // A sale cannot exist without a seller and a buyer. Witnesses are NOT in
+    // this list: they are optional (see "a witness is never forced").
+    for (const id of ["iibiyeyaal", "iibsadayaal"]) {
       const p = party(id);
       expect(p.min).toBe(1);
       expect(p.max ?? 0).toBe(0);
@@ -820,11 +881,27 @@ describe("H — wakiil", () => {
 /* ------------------------------------------------------------------ */
 
 describe("I — maragyo", () => {
-  test("at least one witness is required", () => {
-    expect(C.requiresWitness).toBe(true);
+  test("a witness is NEVER forced — an empty list is a real answer", () => {
+    // The office ruled that no sale is stopped for want of a witness, and no
+    // placeholder witness is invented to satisfy a minimum.
+    expect(C.requiresWitness).toBe(false);
     expect(
       C.sections.flatMap((s) => s.parties ?? []).find((p) => p.id === "maragyo")!.min,
-    ).toBe(1);
+    ).toBe(0);
+    const v = {
+      ...createInitialValues(C),
+      dejinta: { sub_type: "dhul_banaan", taariikhda_hantida: "2026-01-30", tirada_iibiyayaasha: "1", tirada_iibsadayaasha: "1", nooca_damiinta: "iibiyaha" },
+      iibiyeyaal: [row("s1", { magac: "AHMED CALI", jinsi: "male" })],
+      iibsadayaal: [{ ...row("b1", { magac: "IIBSADE", jinsi: "female", telefoon: "0622222222" }), attendance: { status: "jooga" } }],
+      hantida_dhul_banaan: { sida_hantida_loo_helay: "iibsaday", tixraaca_ma_jiraan: "no", calaamad_dheeraad: "Beer ta Hargeisa" },
+      qiimaha: { qiimaha_guud: "1600" },
+      maragyo: [],
+    } as unknown as FormValues;
+    expect(errorsOf(v, "maragyada")).toBe("");
+    expect(validateDocument(C, v)["maragyada"]).toBeUndefined();
+    // A witness that IS entered is still stored with its own data.
+    const withOne = { ...v, maragyo: [row("m1", { magac: "MARAG KOOW", telefoon: "0611111111" })] } as unknown as FormValues;
+    expect(Object.keys(validateDocument(C, withOne))).not.toContain("maragyada");
   });
 
   test("the witness list is not capped at the six the scans happen to show", () => {
@@ -893,8 +970,8 @@ describe("I2 — review shows collected answers, not storage handles", () => {
   test("a SECTION photo field reads as 'uploaded' — never the storage id", () => {
     const rows = collectFilledValues(C, {
       ...createInitialValues(C),
+      dejinta: { sub_type: "dhul_banaan", nooca_damiinta: "qof_3aad" },
       damiinka: {
-        nooca_damiinta: "qof_3aad",
         magaca_damiinka: "KHALID NOOR",
         gurmadka_dammaanadda: "Reer deggan.",
         sawirka_damiinka: "k7storageIDxyz",
@@ -937,9 +1014,13 @@ describe("J — placeholder inventory", () => {
       "DEGMADA",
       "CABBIRKA",
       "XAAFADA",
-      "JIHOO_1",
-      "JIHOO_2",
-      "JIHOO_3",
+      "JIHO_WAQOOYI",
+      "JIHO_KOONFUR",
+      "JIHO_BARI",
+      "JIHO_GALBEED",
+      "TIXRAACA_NOOCA",
+      "LAMBARKA_TIXRAACA",
+      "CALAAMAD_DHEERAAD",
       "NOTARY_REF",
       "BEERTA",
       "QIIMAHA",
@@ -1114,9 +1195,14 @@ const PLOT = {
   degmada: "Waardhiil",
   xaafada: "Sooma",
   cabbirka: "5,000 m²",
-  jiho_1: "Xarunta Wacatariga",
-  jiho_2: "Jidka Mogadishu",
-  jiho_3: "Badda Sooma",
+  jiho_waqooyi: "waddo",
+  jiho_koonfur: "waddo",
+  jiho_bari: "dhisme",
+  jiho_galbeed: "dhisme",
+  // The plot carries an office reference, and the number is typed ONCE.
+  tixraaca_ma_jiraan: "yes",
+  nooca_tixraaca: "tr_no",
+  lambarka_tixraaca: "Tr No 4471",
 };
 
 function scanValues(over: Partial<FormValues> = {}): FormValues {
@@ -1126,8 +1212,10 @@ function scanValues(over: Partial<FormValues> = {}): FormValues {
       sub_type: "dhul_banaan",
       reference: "DPN-MG-001",
       taariikhda_hantida: "2026-01-30",
+      // A sale is always guaranteed: by a third party, or by the sellers.
+      nooca_damiinta: "qof_3aad",
     },
-    hantida_dhul_banaan: { ...PLOT, sida_hantida_loo_helay: "iibsaday", notary_ref: "Tr No 4471" },
+    hantida_dhul_banaan: { ...PLOT, sida_hantida_loo_helay: "iibsaday" },
     iibiyeyaal: [row("s1", { magac: "AHMED CALI", degan: "Hargeisa", telefoon: "0611111111" })],
     iibsadayaal: [row("b1", { magac: "SOMALI JAMAC", degan: "Hargeisa", telefoon: "0622222222" }, "jooga")],
     // Photographs are their OWN list. The Dhul Banaan scan prints three of
@@ -1138,7 +1226,7 @@ function scanValues(over: Partial<FormValues> = {}): FormValues {
       row("p2", { magac: "SOMALI JAMAC", sawir: "stor_b1" }),
       row("p3", { magac: "KHALID NOOR", sawir: "stor_d" }),
     ],
-    damiinka: { nooca_damiinta: "qof_3aad", magaca_damiinka: "KHALID NOOR", gurmadka_dammaanadda: "Reer deggan.", sawirka_damiinka: "stor_d" },
+    damiinka: { magaca_damiinka: "KHALID NOOR", gurmadka_dammaanadda: "Reer deggan.", sawirka_damiinka: "stor_d" },
     qiimaha: { qiimaha_guud: "1600" },
     maragyo: [row("m1", { magac: "MARAG KOOW", telefoon: "0633333333" })],
     ...over,
@@ -1167,9 +1255,10 @@ describe("L — SCAN FIDELITY", () => {
     expect(map["{{DEGMADA}}"]).toBe("Waardhiil");
     expect(map["{{CABBIRKA}}"]).toBe("5,000 m²");
     expect(map["{{XAAFADA}}"]).toBe("Sooma");
-    expect(map["{{JIHOO_1}}"]).toBe("Xarunta Wacatariga");
-    expect(map["{{JIHOO_2}}"]).toBe("Jidka Mogadishu");
-    expect(map["{{JIHOO_3}}"]).toBe("Badda Sooma");
+    expect(map["{{JIHO_WAQOOYI}}"]).toBe("Waddo");
+    expect(map["{{JIHO_KOONFUR}}"]).toBe("Waddo");
+    expect(map["{{JIHO_BARI}}"]).toBe("Dhisme");
+    expect(map["{{JIHO_GALBEED}}"]).toBe("Dhisme");
     expect(map["{{NOTARY_REF}}"]).toBe("Tr No 4471");
     expect(map["{{QIIMAHA}}"]).toBe("$1,600");
     expect(map["{{QIIMAHA_QORAAL}}"]).toBe(formatCurrencyWordsSomali(1600, "Dollar"));
@@ -1236,7 +1325,8 @@ describe("L — SCAN FIDELITY", () => {
       hantida_dhul_banaan: {
         ...PLOT,
         sida_hantida_loo_helay: "dhaxlay",
-        beerta: "Ilmo Hebel 1998",
+        nooca_tixraaca: "tr_no",
+        lambarka_tixraaca: "Ilmo Hebel 1998",
       },
       iibsadayaal: [row("b1", { magac: "SOMALI JAMAC", degan: "Hargeisa" }, "wakiil", "r1")],
       wakiilo_iibsadayaal: [row("r1", { magac: "ABDI WAKIIL", sawir: "stor_rep" })],
@@ -1246,8 +1336,10 @@ describe("L — SCAN FIDELITY", () => {
         row("p1", { magac: "AHMED CALI", sawir: "stor_s1" }),
         row("p2", { magac: "ABDI WAKIIL", sawir: "stor_rep" }),
       ],
+      // S3 is the SELF-GUARANTOR sale: the choice moves to Step 1, and no
+      // third-party person exists anywhere in it.
+      dejinta: { sub_type: "dhul_banaan", reference: "DPN-MG-001", taariikhda_hantida: "2026-01-30", nooca_damiinta: "iibiyaha" },
       damiinka: {
-        nooca_damiinta: "iibiyaha",
         gurmadka_dammaanadda: "Reer deggan.",
         sawirka_damiinka: "",
         telefoonka_damiinka: "",
@@ -1282,9 +1374,21 @@ describe("L — SCAN FIDELITY", () => {
     expect(flags.IIBSADAHA_JOOGA).toBe(false);
     expect(flags.HANTIDA_DHAXLAT).toBe(true);
 
-    // Inherited plot → beerta, and no notary ref.
+    // Inherited plot → the heirs' certificate number, typed ONCE.
+    //
+    // {{BEERTA}} and {{NOTARY_REF}} used to read two different fields, which
+    // meant the notary typed the same reference twice. Both now read the ONE
+    // number from the File / TR / Notary branch, so the paper still carries it
+    // and the form asks once.
     expect(map["{{BEERTA}}"]).toBe("Ilmo Hebel 1998");
-    expect(map["{{NOTARY_REF}}"]).toBe("");
+    expect(map["{{NOTARY_REF}}"]).toBe("Ilmo Hebel 1998");
+    // And there is exactly one field a number can be typed into.
+    expect(
+      C.sections
+        .find((s) => s.id === "hantida_dhul_banaan")!
+        .fields.filter((f) => ["lambarka_tixraaca", "notary_ref", "beerta"].includes(f.id))
+        .map((f) => f.id),
+    ).toEqual(["lambarka_tixraaca"]);
 
     // Six witnesses are numbered 1..6 — the form never capped them.
     const marag = buildRepeatBlockData(C, values).get("MARAGYO")!.rows;

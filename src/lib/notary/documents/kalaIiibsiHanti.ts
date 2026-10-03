@@ -86,33 +86,64 @@ const SIDA_HANTIDA: SelectOption[] = [
  * connects the guarantee to the SELLER instead of creating an unnecessary
  * external person.
  */
-const NOOCA_DAMIIN: SelectOption[] = [
-  { value: "ma_jiro", label: "Maya — damiin ma jiro" },
-  { value: "qof_3aad", label: "Damiin qof 3aad" },
-  { value: "iibiyaha", label: "Iibiyaha ayaa is-damiinaya" },
+/**
+ * THE FOUR SIDES OF A PLOT. Each side answers ONE question — does the plot
+ * run to a road, or to a building? — and offers nothing else.
+ */
+const JIHADA = {
+  waqooyi: { label: "Waqooyi", options: [{ value: "waddo", label: "Waddo" }, { value: "dhisme", label: "Dhisme" }] },
+  koonfur: { label: "Koonfur", options: [{ value: "waddo", label: "Waddo" }, { value: "dhisme", label: "Dhisme" }] },
+  bari: { label: "Bari", options: [{ value: "waddo", label: "Waddo" }, { value: "dhisme", label: "Dhisme" }] },
+  galbeed: { label: "Galbeed", options: [{ value: "waddo", label: "Waddo" }, { value: "dhisme", label: "Dhisme" }] },
+} as const satisfies Record<string, { label: string; options: SelectOption[] }>;
+
+/** Which KIND of office reference this plot carries. */
+const NOOCA_TIXRAACA: SelectOption[] = [
+  { value: "file_no", label: "File No." },
+  { value: "tr_no", label: "TR No." },
+  { value: "notary_reference", label: "Notary Reference" },
 ];
 
 /**
- * SOMEBODY GUARANTEES — either a third party OR the seller himself.
- *
- * This is what gates every guarantor field, so choosing "Maya" hides them all
- * instead of asking for a guarantor that does not exist.
- *
- * Named for what it MEANS, not for the answer it excludes: this is the
- * opposite of {@link IS_NO_GUARANTOR}, and mixing the two up would ask every
- * notary for a guarantor they just said they do not have.
+ * Paid in full, or only in part. The balance is a real question, so it is
+ * asked — and "Lacagta Baaqiga ah" is shown only in the state where there
+ * CAN be a balance. Paid in full, the balance field simply is not there.
  */
-const HAS_GUARANTOR: Condition = {
-  op: "not_equals",
-  field: "damiinka.nooca_damiinta",
-  value: "ma_jiro",
+const SIDA_LACAGTA: SelectOption[] = [
+  { value: "si_buuxda", label: "Si buuxda ayaa loo bixiyay" },
+  { value: "qayb_aad_ah", label: "Qayb ayaa la bixiyay" },
+];
+
+const hasBalanceOwed: Condition = {
+  op: "equals",
+  field: "qiimaha.sida_lacagta",
+  value: "qayb_aad_ah",
 };
 
-/** The sale has NO guarantor at all — the real "Maya" state, as a flag. */
-const IS_NO_GUARANTOR: Condition = {
+const NOOCA_DAMIIN: SelectOption[] = [
+  { value: "qof_3aad", label: "Haa — Qof 3aad ayaa damiinaya" },
+  { value: "iibiyaha", label: "Maya — Iibiyaha / Iibiyayaasha ayaa is-damiinaya" },
+];
+
+/**
+ * SOMEBODY GUARANTEES. A sale is ALWAYS guaranteed — either by a third party
+ * or by the seller himself. There is no third state: "Maya" here means the
+ * SELLERS guarantee, not that no one does.
+ *
+ * The answer is given ONCE, in Dejinta Heshiiska, so Step 6 only collects the
+ * details it already knows are needed.
+ */
+const DAMIIN_QOF_3AAD: Condition = {
   op: "equals",
-  field: "damiinka.nooca_damiinta",
-  value: "ma_jiro",
+  field: `${DEJINTA}.nooca_damiinta`,
+  value: "qof_3aad",
+};
+
+/** The SELLERS guarantee their own sale — no third person is created. */
+const DAMIIN_IIBIYAHA: Condition = {
+  op: "equals",
+  field: `${DEJINTA}.nooca_damiinta`,
+  value: "iibiyaha",
 };
 
 /**
@@ -294,6 +325,20 @@ const isHanti = (...values: string[]): Condition => ({
 
 const HANTIDA_DHUL_BANAAN = "hantida_dhul_banaan";
 
+/** The plot HAS an office reference (the notary answered "Haa"). */
+const hasReference: Condition = {
+  op: "equals",
+  field: `${HANTIDA_DHUL_BANAAN}.tixraaca_ma_jiraan`,
+  value: "yes",
+};
+
+/** The plot has NO office reference — the "Calaamad Dheeraad ah" branch. */
+const noReference: Condition = {
+  op: "equals",
+  field: `${HANTIDA_DHUL_BANAAN}.tixraaca_ma_jiraan`,
+  value: "no",
+};
+
 /** Sida hantida la helay equals one of the given values. */
 const sidaHantida = (...values: string[]): Condition => ({
   op: "or",
@@ -303,13 +348,6 @@ const sidaHantida = (...values: string[]): Condition => ({
     value,
   })),
 });
-
-/** The guarantor is a third party (not the seller guaranteeing himself). */
-const DAMIIN_QOF_3AAD: Condition = {
-  op: "equals",
-  field: "damiinka.nooca_damiinta",
-  value: "qof_3aad",
-};
 
 /**
  * Word templates per sub-type. The office designs each .docx; the app only
@@ -506,7 +544,9 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
   // The setup section carries the sub-type; the engine reads it from here
   // instead of assuming "heshiiska".
   setupSectionId: DEJINTA,
-  requiresWitness: true,
+  // A witness is NOT required on every sale: the notary skips the list when
+// the document does not call for one, and Continue still works.
+requiresWitness: false,
   witnessPlaceholder: "{{MARAGYO_LIST}}",
   witnessSeparator: "\n",
   subTypes: HANTI_SUBTYPES,
@@ -540,11 +580,14 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
     HANTIDA_IIBSADAY: sidaHantida("iibsaday"),
     // The guarantor is somebody else, or the seller himself.
     DAMIIN_QOF_3AAD,
-    DAMIIN_IIBIYAHA: { op: "equals", field: "damiinka.nooca_damiinta", value: "iibiyaha" },
+    DAMIIN_IIBIYAHA,
     // The THIRD answer, and a real one: this sale has no guarantor at all.
     // Without this flag a template cannot tell "Maya" apart from "the notary
     // never got that far", and would print a guarantor slot for nobody.
-    DAMIIN_MA_JIRO: IS_NO_GUARANTOR,
+    // Whether the plot carries an office reference at all (File / TR /
+    // Notary), or is known only by a "Calaamad Dheeraad ah".
+    HANTI_TIXRAACA: hasReference,
+    HANTI_CALAAMAD_DHEERAAD: noReference,
     // The four "does this sale have one of those?" gates, so a template can
     // leave out a heading whose list is empty. Each mirrors exactly what the
     // notary answered at the top of the interview — nothing is inferred.
@@ -578,6 +621,26 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       qof_3aad: "Damiin qof 3aad",
       iibiyaha: "Iibiyaha oo is-damiinaya",
       ma_jiro: "Damiin ma jiro",
+    },
+    [`${DEJINTA}.nooca_damiinta`]: {
+      qof_3aad: "Damiin qof 3aad ayaa damiinaya",
+      iibiyaha: "Iibiyaha / Iibiyayaasha ayaa is-damiinaya",
+    },
+    // A compass side stores "waddo" or "dhisme"; the paper must read the
+    // Somali word, never the storage value.
+    [`${HANTIDA_DHUL_BANAAN}.jiho_waqooyi`]: { waddo: "Waddo", dhisme: "Dhisme" },
+    [`${HANTIDA_DHUL_BANAAN}.jiho_koonfur`]: { waddo: "Waddo", dhisme: "Dhisme" },
+    [`${HANTIDA_DHUL_BANAAN}.jiho_bari`]: { waddo: "Waddo", dhisme: "Dhisme" },
+    [`${HANTIDA_DHUL_BANAAN}.jiho_galbeed`]: { waddo: "Waddo", dhisme: "Dhisme" },
+    [`${HANTIDA_DHUL_BANAAN}.nooca_tixraaca`]: {
+      file_no: "File No.",
+      tr_no: "TR No.",
+      notary_reference: "Notary Reference",
+    },
+    // The payment state reads as Somali too.
+    "qiimaha.sida_lacagta": {
+      si_buuxda: "Si buuxda ayaa loo bixiyay",
+      qayb_aad_ah: "Qayb ayaa la bixiyay",
     },
   },
 
@@ -652,6 +715,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
     {
       id: DEJINTA,
       title: "Dejinta Hantida",
+      flowStep: { n: 1, title: "Dejinta Heshiiska" },
       description: "Nooca hantida la iibsaday iyo taariikhda iibka.",
       fields: [
         {
@@ -725,11 +789,25 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           hint: "Hal sawir ama hal saxeex kasta ma qayb aha.",
           colSpan: 2,
         },
+        // THE GUARANTEE IS DECIDED HERE, once. A sale is always guaranteed:
+        // either a third party stands behind it, or the sellers guarantee
+        // themselves. Step 6 then only collects what this answer made
+        // necessary — the question itself is never asked twice.
+        {
+          id: "nooca_damiinta",
+          type: "select",
+          label: "Damiin ma jiraa?",
+          options: NOOCA_DAMIIN,
+          optional: true,
+          hint: "Maya = iibiyaha / iibiyayaasha ayaa is-damiinaya.",
+          colSpan: 2,
+        },
       ],
     },
     {
       id: "iibiyaha",
       title: "Iibiyaha",
+      flowStep: { n: 2, title: "Xogta & Xaaladda Iibiyayaasha" },
       description: "Qofka ama dadka hantida iibsanaya.",
       parties: [
         {
@@ -742,7 +820,6 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           // Heshiiska, and this list is built from that number — so it gets
           // NO count step of its own. The scan count is whatever the sale
           // actually has; it is never guessed from the people below.
-          renderInline: false,
           countFirst: true,
           countFrom: `${DEJINTA}.tirada_iibiyayaasha`,
           fields: partyFields("Iibiyaha", { attendance: false, role: true }),
@@ -758,6 +835,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       // however many roles he holds.
       id: "kooxaha",
       title: "Kooxa / Qoysku Iibiyaha",
+      flowStep: { n: 2, title: "Xogta & Xaaladda Iibiyayaasha" },
       description:
         "Magaca kooxka ama qoysku — xubnihuna waa iibiyayaasha.",
       parties: [
@@ -766,7 +844,6 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           label: "Kooxaha",
           singular: "Koox",
           description: "Magaca kooxka ayaa la sheegaa; xubnihana waa iibiyayaasha.",
-          renderInline: false,
           min: 0,
           optionalList: true,
           countFirst: true,
@@ -790,6 +867,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       // neither is ever assumed from the other.
       id: "wakiillada",
       title: "Wakiillada",
+      flowStep: { n: 2, title: "Xogta & Xaaladda Iibiyayaasha" },
       description: "Qofka ama dadka saxiixaya magaca iibiyayaasha (iyo iibsadaha).",
       visibleWhen: isGate("wakiillo_ma_jiraan"),
       parties: [
@@ -799,7 +877,6 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           singular: "Wakiil",
           description:
             "Hal wakiil oo matalaa dad badan, ama wakiillo kala duwan oo qayb qayb u matalaan.",
-          renderInline: false,
           min: 0,
           optionalList: true,
           countFirst: true,
@@ -855,6 +932,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       // none at all. Each row names the PERSON the picture belongs to.
       id: "sawirrada",
       title: "Sawirrada",
+      flowStep: { n: 4, title: "Xogta Hantida & Faahfaahinta Hantida" },
       description: "Sawirka qofka — tiradu ma la xiriirin tirada iibiyayaasha.",
       visibleWhen: isGate("sawirro_ma_jiraan"),
       parties: [
@@ -863,7 +941,6 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           label: "Sawirro",
           singular: "Sawir",
           description: "Hal sawir ama badan. Qofkee sawirkiisa ayaad haysaa?",
-          renderInline: false,
           min: 0,
           optionalList: true,
           countFirst: true,
@@ -905,6 +982,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       // chosen by the notary for that line — never assembled from the name.
       id: "saxeexayaasha",
       title: "Saxeexayaasha",
+      flowStep: { n: 4, title: "Xogta Hantida & Faahfaahinta Hantida" },
       description: "Yaa saxeexaya? Kasta hal unug — ma la xiriirin tirada iibiyayaasha.",
       visibleWhen: isGate("saxeexo_ma_jiraan"),
       parties: [
@@ -913,7 +991,6 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           label: "Saxeexayaal",
           singular: "Saxeex",
           description: "Hal saxeex ama badan. Hal qof ayaa laga saxixi karaa.",
-          renderInline: false,
           min: 0,
           optionalList: true,
           countFirst: true,
@@ -951,6 +1028,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       id: "shaxadaha",
       // (the buyers section sits below, after the signatories)
       title: "Shaxadaha iyo Warqadaha",
+      flowStep: { n: 4, title: "Xogta Hantida & Faahfaahinta Hantida" },
       description: "Beerta, wakiilnimo, tixraac — hal warqad ama badan.",
       visibleWhen: isGate("shaxado_ma_jiraan"),
       parties: [
@@ -959,7 +1037,6 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           label: "Shaxado",
           singular: "Shaxad",
           description: "Hal shaxad ama badan (MDH/C/…, Ref:APN/…).",
-          renderInline: false,
           min: 0,
           optionalList: true,
           countFirst: true,
@@ -1003,6 +1080,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       // room, who signs, and only then who is buying.
       id: "iibsadaha",
       title: "Iibsadaha",
+      flowStep: { n: 3, title: "Xogta & Xaaladda Iibsadayaasha" },
       description: "Qofka ama dadka hantida iibsanaya.",
       parties: [
         {
@@ -1028,15 +1106,25 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
     {
       id: HANTIDA_DHUL_BANAAN,
       title: "Faahfaahinta Dhulka",
+      flowStep: { n: 4, title: "Xogta Hantida & Faahfaahinta Hantida" },
       description: "Goobta dhulka la iibsanayo iyo caddaynta lahaanshaha.",
       visibleWhen: isHanti("dhul_banaan"),
       fields: [
         { id: "degmada", type: "text", label: "Degmada", optional: true, placeholder: "Tusaale: Degmada Waardhiil" },
-        { id: "xaafada", type: "text", label: "Xaafada", optional: true, placeholder: "Tusaale: Xaafadda Sooma" },
+        { id: "xaafada", type: "text", label: "Xaafadda / Deegaanka", optional: true, placeholder: "Tusaale: Xaafadda Sooma" },
         { id: "cabbirka", type: "text", label: "Cabbirka", optional: true, placeholder: "Tusaale: 5,000 m²" },
-        { id: "jiho_1", type: "text", label: "Xadka / Jiho 1", optional: true, placeholder: "Tusaale: Xarunta Wacatariga" },
-        { id: "jiho_2", type: "text", label: "Xadka / Jiho 2", optional: true, placeholder: "Tusaale: Jidka Mogadishu" },
-        { id: "jiho_3", type: "text", label: "Xadka / Jiho 3", optional: true, placeholder: "Tusaale: Badda Sooma" },
+        // THE FOUR SIDES. Each side is a real compass direction with ONE
+        // binary answer: the plot runs to a ROAD, or to a BUILDING. Nothing
+        // else is offered, and nothing is defaulted — an unanswered side
+        // prints nothing rather than picking one for the notary.
+        ...(["waqooyi", "koonfur", "bari", "galbeed"] as const).map((side) => ({
+          id: `jiho_${side}`,
+          type: "select" as const,
+          label: `Jiho ${JIHADA[side].label}`,
+          options: JIHADA[side].options,
+          optional: true,
+          hint: `Waddo ama Dhisme?`,
+        })),
         {
           id: "soohdimaha",
           type: "textarea",
@@ -1057,24 +1145,48 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           hint: "Wuxuu dhaxlay mise wuu iibsaday?",
           colSpan: 2,
         },
-        // The proof of that: the heirs' certificate when the plot was
-        // inherited, the notary reference when it was bought. Collect one —
-        // the other is never asked for in that case.
+        /* ---- THE FILE / TR / NOTARY BRANCH -----------------------
+           One question decides whether this plot has an office reference at
+           all. "Haa" leads to WHICH kind and then the number; "Maya" leads to
+           a "Calaamad Dheeraad ah" instead — the description under which the
+           notary already knows it. The notary is never pushed into inventing
+           a reference that does not exist, and never types the number twice:
+           {{NOTARY_REF}} and {{BEERTA}} both read this one field. */
         {
-          id: "notary_ref",
-          type: "text",
-          label: "Tixraaca Notary / Warqadda Iibka",
+          id: "tixraaca_ma_jiraan",
+          type: "yes_no",
+          label: "Hantidu ma leedahay File No., TR No. ama Notary Reference?",
           optional: true,
-          requiredWhen: sidaHantida("iibsaday"),
-          placeholder: "Tusaale: Nambarka warqadda iibka / File No / Tr No",
+          colSpan: 2,
+          hint: "Maya = calaad dheeraad ah oo lagu aqoonsan karo hantida.",
         },
         {
-          id: "beerta",
-          type: "text",
-          label: "Beerta / Warqadda Dhaxalka",
+          id: "nooca_tixraaca",
+          type: "select",
+          label: "Nooca Tixraaca",
+          options: NOOCA_TIXRAACA,
           optional: true,
-          requiredWhen: sidaHantida("dhaxlay"),
-          placeholder: "Tusaale: Ilmo Hebel / Tr No",
+          visibleWhen: hasReference,
+          hint: "File No., TR No., mise Notary Reference?",
+        },
+        {
+          id: "lambarka_tixraaca",
+          type: "text",
+          label: "Lambarka / Tixraaca",
+          optional: true,
+          requiredWhen: hasReference,
+          visibleWhen: hasReference,
+          placeholder: "Tusaale: Tr No 4471",
+        },
+        {
+          id: "calaamad_dheeraad",
+          type: "textarea",
+          label: "Calaamad Dheeraad ah",
+          optional: true,
+          visibleWhen: noReference,
+          colSpan: 2,
+          placeholder: "Faahfaahinta / calaadda dheeraadka ee hantida lagu aqoonsan karo…",
+          description: "Plot-ka kama jiro tixraac la bixiyo? Halkan ayuu notary ku qortaa.",
         },
       ],
     },
@@ -1084,6 +1196,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
       // are untouched, so selecting them still collects their own property data.
       id: "hantida_guri",
       title: "Faahfaahinta Guriga",
+      flowStep: { n: 4, title: "Xogta Hantida & Faahfaahinta Hantida" },
       description: "Xuduudaha guriga la iibsanayo.",
       visibleWhen: isHanti("guri"),
       fields: [
@@ -1099,6 +1212,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
     {
       id: "hantida_beer",
       title: "Faahfaahinta Beeraha",
+      flowStep: { n: 4, title: "Xogta Hantida & Faahfaahinta Hantida" },
       description: "Xuduudaha beeraha la iibsanayo.",
       visibleWhen: isHanti("beer"),
       fields: [
@@ -1159,25 +1273,22 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
     {
       id: "damiinka",
       title: "Dammaanadda",
+      flowStep: { n: 6, title: "Xogta Damiinka & Maragyada" },
       description: "Qofka dammaanadda bixinaya — qof 3aad, ama iibiyaha isagu.",
+      // The WHETHER is already answered in Step 1, so it is never asked a
+      // second time here. This step only collects what that answer made
+      // necessary: a third party's details, or nothing at all when the
+      // sellers guarantee themselves.
       fields: [
-        {
-          id: "nooca_damiinta",
-          type: "select",
-          label: "Damiin ma jiraa?",
-          options: NOOCA_DAMIIN,
-          validation: { required: true },
-          hint: "Qof 3aad mise iibiyaha isagu?",
-          colSpan: 2,
-        },
-        // A third-party guarantor needs his own identity; when the seller
-        // guarantees, the seller's name already stands in this slot.
+        // A third-party guarantor needs his own identity; when the sellers
+        // guarantee, their names already stand in this slot — no new person
+        // is ever created and no name is typed twice.
         {
           id: "magaca_damiinka",
           type: "text",
           label: "Magaca Damiinka",
           optional: true,
-          visibleWhen: HAS_GUARANTOR,
+          visibleWhen: DAMIIN_QOF_3AAD,
           requiredWhen: DAMIIN_QOF_3AAD,
           placeholder: "Magaca damiinka",
         },
@@ -1186,15 +1297,22 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           type: "phone",
           label: "Telefoonka Damiinka",
           optional: true,
-          visibleWhen: HAS_GUARANTOR,
+          visibleWhen: DAMIIN_QOF_3AAD,
           placeholder: "+252 61 5551234",
+        },
+        {
+          id: "degan_damiinka",
+          type: "text",
+          label: "Degan Damiinka",
+          optional: true,
+          visibleWhen: DAMIIN_QOF_3AAD,
+          placeholder: "Tusaale: Hargeisa",
         },
         {
           id: "gurmadka_dammaanadda",
           type: "textarea",
           label: "Gurmadka / Qoraalka Dammaanadda",
           optional: true,
-          visibleWhen: HAS_GUARANTOR,
           colSpan: 2,
           placeholder: "Waxa dammiinku dammaanadda ugu gaddaynayo…",
         },
@@ -1203,7 +1321,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           type: "photo",
           label: "Sawirka Damiinka",
           optional: true,
-          visibleWhen: HAS_GUARANTOR,
+          visibleWhen: DAMIIN_QOF_3AAD,
           description: "Sawirka damiinka marka uu yahay qof 3aad.",
         },
       ],
@@ -1211,6 +1329,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
     {
       id: "qiimaha",
       title: "Qiimaha Hantida",
+      flowStep: { n: 5, title: "Qiimaha & Faahfaahinta Lacagta" },
       description: "Qiimaha guud ee dhulka. Qoraalka waxuu system-ka iska soo saaraa.",
       fields: [
         {
@@ -1224,7 +1343,7 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
         {
           id: "lacagta_bixiyay",
           type: "currency",
-          label: "Lacagta Bixiyay",
+          label: "Lacagta La Bixiyay",
           optional: true,
           // The amount paid can never exceed the price of the plot. This is a
           // numeric rule about ONE pair of fields — it says nothing about how
@@ -1234,11 +1353,48 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           validation: { min: 0, notMoreThan: "qiimaha_guud" },
           placeholder: "Tusaale: 600",
         },
+        {
+          id: "sida_lacagta",
+          type: "select",
+          label: "Sida Lacagta loo Bixiyay",
+          options: SIDA_LACAGTA,
+          optional: true,
+        },
+        // Asked ONLY when there is a balance left, and never above the price.
+        {
+          id: "lacagta_baaqiga_ah",
+          type: "currency",
+          label: "Lacagta Baaqiga ah",
+          optional: true,
+          visibleWhen: hasBalanceOwed,
+          validation: { min: 0, notMoreThan: "qiimaha_guud" },
+          placeholder: "Tusaale: 1000",
+        },
+        {
+          // Free text on purpose: no scan names the payment methods this
+          // office accepts, and inventing an option list would put wording
+          // into a signed contract that no evidence supports.
+          id: "habka_bixinta",
+          type: "text",
+          label: "Habka Lacag-bixinta",
+          optional: true,
+          placeholder: "Tusaale: Cash / Bank Transfer / Check",
+        },
+        {
+          id: "faahfaahin_lacageed",
+          type: "textarea",
+          label: "Faahfaahin Lacageed",
+          optional: true,
+          skippable: true,
+          colSpan: 2,
+          placeholder: "Shuruudo / faahfaahin dheeraad oo ku saabsan lacag-bixinta…",
+        },
       ],
     },
     {
       id: "maragyada",
       title: "Maragyada",
+      flowStep: { n: 6, title: "Xogta Damiinka & Maragyada" },
       description: "W maragyo — dynamic list, ugu yaraan hal.",
       parties: [
         {
@@ -1246,8 +1402,11 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
           label: "Maragyo",
           singular: "Marag",
           description: "Ku dar hal ama marag badan.",
-          min: 1,
-          renderInline: false,
+          // OPTIONAL. A sale the office does not require a witness for must
+          // not be stopped by one, and an empty list is a real answer — never
+          // a placeholder witness invented to satisfy a minimum.
+          min: 0,
+          optionalList: true,
           fields: [
             { id: "magac", type: "text", label: "Magaca Maraga", validation: { required: true } },
             { id: "telefoon", type: "phone", label: "Telefoon", optional: true },
