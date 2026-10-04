@@ -1,34 +1,59 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AppShell } from "@/components/notary/AppShell";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { documentConfigs } from "@/lib/notary/documents";
 import { formatSomaliDate } from "@/lib/notary/format";
+import { documentStatusLabel, isFinishedStatus } from "@/lib/notary/documentStatus";
 import {
   ArrowRight,
   CalendarClock,
   FileSignature,
   FileUp,
   FolderOpen,
+  Info,
   MessagesSquare,
+  PenLine,
+  Search as SearchIcon,
+  Settings as SettingsIcon,
   ShieldCheck,
 } from "lucide-react";
 
+/**
+ * §3 — the Dashboard IS Home. Every entry the office named is a card here:
+ * New Document, Drafts, Saved Documents, Archive, Search, Settings, About.
+ */
 const AREAS = [
   {
     to: "/new",
     icon: FileSignature,
     title: "New Document",
-    text: "Start a guided interview and build a fresh rental contract.",
+    text: "Start a guided interview and build a fresh document.",
     color: "text-primary",
   },
   {
-    to: "/catalog",
+    to: "/archive?status=draft",
+    icon: PenLine,
+    title: "Drafts",
+    text: "Resume an interview you started and left half-answered.",
+    color: "text-pen-orange",
+  },
+  {
+    to: "/archive",
     icon: FolderOpen,
-    title: "Catalog",
-    text: "Browse every document type, ready and planned.",
+    title: "Document Archive",
+    text: "Every document you built — searchable and downloadable.",
+    color: "text-pen-green",
+  },
+  {
+    to: "/catalog",
+    icon: FileSignature,
+    title: "Saved Documents",
+    text: "Every document type, ready and planned.",
     color: "text-pen-green",
   },
   {
@@ -39,17 +64,17 @@ const AREAS = [
     color: "text-pen-orange",
   },
   {
-    to: "/board",
-    icon: MessagesSquare,
-    title: "Team Board",
-    text: "Read and post office notices for everyone.",
-    color: "text-pen-purple",
-  },
-  {
     to: "/templates",
     icon: FileUp,
     title: "Templates",
     text: "Upload your own Word template and manage placeholders.",
+    color: "text-pen-purple",
+  },
+  {
+    to: "/settings",
+    icon: SettingsIcon,
+    title: "Settings",
+    text: "Office information and export preferences.",
     color: "text-pen-purple",
   },
   {
@@ -59,15 +84,29 @@ const AREAS = [
     text: "Workspace-wide overview and cleanup controls.",
     color: "text-pen-red",
   },
+  {
+    to: "/board",
+    icon: MessagesSquare,
+    title: "Team Board",
+    text: "Read and post office notices for everyone.",
+    color: "text-pen-purple",
+  },
 ];
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const documents = useQuery(api.notaryDocuments.listMyDocuments);
   const appointments = useQuery(api.notaryAppointments.listMine);
+  /** §43 — search from Home, not only from inside the archive. */
+  const [query, setQuery] = useState("");
 
   const generated = useMemo(
-    () => (documents ?? []).filter((d) => d.status === "generated"),
+    () => (documents ?? []).filter((d) => d.status === "generated" || d.status === "archived"),
+    [documents],
+  );
+  /** §3 Drafts + §71 empty state: an untouched interview is a draft. */
+  const drafts = useMemo(
+    () => (documents ?? []).filter((d) => d.status === "draft" || d.status === "completed"),
     [documents],
   );
   const upcoming = useMemo(
@@ -77,19 +116,39 @@ export default function Dashboard() {
         .slice(0, 3),
     [appointments],
   );
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return (documents ?? [])
+      .filter((d) =>
+        [
+          d.referenceNumber,
+          d.subTypeLabel,
+          d.documentTypeTitle,
+          d.fileBaseName,
+          ...d.parties.map((p) => `${p.name} ${p.phone ?? ""} ${p.idNumber ?? ""}`),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q),
+      )
+      .slice(0, 8);
+  }, [documents, query]);
+
   const recent = (documents ?? []).slice(0, 5);
 
   return (
-    <AppShell title="Welcome back" subtitle="Your workspace at a glance.">
+    <AppShell title="Home" subtitle="Halkan aad ka bilowdo — document cusub, draft, ama raadi.">
       {/* Stat strip */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="notebook-page paper-grain rounded-md p-4">
-          <p className="notebook-annotation text-xs text-muted-foreground">Contracts generated</p>
+          <p className="notebook-annotation text-xs text-muted-foreground">Documents la sameeyay</p>
           <p className="mt-1 text-2xl font-bold">{generated.length}</p>
         </div>
         <div className="notebook-page paper-grain rounded-md p-4">
           <p className="notebook-annotation text-xs text-muted-foreground">Drafts in progress</p>
-          <p className="mt-1 text-2xl font-bold">{(documents ?? []).length - generated.length}</p>
+          <p className="mt-1 text-2xl font-bold">{drafts.length}</p>
         </div>
         <div className="notebook-page paper-grain rounded-md p-4">
           <p className="notebook-annotation text-xs text-muted-foreground">Upcoming signings</p>
@@ -97,6 +156,57 @@ export default function Dashboard() {
             {(appointments ?? []).filter((a) => a.status === "scheduled").length}
           </p>
         </div>
+      </div>
+
+      {/* §3 — Search, available from Home. */}
+      <div className="notebook-page paper-grain mt-4 rounded-md p-4">
+        <label
+          htmlFor="home-search"
+          className="mb-2 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+        >
+          <SearchIcon className="size-3.5" /> Raadi
+        </label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            id="home-search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="DPN/MG/… · Ruun Xassan · Kala Iibsi Hanti"
+            className="bg-card/80"
+          />
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/archive?q=${encodeURIComponent(query.trim())}`)}
+            disabled={!query.trim()}
+          >
+            Raadi kaydka
+          </Button>
+        </div>
+        {query.trim() !== "" && (
+          <ul className="mt-3 divide-y divide-dashed divide-border/70">
+            {matches.length === 0 && (
+              <li className="py-3 text-xs text-muted-foreground">
+                Laman xarun la raadiyo — hubi tirrada tixraaca ama magaca.
+              </li>
+            )}
+            {matches.map((d) => (
+              <li key={d._id}>
+                <Link
+                  to={`/archive/${d._id}`}
+                  className="flex items-center gap-3 py-2.5 transition-colors hover:bg-muted/50"
+                >
+                  <FileSignature className="size-4 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {d.referenceNumber || "Draft"} · {d.subTypeLabel}
+                  </span>
+                  <Badge variant="secondary" className="text-[10px]">
+                    {documentStatusLabel(d.status)}
+                  </Badge>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Area cards */}
@@ -135,7 +245,63 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* §3 About — what the system is, stated honestly. */}
+      <section className="notebook-page paper-grain mt-6 rounded-md p-5">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <Info className="size-4 text-primary" /> About
+        </h2>
+        <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
+          DPN Notary waa nidaam diyaarinta heshiisyada iyo cadaymaha. Sidee halkan ku
+          muuqato, sidaas ayay u muuqataa Word-ka, PDF-ka iyo daabaca — hal model, hal
+          xaqiiqo. Qoraalka sharci ayaa had iyo jeer ku jira template-kaaga Word-ka; nidaamku
+          wuxuu buuxinayaa xogta kaliya, marnaba wuu qorayaa eray cusub.
+        </p>
+      </section>
+
       <div className="mt-10 grid gap-6 lg:grid-cols-2">
+        {/* §3 Drafts — an unfinished interview is resumable, so it links
+            straight back into the interview, never to a read-only view. */}
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Drafts</h2>
+            <Link
+              to="/archive?status=draft"
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Dhammaan →
+            </Link>
+          </div>
+          <div className="notebook-page paper-grain rounded-md p-2">
+            {drafts.length === 0 ? (
+              <p
+                className="p-6 text-center text-sm text-muted-foreground"
+                data-empty="drafts"
+              >
+                Ma jiraan drafts.
+              </p>
+            ) : (
+              <ul className="divide-y divide-dashed divide-border/70">
+                {drafts.slice(0, 6).map((d) => (
+                  <li key={d._id}>
+                    <Link
+                      to={`/documents/${d._id}`}
+                      className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-muted/50"
+                    >
+                      <PenLine className="size-4 shrink-0 text-pen-orange" />
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                        {d.referenceNumber || "Draft"} · {d.subTypeLabel}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {documentStatusLabel(d.status)}
+                      </Badge>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
         {/* Recent documents */}
         <section>
           <div className="mb-3 flex items-center justify-between">
@@ -146,8 +312,11 @@ export default function Dashboard() {
           </div>
           <div className="notebook-page paper-grain rounded-md p-2">
             {recent.length === 0 ? (
-              <p className="p-6 text-center text-sm text-muted-foreground">
-                No documents yet. Start one from the cards above.
+              <p
+                className="p-6 text-center text-sm text-muted-foreground"
+                data-empty="documents"
+              >
+                Dooro nooca document-ka si aad u bilowdo.
               </p>
             ) : (
               <ul className="divide-y divide-dashed divide-border/70">
@@ -161,8 +330,11 @@ export default function Dashboard() {
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">
                         {d.referenceNumber || "Draft"} · {d.subTypeLabel}
                       </span>
-                      <Badge variant={d.status === "generated" ? "default" : "secondary"} className="text-[10px]">
-                        {d.status === "generated" ? "Generated" : "Draft"}
+                      <Badge
+                        variant={isFinishedStatus(d.status) ? "default" : "secondary"}
+                        className="text-[10px]"
+                      >
+                        {documentStatusLabel(d.status)}
                       </Badge>
                       <span className="notebook-annotation hidden text-xs text-muted-foreground sm:inline">
                         {formatSomaliDate(new Date(d.createdAt).toISOString().slice(0, 10))}

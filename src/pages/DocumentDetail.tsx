@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getConfig, getSubTypeLabel } from "@/lib/notary/documents";
 import { getTemplateById } from "@/lib/notary/registry";
 import { formatSomaliDate } from "@/lib/notary/format";
+import { documentStatusLabel, isFinishedStatus } from "@/lib/notary/documentStatus";
 import {
   Archive,
   ArrowLeft,
@@ -125,14 +126,38 @@ function DocumentDetailView({ docId }: { docId: string }) {
                   Created {formatSomaliDate(new Date(document.createdAt).toISOString().slice(0, 10))} ·
                   Updated {formatSomaliDate(new Date(document.updatedAt).toISOString().slice(0, 10))}
                 </p>
+                {/* §69 — the audit trail: the four moments, each shown only
+                    once it has actually happened. A moment that has not
+                    occurred reads "—", never a guess. */}
+                <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                  {(
+                    [
+                      ["La abuuray", document.createdAt],
+                      ["Wax la beddelay", document.updatedAt],
+                      ["Waa la dhammaystiray", document.completedAt],
+                      ["Waa la soo saaray", document.exportedAt],
+                    ] as const
+                  ).map(([label, at]) => (
+                    <div key={label} className="flex gap-1">
+                      <dt>{label}:</dt>
+                      <dd className="font-medium text-foreground">
+                        {at
+                          ? new Date(at).toLocaleString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "—"}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
               <div className="flex flex-col items-end gap-2">
-                <Badge variant={document.status === "generated" ? "default" : "secondary"}>
-                  {document.status === "generated"
-                    ? "Generated"
-                    : document.status === "archived"
-                      ? "Archived"
-                      : "Draft"}
+                <Badge variant={isFinishedStatus(document.status) ? "default" : "secondary"}>
+                  {documentStatusLabel(document.status)}
                 </Badge>
                 {document.generatedMetadata && (
                   <p className="text-right text-[11px] text-muted-foreground">

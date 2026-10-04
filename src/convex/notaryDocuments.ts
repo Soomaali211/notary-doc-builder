@@ -123,6 +123,13 @@ export const saveDraft = mutation({
     const doc = await ctx.db.get(documentId);
     if (!doc) throw new Error("Document not found");
     if (doc.userId !== userId) throw new Error("Not allowed");
+    if (doc.status === "generated" || doc.status === "archived") {
+      // §66 — a generated document is immutable. Autosave must never write
+      // over the record that the exported file was produced from.
+      throw new Error(
+        "Dukumeentiga la sameeyay lama beddelo — regenerate wuxuu abuuraa version cusub.",
+      );
+    }
 
     if (!jsonSizeOk(payload.valuesJson)) {
       throw new Error("Xogta aad gelisay waa mid aad u weyn.");
@@ -165,7 +172,13 @@ export const markCompleted = mutation({
     if (!doc) throw new Error("Document not found");
     if (doc.userId !== userId) throw new Error("Not allowed");
     if (doc.status !== "draft") throw new Error("Kaliya draft-yada ayaa la dhammaystiri karo.");
-    await ctx.db.patch(documentId, { status: "completed", updatedAt: Date.now() });
+    const now = Date.now();
+    // §69 — completedAt is stamped once and never moved.
+    await ctx.db.patch(documentId, {
+      status: "completed",
+      updatedAt: now,
+      completedAt: doc.completedAt ?? now,
+    });
   },
 });
 
@@ -275,6 +288,8 @@ export const commitGenerated = mutation({
       );
     }
 
+    const now = Date.now();
+
     if (!jsonSizeOk(payload.valuesJson)) {
       throw new Error("Xogta aad gelisay waa mid aad u weyn.");
     }
@@ -299,7 +314,11 @@ export const commitGenerated = mutation({
       subTypeLabel: payload.subTypeLabel,
       documentType: payload.documentType,
       documentTypeTitle: payload.documentTypeTitle,
-      updatedAt: Date.now(),
+      updatedAt: now,
+      // §69 — the export moment, stamped once. An interview that was already
+      // marked completed keeps the completion time it was given.
+      exportedAt: now,
+      completedAt: doc.completedAt ?? now,
     });
     return documentId;
   },

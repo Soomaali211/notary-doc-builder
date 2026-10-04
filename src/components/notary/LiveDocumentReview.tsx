@@ -30,12 +30,17 @@ import {
   Download,
   FileText,
   Loader2,
+  Maximize2,
+  Minimize2,
   Minus,
   Plus,
   Printer,
+  Ruler,
   Search,
+  Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   buildUniversalDocument,
   downloadBlob,
@@ -50,6 +55,44 @@ import type { DocumentBlock, DocumentModel, DocumentPage, ImageRef, ParagraphSty
 const PT_TO_PX = 96 / 72;
 const px = (pt: number | null | undefined): number =>
   pt == null ? 0 : Math.round(pt * PT_TO_PX * 100) / 100;
+
+/**
+ * How the page scale is decided (§34).
+ *
+ *   manual   — the notary chose a percentage with − / +
+ *   width    — the whole page width fits the pane
+ *   page     — the WHOLE page, height included, fits the pane
+ *
+ * `fit` is never stored as a number that can go stale: it is recomputed from
+ * the pane's measured size every time the model, the pane or the window
+ * changes, so a resized window re-fits instead of keeping a dead scale.
+ */
+export type ReviewFit = "manual" | "width" | "page";
+
+/**
+ * The scale at which one page fits the pane, in both directions.
+ *
+ * A pane of 0 (not measured yet, or a hidden element) yields `fallback` so
+ * the first paint shows the document at the default 60 % instead of
+ * collapsing it to nothing.
+ */
+export function fitScale(
+  paneWidth: number,
+  paneHeight: number,
+  pageWidthPx: number,
+  pageHeightPx: number,
+  fit: "width" | "page",
+  fallback: number,
+): number {
+  if (pageWidthPx <= 0 || pageHeightPx <= 0) return fallback;
+  const byWidth = paneWidth / pageWidthPx;
+  const byHeight = paneHeight / pageHeightPx;
+  const raw = fit === "page" ? Math.min(byWidth, byHeight) : byWidth;
+  if (!Number.isFinite(raw) || raw <= 0) return fallback;
+  // The same 30 %–160 % range the − / + buttons use, so Fit can never land
+  // the notary somewhere they cannot zoom out of by hand.
+  return Math.min(1.6, Math.max(0.3, Math.round(raw * 100) / 100));
+}
 
 /**
  * Font size in CSS pixels. `null` means the template leaves the size to the
@@ -419,14 +462,77 @@ export function LiveDocumentReview({
   }, [status, onStatusChange]);
 
   const [zoom, setZoom] = useState(0.6);
+  const [fit, setFit] = useState<ReviewFit>("manual");
+  /** §34 — "Full document view": every page in one continuous scroll. */
+  const [allPages, setAllPages] = useState(false);
+  /** §34 — optional fullscreen. Absent browser support leaves the UI inert. */
+  const [wide, setWide] = useState(false);
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState<null | "docx" | "pdf">(null);
   const [notice, setNotice] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sectionRef = useRef<HTMLElement | null>(null);
 
   const pageCount = model?.pages.length ?? 0;
   // Derived, never stored: a document that is now shorter simply clamps.
   const current = Math.min(page, Math.max(1, pageCount));
+
+  /* ---------------------------------------------------------------- */
+  /* Fit Width / Fit Page — measured, never guessed                    */
+  /* ---------------------------------------------------------------- */
+
+  const pageWidthPx = px(model?.geometry.widthPt);
+  const pageHeightPx = px(model?.geometry.heightPt);
+  const [pane, setPane] = useState({ w: 0, h: 0 });
+
+  // The pane's own size, measured — a ResizeObserver when the browser has
+  // one, the window resize event otherwise. No polling, no layout thrash.
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    const measure = () =>
+      setPane({ w: node.clientWidth, h: node.clientHeight });
+    measure();
+    if (typeof ResizeObserver === "function") {
+      const ro = new ResizeObserver(measure);
+      ro.observe(node);
+      return () => ro.disconnect();
+    }
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [!!model]);
+
+  // The rendered scale: Fit modes derive it from the pane, manual keeps the
+  // notary's own percentage.
+  const scale = useMemo(() => {
+    if (fit === "manual") return zoom;
+    return fitScale(pane.w, pane.h, pageWidthPx, pageHeightPx, fit, zoom);
+  }, [fit, zoom, pane.w, pane.h, pageWidthPx, pageHeightPx]);
+
+  // − / + take over from Fit: an explicit percentage IS a manual choice.
+  const setManualZoom = (next: number) => {
+    setFit("manual");
+    setZoom(next);
+  };
+
+  const toggleFullscreen = () => {
+    const el = sectionRef.current as (HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }) | null;
+    if (!el) return;
+    const doc = el.ownerDocument;
+    const d = doc as Document & { webkitFullscreenElement?: Element | null };
+    if (d.fullscreenElement || d.webkitFullscreenElement) {
+      (doc.exitFullscreen?.bind(doc) ?? (doc as Document & { webkitExitFullscreen?: () => Promise<void> }).webkitExitFullscreen?.bind(doc))?.();
+      setWide(false);
+      return;
+    }
+    const enter = el.requestFullscreen ?? el.webkitRequestFullscreen;
+    if (typeof enter !== "function") {
+      // Optional feature, unsupported browser: say so instead of doing nothing.
+      setNotice("Browser-kagu fullscreen ma daboolo — waxay noqonaysaa qaab caadi ah.");
+      return;
+    }
+    void enter.call(el).then(() => setWide(true)).catch(() => setWide(false));
+  };
 
   const scrollToPage = useCallback((target: number) => {
     const holder = scrollRef.current;
@@ -491,8 +597,13 @@ export function LiveDocumentReview({
 
   return (
     <section
-      className={className}
+      ref={sectionRef}
+      className={cn(
+        className,
+        wide && "fixed inset-0 z-50 overflow-auto bg-background p-4",
+      )}
       data-live-review={config.id}
+      data-fullscreen={wide ? "true" : undefined}
       aria-label={`Live Document Review — ${config.title}`}
     >
       {/* Toolbar — universal: zoom, pages, DOCX, PDF, print. */}
@@ -524,13 +635,13 @@ export function LiveDocumentReview({
               className="size-7"
               aria-label="Yar"
               data-review-zoom="out"
-              disabled={zoom <= 0.3}
-              onClick={() => setZoom((z) => Math.max(0.3, Math.round((z - 0.1) * 10) / 10))}
+              disabled={scale <= 0.3}
+              onClick={() => setManualZoom(Math.max(0.3, Math.round((scale - 0.1) * 10) / 10))}
             >
               <Minus className="size-3.5" />
             </Button>
             <span className="w-10 text-center text-xs tabular-nums" data-review-zoom-value="">
-              {Math.round(zoom * 100)}%
+              {Math.round(scale * 100)}%
             </span>
             <Button
               type="button"
@@ -539,12 +650,69 @@ export function LiveDocumentReview({
               className="size-7"
               aria-label="Weynii"
               data-review-zoom="in"
-              disabled={zoom >= 1.6}
-              onClick={() => setZoom((z) => Math.min(1.6, Math.round((z + 0.1) * 10) / 10))}
+              disabled={scale >= 1.6}
+              onClick={() => setManualZoom(Math.min(1.6, Math.round((scale + 0.1) * 10) / 10))}
             >
               <Plus className="size-3.5" />
             </Button>
           </div>
+
+          {/* Fit Width / Fit Page — the pane is measured, so these follow the
+              window instead of freezing at whatever it was when pressed. */}
+          <div className="flex items-center gap-1 rounded-md border border-border px-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1 px-2 text-xs"
+              aria-pressed={fit === "width"}
+              data-review-fit="width"
+              onClick={() => setFit(fit === "width" ? "manual" : "width")}
+            >
+              <Ruler className="size-3.5" />
+              Cabbir Dhul
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1 px-2 text-xs"
+              aria-pressed={fit === "page"}
+              data-review-fit="page"
+              onClick={() => setFit(fit === "page" ? "manual" : "page")}
+            >
+              <Square className="size-3.5" />
+              Cabbir Bog
+            </Button>
+          </div>
+
+          {/* Full document view — every page at once, for a quick read of the
+              whole deal instead of page-by-page. Printing is unaffected. */}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1 px-2 text-xs"
+            aria-pressed={allPages}
+            data-review-view="all"
+            onClick={() => setAllPages((v) => !v)}
+          >
+            {allPages ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+            Dhammaan Bogoyinka
+          </Button>
+
+          {/* Optional fullscreen — inert when the browser refuses it. */}
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-7"
+            aria-label={wide ? "Ka bax fullscreen" : "Fullscreen"}
+            data-review-fullscreen=""
+            onClick={toggleFullscreen}
+          >
+            {wide ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+          </Button>
 
           <div className="flex items-center gap-1 rounded-md border border-border px-1">
             <Button
@@ -554,7 +722,7 @@ export function LiveDocumentReview({
               className="size-7"
               aria-label="Bog hore"
               data-review-page="prev"
-              disabled={current <= 1}
+              disabled={current <= 1 || allPages}
               onClick={() => goTo(current - 1)}
             >
               <ChevronLeft className="size-3.5" />
@@ -569,7 +737,7 @@ export function LiveDocumentReview({
               className="size-7"
               aria-label="Bog xiga"
               data-review-page="next"
-              disabled={current >= pageCount}
+              disabled={current >= pageCount || allPages}
               onClick={() => goTo(current + 1)}
             >
               <ChevronRight className="size-3.5" />
@@ -625,8 +793,13 @@ export function LiveDocumentReview({
           captures. Nothing else is printed (see the @media print rules). */}
       <div
         ref={scrollRef}
-        className="neu-inset max-h-[72vh] overflow-auto p-3"
+        className={
+          allPages
+            ? "neu-inset overflow-auto p-3"
+            : "neu-inset max-h-[72vh] overflow-auto p-3"
+        }
         data-review-scroll=""
+        data-review-all={allPages ? "true" : undefined}
       >
         {!readyModel ? (
           <div className="flex min-h-40 flex-col items-center justify-center gap-2 text-center">
@@ -646,14 +819,14 @@ export function LiveDocumentReview({
                 key={docPage.index}
                 data-doc-zoom=""
                 style={{
-                  width: px(readyModel.geometry.widthPt) * zoom,
-                  height: px(readyModel.geometry.heightPt) * zoom,
+                  width: px(readyModel.geometry.widthPt) * scale,
+                  height: px(readyModel.geometry.heightPt) * scale,
                 }}
               >
                 <div
                   style={{
                     width: px(readyModel.geometry.widthPt),
-                    transform: `scale(${zoom})`,
+                    transform: `scale(${scale})`,
                     transformOrigin: "top left",
                     boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
                   }}

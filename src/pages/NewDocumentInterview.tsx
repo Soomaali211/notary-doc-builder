@@ -89,6 +89,7 @@ import {
   FileDown,
   FileText,
   Loader2,
+  LogOut,
   Save,
   PenLine,
   Star,
@@ -523,6 +524,64 @@ export default function NewDocumentInterview() {
   const savedRef = useRef(false);
   const lastSavedJsonRef = useRef("");
 
+  /* -------------------------------------------------------------- */
+  /* §4 Navigation — Home / Exit, never silently losing an answer     */
+  /* -------------------------------------------------------------- */
+
+  /**
+   * Where Home would take the notary. §4 says Home goes to the Dashboard,
+   * which IS the system Home (§3) — never back into the interview.
+   */
+  const HOME_ROUTE = "/dashboard";
+
+  /**
+   * Unsaved-changes gate.
+   *
+   * "Dirty" is decided by comparing the CURRENT form state with the last
+   * payload that reached the database, not by a boolean flipped on every
+   * keystroke: a restored draft that the notary has not touched is not dirty,
+   * and saving (or autosaving) clears it for real.
+   *
+   * `target` is where the notary wanted to go — Home or Exit are both
+   * "leave the interview without losing data", so they share one dialog.
+   */
+  const [pendingLeave, setPendingLeave] = useState<null | { target: string }>(null);
+  const isDirty = useMemo(
+    () => !!values && serializeDraft(values) !== lastSavedJsonRef.current,
+    [values],
+  );
+
+  const requestLeave = (target: string) => {
+    if (isDirty) setPendingLeave({ target });
+    else navigate(target);
+  };
+
+  /** The three choices §4 names: keep it saved, drop it deliberately, or stay. */
+  const resolveLeave = (mode: "save" | "discard" | "cancel") => {
+    const target = pendingLeave?.target ?? HOME_ROUTE;
+    setPendingLeave(null);
+    if (mode === "cancel") return;
+    if (mode === "save") {
+      if (!values) return;
+      savedRef.current = true;
+      persist(values);
+      lastSavedJsonRef.current = serializeDraft(values);
+    }
+    navigate(target);
+  };
+
+  // The browser's own "leave site?" prompt, so a tab close or a swipe-back
+  // asks the same question the Home/Exit buttons do.
+  useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [isDirty]);
+
   const config = useMemo(
     () => (document ? getConfig(document.documentType) : undefined),
     [document],
@@ -922,6 +981,7 @@ export default function NewDocumentInterview() {
     savedRef.current = true;
     setSaving(true);
     persist(values);
+    lastSavedJsonRef.current = serializeDraft(values);
     setTimeout(() => {
       setSaving(false);
       toast.success("Draft-ka waa la kaydiyay. Waqti kasta waad sii wadan kartaa.");
@@ -1584,10 +1644,10 @@ export default function NewDocumentInterview() {
       <div className="mx-auto max-w-[1600px] px-4 pt-6">
         <button
           type="button"
-          onClick={() => navigate("/new")}
+          onClick={() => requestLeave(HOME_ROUTE)}
           className="mb-3 flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
         >
-          ← Notary Doc Builder / New Document
+          ← Home (Dashboard)
         </button>
 
         {/* Header */}
@@ -1614,6 +1674,20 @@ export default function NewDocumentInterview() {
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
               Save Draft
+            </Button>
+            {/* §4 Exit — leaves the interview WITHOUT losing the data: the
+                draft stays exactly as it is and can be resumed later. */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              data-interview-exit=""
+              onClick={() => requestLeave(HOME_ROUTE)}
+              disabled={generating}
+            >
+              <LogOut className="size-4" />
+              Exit
             </Button>
             <div className="text-right">
               <span className="highlight-sweep text-sm font-semibold">
@@ -2146,6 +2220,36 @@ export default function NewDocumentInterview() {
           </aside>
         </div>
       </div>
+
+      {/* §4 — Unsaved changes: the three choices the office named, in the
+          order that never loses an answer by surprise. */}
+      <AlertDialog
+        open={pendingLeave !== null}
+        onOpenChange={(open) => !open && setPendingLeave(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Weli waxaa jira xog aan la kaydin</AlertDialogTitle>
+            <AlertDialogDescription>
+              Waxaad dooranayso sidee loo maareeyo xogta maqan hadda.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+            <AlertDialogAction onClick={() => resolveLeave("save")}>
+              Save Draft
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => resolveLeave("discard")}
+            >
+              Sii wad oo ha kaydin
+            </AlertDialogAction>
+            <AlertDialogCancel onClick={() => resolveLeave("cancel")}>
+              Cancel
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* #15 — Step 1 change: section about to be hidden holds data. */}
       <AlertDialog

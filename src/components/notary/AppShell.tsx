@@ -8,17 +8,19 @@ import {
   LayoutDashboard,
   LogOut,
   PenLine,
+  Settings as SettingsIcon,
   ShieldCheck,
   StickyNote,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/dashboard", label: "Home", icon: LayoutDashboard },
   { to: "/new", label: "New Document", icon: FileSignature },
   { to: "/archive", label: "Archive", icon: PenLine },
   { to: "/catalog", label: "Catalog", icon: FileSignature },
   { to: "/schedule", label: "Schedule", icon: CalendarClock },
   { to: "/board", label: "Team Board", icon: StickyNote },
+  { to: "/settings", label: "Settings", icon: SettingsIcon },
   { to: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 

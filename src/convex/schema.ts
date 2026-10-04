@@ -82,6 +82,14 @@ const schema = defineSchema(
       supersededBy: v.optional(v.id("notary_documents")),
       createdAt: v.number(),
       updatedAt: v.number(),
+      /**
+       * §69 — the audit trail. Four moments, each stamped the FIRST time it
+       * happens and never rewritten, so the trail says when the document was
+       * created, last modified, finished, and exported. No user audit system
+       * is added on top of this: a bigger one was not needed.
+       */
+      completedAt: v.optional(v.number()),
+      exportedAt: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_user_status", ["userId", "status"])

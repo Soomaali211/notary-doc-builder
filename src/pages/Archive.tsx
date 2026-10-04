@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AppShell } from "@/components/notary/AppShell";
@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { documentConfigs, getConfig, getSubTypeLabel } from "@/lib/notary/documents";
+import { DOCUMENT_STATUSES, documentStatusLabel } from "@/lib/notary/documentStatus";
 import { Search, FileText, FolderOpen, CalendarRange } from "lucide-react";
 
 /**
@@ -24,12 +25,22 @@ import { Search, FileText, FolderOpen, CalendarRange } from "lucide-react";
 export default function Archive() {
   const documents = useQuery(api.notaryDocuments.listMyDocuments);
   const navigate = useNavigate();
-  const [q, setQ] = useState("");
+  // §3 Home links straight into a filtered archive (?q=… / ?status=…).
+  const [params] = useSearchParams();
+  const [q, setQ] = useState(params.get("q") ?? "");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(params.get("status") ?? "all");
   // Phase 3H — date-range filter (inclusive on both ends).
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+
+  // A later ?q=/?status= (another Home click) updates the open archive.
+  useEffect(() => {
+    const nextQ = params.get("q");
+    const nextStatus = params.get("status");
+    if (nextQ !== null) setQ(nextQ);
+    if (nextStatus !== null) setStatusFilter(nextStatus);
+  }, [params]);
 
   const filtered = useMemo(() => {
     if (!documents) return [];
@@ -42,12 +53,16 @@ export default function Archive() {
       if (fromTs !== null && d.createdAt < fromTs) return false;
       if (toTs !== null && d.createdAt > toTs) return false;
       if (!query) return true;
+      // §42/§43 — reference, type, date, seller/buyer name AND the property
+      // answers. The property lives in the answers blob, so the search reads
+      // it too: searching a plot number finds the sale it belongs to.
       const haystack = [
         d.referenceNumber,
         d.subTypeLabel,
         d.documentTypeTitle,
         d.fileBaseName,
         ...d.parties.map((p) => `${p.name} ${p.phone ?? ""} ${p.idNumber ?? ""}`),
+        d.valuesJson,
       ]
         .join(" ")
         .toLowerCase();
@@ -88,12 +103,15 @@ export default function Archive() {
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full bg-card/80 sm:w-44">
               <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="generated">Generated</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-            </SelectContent>
+            </SelectTrigger><SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {/* §44 — the office's four statuses, and no others. */}
+                {DOCUMENT_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {documentStatusLabel(s)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
           </Select>
         </div>
         {/* Date range (created between … and …) */}
@@ -136,12 +154,25 @@ export default function Archive() {
       <div className="mt-6 space-y-3">
         {!documents && <p className="text-sm text-muted-foreground">Loading…</p>}
         {documents && filtered.length === 0 && (
-          <div className="notebook-page paper-grain rounded-md p-10 text-center">
+          <div className="notebook-page paper-grain rounded-md p-10 text-center" data-empty="archive">
             <FolderOpen className="mx-auto size-8 text-muted-foreground" />
-            <p className="mt-3 font-medium">Nothing found</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Try a different search, or build a new document.
-            </p>
+            {/* §71 — an empty archive and a filtered-to-nothing archive are
+                different situations and must not say the same thing. */}
+            {(documents ?? []).length === 0 ? (
+              <>
+                <p className="mt-3 font-medium">Ma jiraan documents.</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Dooro nooca document-ka si aad u bilowdo.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-3 font-medium">Nothing found</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Try a different search, or build a new document.
+                </p>
+              </>
+            )}
             <Button className="mt-4" onClick={() => navigate("/new")}>
               New document
             </Button>
@@ -166,10 +197,10 @@ export default function Archive() {
                       {cfg?.title ?? d.documentType}
                     </Badge>
                     <Badge
-                      variant={d.status === "generated" ? "default" : "secondary"}
+                      variant={d.status === "generated" || d.status === "archived" ? "default" : "secondary"}
                       className="text-[11px]"
                     >
-                      {d.status === "generated" ? "Generated" : "Draft"}
+                      {documentStatusLabel(d.status)}
                     </Badge>
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">
