@@ -618,6 +618,12 @@ requiresWitness: false,
     SAWIRRO_MA_JIRAAN: isGate("sawirro_ma_jiraan"),
     SAXEEXO_MA_JIRAAN: isGate("saxeexo_ma_jiraan"),
     SHAXADO_MA_JIRAAN: isGate("shaxado_ma_jiraan"),
+    // Is anybody representing the sellers? Same purpose as the gates above:
+    // without a representative the wakiil section — heading included — must
+    // leave the page completely, never sit there empty. It reads the notary's
+    // own list of representatives, so it can never disagree with the rows.
+    WAKIILO_IIBIYEYAAL: { op: "is_not_empty", field: "wakiilo_iibiyeyaal.magac" },
+    WAKIILO_IIBSADAYAAL: { op: "is_not_empty", field: "wakiilo_iibsadayaal.magac" },
   },
 
   // Same formatting contract as every other document type in the office.

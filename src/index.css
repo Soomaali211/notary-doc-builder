@@ -452,3 +452,73 @@
     0 0 0 1.5px color-mix(in oklab, var(--primary) 45%, transparent),
     0 0 12px color-mix(in oklab, var(--primary) 30%, transparent);
 }
+
+/* ------------------------------------------------------------------ */
+/* Universal Live Document Review — print isolation                    */
+/*                                                                     */
+/* Printing must output the DOCUMENT, never the interview form, the    */
+/* toolbar or the sidebar. Only the region the live review renders     */
+/* into is [data-print-doc]; everything else is hidden while printing. */
+/* The zoom transform and the scroll container are reset so each page   */
+/* lands on its own sheet of paper at the template's own size.          */
+/* ------------------------------------------------------------------ */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@media print {
+  html[data-printing="document"] body {
+    background: #ffffff !important;
+  }
+
+  html[data-printing="document"] * {
+    visibility: hidden !important;
+  }
+
+  html[data-printing="document"] [data-print-doc],
+  html[data-printing="document"] [data-print-doc] * {
+    visibility: visible !important;
+  }
+
+  html[data-printing="document"] [data-print-doc] {
+    position: absolute !important;
+    inset: 0 auto auto 0;
+    width: 100% !important;
+    display: block !important;
+    gap: 0 !important;
+  }
+
+  /* The scroll box and the zoom wrapper must not survive into paper. */
+  html[data-printing="document"] [data-review-scroll] {
+    position: static !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html[data-printing="document"] [data-doc-zoom] {
+    width: auto !important;
+    height: auto !important;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  html[data-printing="document"] [data-doc-zoom] > div {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  html[data-printing="document"] [data-doc-page] {
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  html[data-printing="document"] [data-no-print],
+  html[data-printing="document"] [data-live-review] > [data-no-print] {
+    display: none !important;
+  }
+}

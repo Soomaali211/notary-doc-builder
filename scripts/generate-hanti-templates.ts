@@ -245,7 +245,12 @@ function buildChildren(subType: string) {
   body.push(p("Qofka wuxuu isaga jooga dhammaadka saxiixu."));
   body.push(p("{{END:JOOGA}}"));
   body.push(p("{{/IIBIYEYAAL}}"));
+  // The wakiil heading is CONDITIONAL: a sale with no representative must
+  // not print an empty heading over an empty list. The flag mirrors the
+  // notary's own answer ("are any representatives entered?").
+  body.push(p("{{IF:WAKIILO_IIBIYEYAAL}}"));
   body.push(p("Wakiillo Iibiyayaasha (hal wakiil hal iibiy oo uu matalo):"));
+  body.push(p("{{END:WAKIILO_IIBIYEYAAL}}"));
   body.push(p("{{#WAKIILO_IIBIYEYAAL}}"));
   body.push(p("{{NUMBER}}. {{MAGAC}} ({{NOOCA_WAKIILKA}}) — Matalaya: {{MATALAYA}}"));
   body.push(p("{{/WAKIILO_IIBIYEYAAL}}"));

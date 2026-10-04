@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import JSZip from "jszip";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -60,7 +59,6 @@ import { getVisibleFields } from "@/lib/notary/engine";
 import { getAnswer } from "@/lib/notary/engine";
 import { buildFileBaseName, uniqueBaseName } from "@/lib/notary/archiver";
 import { generateDocument } from "@/lib/notary/pipeline";
-import { paragraphText } from "@/lib/notary/docxRenderer";
 import {
   fetchTemplateBytes,
   toTemplateSpec,
@@ -72,6 +70,7 @@ import { getPartyRows, getRepresentatives, personChoices, stripSkipMarkers } fro
 import { isFieldRequired } from "@/lib/notary/validation";
 import { FIELD_SKIPPED } from "@/lib/notary/types";
 import { buildHantiReview, type HantiReview } from "@/lib/notary/hantiReview";
+import { LiveDocumentReview } from "@/components/notary/LiveDocumentReview";
 import type {
   DocumentConfig,
   FieldDef,
@@ -629,7 +628,6 @@ export default function NewDocumentInterview() {
   /** [Preview] state — the generated document TEXT before final commit. */
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewLines, setPreviewLines] = useState<string[]>([]);
   const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
 
   /** Generation error card — data is never lost; [Try Again] re-runs. */
@@ -1292,13 +1290,9 @@ export default function NewDocumentInterview() {
         templateBytes: userBytes,
         spec: userSpec,
       });
-      const zip = await JSZip.loadAsync(await out.result.blob.arrayBuffer());
-      const xml = (await zip.file("word/document.xml")!.async("string")) ?? "";
-      const lines: string[] = [];
-      for (const m of xml.matchAll(/<w:p\b[^>]*\/>|<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)) {
-        lines.push(paragraphText(m[0]));
-      }
-      setPreviewLines(lines);
+      // The dialog renders the SAME universal Live Document Review the right
+      // hand pane uses; running the pipeline first only surfaces the template
+      // and output validation warnings for the chosen template.
       setPreviewWarnings([
         ...(out.templateValidation?.issues
           .filter((i) => i.level === "warning")
@@ -1563,7 +1557,7 @@ export default function NewDocumentInterview() {
 
   return (
     <main className="notebook-bg min-h-screen pb-24">
-      <div className="mx-auto max-w-6xl px-4 pt-6">
+      <div className="mx-auto max-w-[1600px] px-4 pt-6">
         <button
           type="button"
           onClick={() => navigate("/new")}
@@ -1620,7 +1614,10 @@ export default function NewDocumentInterview() {
           />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
+        {/* Two panes: the interview on the left, the LIVE DOCUMENT REVIEW on
+            the right. The review is the same universal component for every
+            document type — it needs no per-type code and no Generate click. */}
+        <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_minmax(380px,42%)]">
           {/* Stepper sidebar — neumorphic, numbered */}
           <nav className="hidden lg:block" aria-label="Tusmada tallaabada">
             <div className="neu-raised sticky top-4 p-3">
@@ -2094,6 +2091,27 @@ export default function NewDocumentInterview() {
               )}
             </div>
           </section>
+
+          {/* Universal Live Document Review — same data, same template, same
+              rules as the DOCX/PDF/print surfaces. Renders from the first
+              keystroke, so the notary never has to generate to see it. */}
+          <aside
+            className="lg:col-span-2 xl:sticky xl:top-4 xl:col-span-1"
+            aria-label="Live Document Review"
+          >
+            <LiveDocumentReview
+              key={`${config.id}:${selectedTemplateId}`}
+              config={config}
+              values={values}
+              referenceNumber={referenceAnswer(config, values) || document.referenceNumber}
+              subTypeLabel={getSubTypeLabel(
+                config,
+                subTypeAnswer(config, values) || document.subType,
+              )}
+              spec={selectedTemplate ? toTemplateSpec(selectedTemplate) : undefined}
+              templateUrl={selectedTemplate && templateUrl ? templateUrl : undefined}
+            />
+          </aside>
         </div>
       </div>
 
@@ -2142,27 +2160,25 @@ export default function NewDocumentInterview() {
       {/* [Preview] — the generated document text from the user's own
           template + the FINAL FORM STATE, before any commit. */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-hidden">
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-hidden">
           <DialogHeader>
             <DialogTitle>Preview — Dukumeentiga la abuuray</DialogTitle>
             <DialogDescription>
-              Qoraalka template-kaaga WADADAaga Word-ka kadib marka xogta lagu
-              buuxiyay. Formatting-ka asalka ah (font, tables, logo) ayaa la ilaaliyaa.
+              Isla template-ka Word-kaaga WADADAAGA, isla xogta, isla qaab-dhismeedka —
+              sida uu Live Review-ka ahaa midigga kuugu muuqdo.
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[55vh] space-y-1 overflow-auto rounded-md bg-muted/40 p-4 text-[13px] leading-6">
-            {previewLines.filter((l) => l.trim() !== "").length === 0 ? (
-              <p className="text-muted-foreground">(Weli wax qoraal ah lama samayn.)</p>
-            ) : (
-              previewLines
-                .filter((l) => l.trim() !== "")
-                .map((l, i) => (
-                  <p key={i} className="whitespace-pre-wrap break-words">
-                    {l}
-                  </p>
-                ))
+          <LiveDocumentReview
+            config={config}
+            values={values}
+            referenceNumber={referenceAnswer(config, values) || document.referenceNumber}
+            subTypeLabel={getSubTypeLabel(
+              config,
+              subTypeAnswer(config, values) || document.subType,
             )}
-          </div>
+            spec={selectedTemplate ? toTemplateSpec(selectedTemplate) : undefined}
+            templateUrl={selectedTemplate && templateUrl ? templateUrl : undefined}
+          />
           {previewWarnings.length > 0 && (
             <p className="text-xs text-pen-orange">⚠ {previewWarnings.join(" · ")}</p>
           )}
