@@ -14,6 +14,8 @@
  * Every assertion reads the REAL resolved document, never a stub.
  */
 import { describe, expect, test } from "bun:test";
+import type { ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Document, Packer, Paragraph, TextRun } from "docx";
@@ -30,7 +32,8 @@ import {
   templateBytes,
 } from "./_fixtures";
 import type { DocumentBlock, DocumentModel } from "../src/lib/notary/documentModel";
-import { liveRenderKey } from "../src/components/notary/LiveDocumentReview";
+import { liveRenderKey, LiveDocumentReview } from "../src/components/notary/LiveDocumentReview";
+import { effectiveUserTemplate } from "../src/lib/notary/userTemplate";
 import type { DocumentConfig, FormValues, TemplateSpec } from "../src/lib/notary/types";
 
 /* ------------------------------------------------------------------ */
@@ -528,6 +531,11 @@ describe("universal live review — preview and DOCX agree", () => {
 /* 8 — The interview mounts ONE review pane, for every type            */
 /* ------------------------------------------------------------------ */
 
+/** Render the universal pane to static markup (no DOM needed). */
+function renderStatic(node: ReactElement): string {
+  return renderToStaticMarkup(node);
+}
+
 describe("universal live review — mounted in the interview", () => {
   const source = readFileSync(
     resolve(import.meta.dir, "../src/pages/NewDocumentInterview.tsx"),
@@ -571,6 +579,81 @@ describe("universal live review — mounted in the interview", () => {
     expect(liveRenderKey({ ...base, spec: spec("/a.docx") })).not.toBe(
       liveRenderKey({ ...base, config: KIRO_CONFIG, spec: spec("/a.docx") }),
     );
+  });
+
+  test("the notary's OWN template is the one previewed and generated with", () => {
+    // The office owns its template: an explicit pick wins, else their
+    // default, else the newest upload (an edit in Word = a new upload).
+    const tpl = (id: string, isDefault: boolean) => ({
+      _id: id,
+      _creationTime: 0,
+      documentType: HANTI_CONFIG.id,
+      name: id,
+      fileName: `${id}.docx`,
+      storageId: `storage_${id}`,
+      sizeBytes: 100,
+      isDefault,
+      status: "active" as const,
+      createdAt: 0,
+      updatedAt: 0,
+    });
+
+    // Nothing picked: their default wins.
+    expect(effectiveUserTemplate([tpl("old", true), tpl("new", false)])?._id).toBe("old");
+    // They edited it in Word and uploaded again → that upload is the default.
+    expect(effectiveUserTemplate([tpl("old", false), tpl("new", true)])?._id).toBe("new");
+    // No default at all → the newest upload (list is newest-first).
+    expect(effectiveUserTemplate([tpl("newest", false), tpl("older", false)])?._id).toBe(
+      "newest",
+    );
+    // An explicit pick always wins, even over the default.
+    expect(effectiveUserTemplate([tpl("old", true), tpl("new", false)], "new")?._id).toBe(
+      "new",
+    );
+    // A retired or deleted pick falls back instead of using a missing file.
+    expect(effectiveUserTemplate([tpl("old", true)], "deleted")?._id).toBe("old");
+    expect(
+      effectiveUserTemplate([{ ...tpl("old", true), status: "retired" as const }], "old"),
+    ).toBeUndefined();
+    // Nothing uploaded → no user template, and the registry sample is used.
+    expect(effectiveUserTemplate([])).toBeUndefined();
+
+    // The interview must feed the review the same effective template.
+    expect(source).toContain('const FOLLOW_MY_TEMPLATE = "";');
+    expect(source).toContain('const REGISTRY_SAMPLE = "__registry__";');
+    expect(source).toContain(
+      "pickedTemplateId === FOLLOW_MY_TEMPLATE ? undefined : pickedTemplateId",
+    );
+    expect(source).toContain("spec={selectedTemplateSpec}");
+    expect(source).toContain("templatePending={templatePending}");
+    // Generation uses it too — never a silently different template.
+    expect(source).toContain("userSpec = selectedTemplateSpec;");
+
+    // The registry sample is a REAL choice: clicking it must really switch,
+    // not fall straight back to the notary's template.
+    expect(source).toContain("pickedTemplateId === REGISTRY_SAMPLE");
+    expect(source).toContain("setPickedTemplateId(REGISTRY_SAMPLE)");
+    expect(source).toMatch(
+      /pickedTemplateId === REGISTRY_SAMPLE\s*\?\s*undefined\s*:\s*effectiveUserTemplate/,
+    );
+  });
+
+  test("the review waits for the notary's template instead of showing the sample", () => {
+    // While the bytes are still loading the pane must not quietly render the
+    // registry template.
+    const html = renderToStaticMarkup(
+      <LiveDocumentReview
+        config={HANTI_CONFIG}
+        values={hantiValues()}
+        referenceNumber="DPN-MG-001"
+        templatePending
+        templateName="Hanti Hargeisa (edito)"
+      />,
+    );
+    expect(html).toContain("Waa la soo rarayaa template-kaaga");
+    expect(html).toContain("Hanti Hargeisa (edito)");
+    // The template in force is named, so the notary can tell it is theirs.
+    expect(html).toContain("data-review-template=");
   });
 
   test("the two-pane interview renders the shared review component", () => {

@@ -60,6 +60,7 @@ import { getAnswer } from "@/lib/notary/engine";
 import { buildFileBaseName, uniqueBaseName } from "@/lib/notary/archiver";
 import { generateDocument } from "@/lib/notary/pipeline";
 import {
+  effectiveUserTemplate,
   fetchTemplateBytes,
   toTemplateSpec,
   type UserTemplateRecord,
@@ -97,6 +98,18 @@ import {
 
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+/**
+ * Template choice states for the picker.
+ *
+ * FOLLOW_MY_TEMPLATE — no explicit choice: the notary's default template, or
+ * their newest upload (an edit in Word is a NEW upload). This is the starting
+ * state, so the live review shows THEIR document, not the sample.
+ * REGISTRY_SAMPLE — the notary deliberately asked for the system sample; that
+ * choice is real and must stick.
+ */
+const FOLLOW_MY_TEMPLATE = "";
+const REGISTRY_SAMPLE = "__registry__";
 
 /* ------------------------------------------------------------------ */
 /* Smart interview step model                                          */
@@ -610,19 +623,37 @@ export default function NewDocumentInterview() {
     api.notaryTemplates.listMyTemplates,
     document ? { documentType: document.documentType } : "skip",
   );
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [pickedTemplateId, setPickedTemplateId] = useState<string>(FOLLOW_MY_TEMPLATE);
+  /**
+   * The template THIS document is generated and previewed with.
+   *
+   * The office owns its template, so their own file is what must appear: an
+   * explicit choice wins, otherwise the template marked default, otherwise
+   * the newest upload (an edit in Word is a NEW upload, and the newest one
+   * is the revision in force). The registry sample is used only when the
+   * office has uploaded nothing, or when the notary explicitly asks for it.
+   */
   const selectedTemplate = useMemo(
     () =>
-      selectedTemplateId
-        ? (myTemplates ?? []).find((t) => t._id === selectedTemplateId)
-        : undefined,
-    [myTemplates, selectedTemplateId],
+      pickedTemplateId === REGISTRY_SAMPLE
+        ? undefined
+        : effectiveUserTemplate(
+            myTemplates ?? [],
+            pickedTemplateId === FOLLOW_MY_TEMPLATE ? undefined : pickedTemplateId,
+          ),
+    [myTemplates, pickedTemplateId],
   );
+  const selectedTemplateId = selectedTemplate?._id ?? "";
   const templateUrl = useQuery(
     api.notaryTemplates.getTemplateUrl,
-    selectedTemplateId
-      ? { templateId: selectedTemplateId as Id<"notary_templates"> }
-      : "skip",
+    selectedTemplate ? { templateId: selectedTemplate._id as Id<"notary_templates"> } : "skip",
+  );
+  /** Their template exists but its bytes have not arrived yet: WAIT, never
+      fall back to the sample — a preview of the wrong file is worse. */
+  const templatePending = !!selectedTemplate && !templateUrl;
+  const selectedTemplateSpec = useMemo(
+    () => (selectedTemplate ? toTemplateSpec(selectedTemplate) : undefined),
+    [selectedTemplate],
   );
 
   /** [Preview] state — the generated document TEXT before final commit. */
@@ -639,17 +670,10 @@ export default function NewDocumentInterview() {
   /** Set when the user opens an edit from REVIEW — Next returns to review. */
   const editReturnRef = useRef(false);
 
-  // Auto-select the user's DEFAULT template once the list loads (only once —
-  // an explicit choice by the user is never overridden).
-  const autoSelectedRef = useRef(false);
-  useEffect(() => {
-    if (autoSelectedRef.current || selectedTemplateId) return;
-    const def = (myTemplates ?? []).find((t) => t.isDefault);
-    if (def) {
-      autoSelectedRef.current = true;
-      setSelectedTemplateId(def._id);
-    }
-  }, [myTemplates, selectedTemplateId]);
+  // Auto-selection is DERIVED, not latched: when the notary uploads an
+  // edited template it becomes the default and therefore the one previewed —
+  // the interview follows it without the notary touching the picker. An
+  // explicit choice is never overridden.
 
   const visibleSections: SectionDef[] = useMemo(
     () => (values && config ? getSections(config, values) : []),
@@ -1165,12 +1189,12 @@ export default function NewDocumentInterview() {
       // touching the user's design. No user template → registry template.
       let userBytes: ArrayBuffer | undefined;
       let userSpec;
-      if (selectedTemplateId) {
-        if (!selectedTemplate || !templateUrl) {
-          throw new Error("Template-ka la doortay lama helin — dooro template mar kale.");
+      if (selectedTemplate) {
+        if (!templateUrl) {
+          throw new Error("Template-kaaga weli waa la soo rarayaa — isku day mar kale.");
         }
         userBytes = await fetchTemplateBytes(templateUrl);
-        userSpec = toTemplateSpec(selectedTemplate);
+        userSpec = selectedTemplateSpec;
       }
 
       // Full Phase 3 pipeline: validate answers → template (user or
@@ -1272,12 +1296,12 @@ export default function NewDocumentInterview() {
         "PREVIEW";
       let userBytes: ArrayBuffer | undefined;
       let userSpec;
-      if (selectedTemplateId) {
-        if (!selectedTemplate || !templateUrl) {
-          throw new Error("Template-ka la doortay lama helin — dooro template mar kale.");
+      if (selectedTemplate) {
+        if (!templateUrl) {
+          throw new Error("Template-kaaga weli waa la soo rarayaa — isku day mar kale.");
         }
         userBytes = await fetchTemplateBytes(templateUrl);
-        userSpec = toTemplateSpec(selectedTemplate);
+        userSpec = selectedTemplateSpec;
       }
       const out = await generateDocument({
         config,
@@ -1962,7 +1986,7 @@ export default function NewDocumentInterview() {
                           name="word-template"
                           className="accent-primary"
                           checked={selectedTemplateId === t._id}
-                          onChange={() => setSelectedTemplateId(t._id)}
+                          onChange={() => setPickedTemplateId(t._id)}
                         />
                         <span className="min-w-0 flex-1 truncate">{t.name}</span>
                         {t.isDefault && (
@@ -1974,7 +1998,9 @@ export default function NewDocumentInterview() {
                     ))}
                     <label
                       className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all ${
-                        selectedTemplateId === ""
+                        pickedTemplateId === REGISTRY_SAMPLE ||
+                        (pickedTemplateId === FOLLOW_MY_TEMPLATE &&
+                          (myTemplates ?? []).length === 0)
                           ? "neu-inset font-semibold text-primary"
                           : "hover:bg-muted/40"
                       }`}
@@ -1983,8 +2009,12 @@ export default function NewDocumentInterview() {
                         type="radio"
                         name="word-template"
                         className="accent-primary"
-                        checked={selectedTemplateId === ""}
-                        onChange={() => setSelectedTemplateId("")}
+                        checked={
+                          pickedTemplateId === REGISTRY_SAMPLE ||
+                          ((myTemplates ?? []).length === 0 &&
+                            pickedTemplateId === FOLLOW_MY_TEMPLATE)
+                        }
+                        onChange={() => setPickedTemplateId(REGISTRY_SAMPLE)}
                       />
                       <span>Tusaalaha nidaamka (registry)</span>
                     </label>
@@ -2108,8 +2138,10 @@ export default function NewDocumentInterview() {
                 config,
                 subTypeAnswer(config, values) || document.subType,
               )}
-              spec={selectedTemplate ? toTemplateSpec(selectedTemplate) : undefined}
-              templateUrl={selectedTemplate && templateUrl ? templateUrl : undefined}
+              spec={selectedTemplateSpec}
+              templateUrl={templateUrl ?? undefined}
+              templatePending={templatePending}
+              templateName={selectedTemplate?.name ?? null}
             />
           </aside>
         </div>
@@ -2176,8 +2208,10 @@ export default function NewDocumentInterview() {
               config,
               subTypeAnswer(config, values) || document.subType,
             )}
-            spec={selectedTemplate ? toTemplateSpec(selectedTemplate) : undefined}
-            templateUrl={selectedTemplate && templateUrl ? templateUrl : undefined}
+            spec={selectedTemplateSpec}
+            templateUrl={templateUrl ?? undefined}
+            templatePending={templatePending}
+            templateName={selectedTemplate?.name ?? null}
           />
           {previewWarnings.length > 0 && (
             <p className="text-xs text-pen-orange">⚠ {previewWarnings.join(" · ")}</p>

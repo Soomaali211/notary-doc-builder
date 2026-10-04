@@ -66,6 +66,14 @@ export interface LiveDocumentReviewProps extends DocumentSource {
   className?: string;
   /** Hide the toolbar buttons (used when the pane is embedded in a dialog). */
   compact?: boolean;
+  /**
+   * True while the notary's OWN template is still being fetched. The review
+   * waits instead of quietly rendering the registry sample — a preview of
+   * the wrong template is worse than no preview at all.
+   */
+  templatePending?: boolean;
+  /** Name shown in the toolbar, so the notary can see WHICH file is shown. */
+  templateName?: string | null;
   onStatusChange?: (status: ReviewStatus) => void;
 }
 
@@ -100,10 +108,13 @@ export function liveRenderKey(source: DocumentSource): string {
 export function useLiveDocumentModel(
   source: DocumentSource,
   debounceMs = 180,
+  enabled = true,
 ): { model: DocumentModel | null; status: ReviewStatus; error: string | null } {
   const [model, setModel] = useState<DocumentModel | null>(null);
-  const [status, setStatus] = useState<ReviewStatus>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<{ status: ReviewStatus; error: string | null }>({
+    status: "idle",
+    error: null,
+  });
   const runId = useRef(0);
 
   // Read at BUILD time, never captured at schedule time, so the renderer
@@ -120,26 +131,26 @@ export function useLiveDocumentModel(
   const { values } = source;
 
   useEffect(() => {
+    if (!enabled) return;
     const id = ++runId.current;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
 
     const run = async () => {
-      setStatus("loading");
+      setState({ status: "loading", error: null });
       try {
         const { model: next } = await buildUniversalDocument(latest.current);
         if (cancelled || id !== runId.current) return;
         setModel(next);
-        setError(next.error);
-        setStatus(next.error ? "error" : "ready");
+        setState({ status: next.error ? "error" : "ready", error: next.error });
       } catch (err) {
         if (cancelled || id !== runId.current) return;
         const message = err instanceof Error ? err.message : "Document-ka ma la dhisin.";
         setModel(null);
-        setError(message);
-        setStatus(
-          message.includes("Template looma helin") ? "no-template" : "error",
-        );
+        setState({
+          error: message,
+          status: message.includes("Template looma helin") ? "no-template" : "error",
+        });
       }
     };
 
@@ -148,8 +159,11 @@ export function useLiveDocumentModel(
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [values, renderKey, debounceMs]);
+  }, [values, renderKey, debounceMs, enabled]);
 
+  // Derived: a pending template simply keeps the pane in its loading state.
+  const status: ReviewStatus = enabled ? state.status : "loading";
+  const error = enabled ? state.error : null;
   return { model, status, error };
 }
 
@@ -382,17 +396,23 @@ export function LiveDocumentReview({
   templateUrl,
   className,
   compact,
+  templatePending,
+  templateName,
   onStatusChange,
 }: LiveDocumentReviewProps) {
-  const { model, status, error } = useLiveDocumentModel({
-    config,
-    values,
-    referenceNumber,
-    subTypeLabel,
-    templateBytes,
-    spec,
-    templateUrl,
-  });
+  const { model, status, error } = useLiveDocumentModel(
+    {
+      config,
+      values,
+      referenceNumber,
+      subTypeLabel,
+      templateBytes,
+      spec,
+      templateUrl,
+    },
+    180,
+    !templatePending,
+  );
 
   useEffect(() => {
     onStatusChange?.(status);
@@ -461,12 +481,13 @@ export function LiveDocumentReview({
   const readyModel: DocumentModel | null = model && !model.error ? model : null;
 
   const statusLine = useMemo(() => {
+    if (templatePending) return "Waa la soo rarayaa template-kaaga…";
     if (status === "no-template") return "Template looma helin — Live Review ma shaqeyn karto.";
     if (status === "error") return error ?? "Document-ka ma la dhisin.";
     if (status === "loading") return "Waa la cusboonaaayaa…";
     if (model) return `${pageCount} bog${pageCount === 1 ? "" : "yo"}`;
     return "";
-  }, [status, error, model, pageCount]);
+  }, [templatePending, status, error, model, pageCount]);
 
   return (
     <section
@@ -485,6 +506,11 @@ export function LiveDocumentReview({
             <p className="truncate text-sm font-semibold">{config.title}</p>
             <p className="truncate text-[11px] text-muted-foreground" data-review-status="">
               {statusLine}
+            </p>
+            {/* Which file is actually on screen: the notary's own template,
+                or the registry sample when they uploaded nothing. */}
+            <p className="truncate text-[11px] text-muted-foreground" data-review-template="">
+              Template: {templateName ?? "Tusaalaha nidaamka"}
             </p>
           </div>
         </div>

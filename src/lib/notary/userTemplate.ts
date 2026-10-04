@@ -70,6 +70,33 @@ export async function fetchTemplateBytes(url: string): Promise<ArrayBuffer> {
   return await res.arrayBuffer();
 }
 
+/**
+ * Which of the notary's OWN templates a document is generated and previewed
+ * with.
+ *
+ * The office owns its template: what they uploaded — and, after they edit it
+ * in Word and upload the new file, the NEWEST upload — is the document they
+ * must see. The registry sample is only a fallback for an office that has
+ * uploaded nothing at all.
+ *
+ * `pickedId` is an EXPLICIT choice by the notary and always wins. When that
+ * template has since been deleted, the choice is dropped rather than
+ * rendering a document from a file that no longer exists.
+ *
+ * `list` must be newest-first (the query already sorts by createdAt desc).
+ */
+export function effectiveUserTemplate<T extends UserTemplateRecord>(
+  list: T[],
+  pickedId?: string,
+): T | undefined {
+  const active = list.filter((t) => t.status === "active");
+  if (pickedId) {
+    const picked = active.find((t) => t._id === pickedId);
+    if (picked) return picked;
+  }
+  return active.find((t) => t.isDefault) ?? active[0];
+}
+
 export interface TemplateTokenReport {
   /** Every {{TOKEN}} found in the uploaded .docx (deduped), bare names. */
   tokens: string[];

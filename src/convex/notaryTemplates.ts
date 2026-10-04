@@ -59,14 +59,21 @@ export const saveTemplate = mutation({
     }
 
     const now = Date.now();
-    // First template of this document type becomes the default.
-    const existing = await ctx.db
+    // An upload IS the new revision: the office edits the .docx in Word and
+    // uploads it again, so the newest upload is the template in force. The
+    // previous default is retired as the default (the record and its bytes
+    // stay — append-only, never overwritten).
+    const siblings = await ctx.db
       .query("notary_templates")
       .withIndex("by_user_type", (q) =>
         q.eq("userId", userId).eq("documentType", args.documentType),
       )
       .collect();
-    const isDefault = existing.every((t) => t.status !== "active");
+    for (const t of siblings) {
+      if (t.status === "active" && t.isDefault) {
+        await ctx.db.patch(t._id, { isDefault: false, updatedAt: now });
+      }
+    }
 
     const id = await ctx.db.insert("notary_templates", {
       userId,
@@ -78,7 +85,7 @@ export const saveTemplate = mutation({
       sizeBytes: args.sizeBytes,
       placeholdersJson: args.placeholdersJson,
       warningsJson: args.warningsJson,
-      isDefault,
+      isDefault: true,
       status: "active",
       createdAt: now,
       updatedAt: now,
