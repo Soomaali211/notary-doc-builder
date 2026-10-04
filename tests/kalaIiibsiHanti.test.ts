@@ -1525,3 +1525,80 @@ describe("M — Heshiis Kiro compatibility", () => {
     expect(ctx.flags).toHaveProperty("KIREYE_HAL");
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* PARITY — Hanti's two sides are entered exactly as Kiro's two sides  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The office's requirement, stated as a test rather than a promise: a seller
+ * and a buyer are entered through the SAME card, and that card is Kiro's
+ * landlord/tenant card — not a Hanti-shaped copy of it.
+ *
+ * What is compared is the ENTRY FLOW (how a row is added, counted and
+ * represented). The FIELDS on the row are document data and legitimately
+ * differ — a seller carries a role and a group, Kiro a landlord carries an
+ * ID number — so they are deliberately not compared here.
+ */
+describe("PARITY — the two sides are entered exactly as Kiro's two sides", () => {
+  const partyOf = (config: any, partyId: string): any =>
+    config.sections
+      .flatMap((s: any) => s.parties ?? [])
+      .find((p: any) => p.id === partyId)!;
+
+  /** The options that decide HOW a row is entered and represented. */
+  const entryShape = (config: any, partyId: string) => {
+    const p = partyOf(config, partyId);
+    return {
+      min: p.min,
+      optionalList: !!p.optionalList,
+      countFirst: !!p.countFirst,
+      countFrom: p.countFrom ?? null,
+      countFromMode: p.countFromMode ?? null,
+      attendance: !!p.attendance,
+      representativeFields: (p.representativeFields ?? []).map((f: any) => f.id),
+      // Each side keeps its OWN wakiil list — the same one Kiro's sides keep.
+      representativesKey: p.representativesKey ?? `wakiilo_${p.id}`,
+    };
+  };
+
+  test("the seller card and the buyer card are the SAME card, asked the same way", () => {
+    const seller = entryShape(C, "iibiyeyaal");
+    const buyer = entryShape(C, "iibsadayaal");
+    // Identical except for where each count was typed in Dejinta Heshiiska,
+    // and for WHICH side's wakiil list they read — two facts that genuinely
+    // differ between the two sides, asserted on their own lines below.
+    const withoutSideFacts = (s: ReturnType<typeof entryShape>) => ({
+      ...s,
+      countFrom: null,
+      countFromMode: null,
+      representativesKey: null,
+    });
+    expect(withoutSideFacts(seller)).toEqual(withoutSideFacts(buyer));
+    expect(seller.representativesKey).toBe("wakiilo_iibiyeyaal");
+    expect(buyer.representativesKey).toBe("wakiilo_iibsadayaal");
+  });
+
+  test("both sides carry the Kiro options: attendance, and §7 on the wakiil row", () => {
+    // Hanti's two sides…
+    expect(entryShape(C, "iibiyeyaal").attendance).toBe(true);
+    expect(entryShape(C, "iibsadayaal").attendance).toBe(true);
+    expect(entryShape(C, "iibiyeyaal").representativeFields).toEqual(
+      entryShape(C, "iibsadayaal").representativeFields,
+    );
+    // …and Kiro's two sides, read only — this file never edits Kiro.
+    expect(entryShape(K, "kireeyayaal").attendance).toBe(true);
+    expect(entryShape(K, "kiraystayaal").attendance).toBe(true);
+    expect(entryShape(K, "kireeyayaal").representativeFields).toEqual(
+      entryShape(K, "kiraystayaal").representativeFields,
+    );
+    // The wakiil/qayim choice is asked where the wakiil is entered and NOWHERE
+    // else: no person row in this document carries it, on any side.
+    const personRowsWithType = C.sections
+      .flatMap((s) => s.parties ?? [])
+      .flatMap((p) => p.fields ?? [])
+      .filter((f) => f.id === "nooca_wakiilka");
+    expect(personRowsWithType).toHaveLength(0);
+    expect(C.sections.flatMap((s) => s.parties ?? []).some((p) => p.id === "wakiillo")).toBe(false);
+  });
+});

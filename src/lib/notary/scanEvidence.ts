@@ -57,7 +57,7 @@ export const SCAN_EVIDENCE: ScanPoint[] = [
     title: "Qaybaha document-ka",
     dhul_banaan: "scan_confirmed",
     beer: "scan_confirmed",
-    livesIn: "config.sections — dejinta, iibiyaha, kooxaha, wakiillada, sawirrada, saxeexayaasha, shaxadaha, iibsadaha, hantida_*, damiinka, qiimaha, maragyada",
+    livesIn: "config.sections — dejinta, iibiyaha, kooxaha, sawirrada, saxeexayaasha, shaxadaha, iibsadaha, hantida_*, damiinka, qiimaha, maragyada (the wakiil has no section of its own — he is entered inside the party he stands for)",
   },
   {
     point: 2,
@@ -72,7 +72,7 @@ export const SCAN_EVIDENCE: ScanPoint[] = [
     title: "Xiriirka dadka",
     dhul_banaan: "spec_only",
     beer: "scan_confirmed",
-    livesIn: "wakiillada.xiriirka_qoyska → personModel.Person.familyRelationship",
+    livesIn: "iibiyeyaal.xiriirka_qoyska → personModel.Person.familyRelationship",
     note: "Ruun is 'mother'. A relationship is DATA and grants no authority.",
   },
   {
@@ -88,15 +88,15 @@ export const SCAN_EVIDENCE: ScanPoint[] = [
     title: "Wakiillada",
     dhul_banaan: "scan_confirmed",
     beer: "scan_confirmed",
-    livesIn: "wakiillo list + per-person `wakiil` field + partyModel.Representation",
-    note: "One wakiil may stand for many people; several may split one group.",
+    livesIn: "attendance ('Ma Joogaa Heshiiska? → Maya → Qaybta Wakiilka') + the shared wakiilo_* list → partyModel.Representation",
+    note: "One wakiil may stand for many people; several may split one group. The link is drawn ONCE, on the person's own attendance card, so the same question can never be answered twice.",
   },
   {
     point: 6,
     title: "Wakiil-Qayimka",
     dhul_banaan: "spec_only",
     beer: "scan_confirmed",
-    livesIn: "wakiillo.nooca_wakiilka → Representation.type ('wakiil' | 'wakiil_qayim')",
+    livesIn: "wakiilo_*.nooca_wakiilka → Representation.type ('wakiil' | 'wakiil_qayim')",
     note: "Never defaulted to 'wakiil'. A different answer about the REPRESENTED person's capacity.",
   },
   {

@@ -352,19 +352,20 @@ describe("THE FLIPPED FORM — payment", () => {
 describe("REVIEW — the questions the office asks", () => {
   const v = base({
     kooxaha: [r("g", { magac: "Ilma Xassan Qaalib" })],
+    // Both sellers are ABSENT, exactly as the form now records absence: the
+    // attendance answer ("Ma Joogaa Heshiiska?") points at the wakiil who
+    // appears for them. Authority is therefore read from that one link — there
+    // is no second wakiil list to keep in step with it.
     iibiyeyaal: [
-      { ...r("s1", { magac: "Ruun Xassan Qaalib", jinsi: "female", degan: "H", koox: "Ilma Xassan Qaalib" }), attendance: { status: "jooga" as const } },
-      { ...r("s2", { magac: "Ibraahin Xassan", jinsi: "male", degan: "H", koox: "Ilma Xassan Qaalib" }), attendance: { status: "jooga" as const } },
+      { ...r("s1", { magac: "Ruun Xassan Qaalib", jinsi: "female", degan: "H", koox: "Ilma Xassan Qaalib" }), attendance: { status: "wakiil" as const, representativeId: "r1" } },
+      { ...r("s2", { magac: "Ibraahin Xassan", jinsi: "male", degan: "H", koox: "Ilma Xassan Qaalib" }), attendance: { status: "wakiil" as const, representativeId: "r2" } },
     ],
     wakiilo_iibiyeyaal: [
       r("r1", { magac: "RUUN" }),
-      r("r2", { magac: "FARAX" }),
+      // §7 — the type is chosen on the representative row, never inferred.
+      r("r2", { magac: "FARAX", nooca_wakiilka: "wakiil_qayim" }),
     ],
     iibsadayaal: buyers(2),
-    wakiilo_iibiyeyaal: [
-      r("r1", { magac: "RUUN" }),
-      r("r2", { magac: "FARAX" }),
-    ],
     sawirrada: [r("p1", { magac: "Ruun Xassan Qaalib", sawir: "x" })],
     saxeexayaasha: [r("x1", { magac: "Ibraahin Xassan", prefix: "IIBIYE" })],
     shaxadaha: [r("c1", { tixraaca: "MDH/C/842/2025" })],
@@ -400,11 +401,11 @@ describe("REVIEW — the questions the office asks", () => {
 
   test("REPRESENTATIVES — who, and exactly whom each stands for", () => {
     expect(block("representatives")!.count).toBe("Tirada: 2");
-    // Each rep's authority is recorded exactly as drawn — the type (wakiil
-    // vs wakiil_qayim) is visible, and nobody is auto-typed.
-    const v = Object.fromEntries(block("representatives")!.lines.map((l) => [l.label, l.value]));
-    expect(Object.values(v).some((x) => /Wakiil caadi ah/.test(x))).toBe(true);
-    expect(Object.values(v).some((x) => /wakiil_qayim/i.test(x))).toBe(true);
+    // Each rep's authority is recorded exactly as drawn. FARAX was recorded as a wakiil qayim and RUUN was left blank, which
+    // reads as a plain wakiil. Both types are shown; nobody was auto-typed.
+    const byLabel = Object.fromEntries(block("representatives")!.lines.map((l) => [l.label, l.value]));
+    expect(byLabel["RUUN"]).toBe("Wakiil caadi ah — matalaysaa: Ruun Xassan Qaalib (1)");
+    expect(byLabel["FARAX"]).toBe("Wakiil Qayim — matalaysaa: Ibraahin Xassan (1)");
   });
 
   test("PHOTOS — the count and whose each one is", () => {
@@ -437,7 +438,10 @@ describe("REVIEW — the questions the office asks", () => {
     expect(html).toContain("Tirada: 2"); // 2 sellers
     expect(html).toContain("Tirada: 1"); // 1 photo, 1 signatory
     expect(html).toContain("Ilma Xassan Qaalib"); // the group name
-    expect(html).toContain("\""Waxa Hantida ku Jira"\"")
+    expect(html).toContain("Waxa Hantida ku Jira");
+    // Who stands for whom, exactly as the notary reads it off the screen.
+    expect(html).toContain("Wakiil Qayim");
+    expect(html).toContain("matalaysaa");
 
     expect(html).not.toContain("Waxa MAQAN");
   });

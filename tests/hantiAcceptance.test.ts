@@ -62,7 +62,9 @@ const PEOPLE = [
 
 function beerScenario(): FormValues {
   // Ruun stands for the first branch (4 people), Farax for the second (4).
-  const repOf = (i: number) => (i < 4 ? "RUUN QAALIB" : i < 8 ? "FARAX AHMED" : "");
+  // "Ma Joogaa Heshiiska?" is answered per person, so the LINK lives there —
+  // there is no second place where a wakiil could be written down.
+  const repIdOf = (i: number) => (i < 4 ? "r1" : i < 8 ? "r2" : undefined);
   return {
     ...createInitialValues(C),
     dejinta: {
@@ -71,19 +73,23 @@ function beerScenario(): FormValues {
       taariikhda_hantida: "2025-05-30",
     },
     kooxaha: [r("g", { magac: "Ilma Xassan Qaalib" })],
-    iibiyeyaal: PEOPLE.map((name, i) =>
-      r(`s${i + 1}`, {
+    iibiyeyaal: PEOPLE.map((name, i) => ({
+      ...r(`s${i + 1}`, {
         magac: name,
         jinsi: i % 2 === 0 ? "male" : "female",
         degan: "Waardhiil",
-        koox: "Ilma Xassan Qaalib",
-        ...(repOf(i) ? { wakiil: repOf(i) } : {}) }),
-    ),
+        koox: "Ilma Xassan Qaalib" }),
+      attendance: repIdOf(i)
+        ? { status: "wakiil" as const, representativeId: repIdOf(i)! }
+        : { status: "jooga" as const } })),
     wakiilo_iibiyeyaal: [
+      // §7 — the scan names BOTH types, so both are answered here.
       r("r1", {
-        magac: "RUUN QAALIB" }),
-      r("r2", { magac: "FARAX AHMED" }),
-    ]],
+        magac: "RUUN QAALIB", nooca_wakiilka: "wakiil" }),
+      // §7 — Farax's authority is a wakiil QAYIM, chosen on the row. Ruun's
+      // was left blank, which reads as a plain wakiil and is never upgraded.
+      r("r2", { magac: "FARAX AHMED", nooca_wakiilka: "wakiil_qayim" }),
+    ],
     iibsadayaal: [
       {
         id: "b1",
@@ -212,7 +218,9 @@ describe("ACCEPTANCE A — the Beer scan, reproduced end to end", () => {
     const [ruun, farax] = model.representations;
     expect(representedPeople(model, ruun)).toHaveLength(4);
     expect(representedPeople(model, farax)).toHaveLength(4);
-    expect(ruun.reference).toBe("Ref:APN/096/2025");
+    // The paper that GRANTS the authority is its own fact on the certificate
+    // list (asserted below) — never smuggled in as part of the authority.
+    expect(model.certificates.some((c) => c.reference === "Ref:APN/096/2025")).toBe(true);
   });
 
   test("five certificates print — not the single certificate slot of before", () => {
@@ -258,7 +266,7 @@ describe("ACCEPTANCE A — the Beer scan, reproduced end to end", () => {
         "<w:p><w:r><w:t>Sawirro:{{#SAWIRRADA}} {{NUMBER}}. {{MAGAC}} — {{SAWIR}}{{/SAWIRRADA}}</w:t></w:r></w:p>" +
         "<w:p><w:r><w:t>Saxees:{{#SAXEEXAYAASHA}} {{NUMBER}}. {{PREFIX}} {{MAGAC}}{{/SAXEEXAYAASHA}}</w:t></w:r></w:p>" +
         "<w:p><w:r><w:t>Shaxado:{{#SHAXADAHA}} {{NUMBER}}. {{TIXRAACA}}{{/SHAXADAHA}}</w:t></w:r></w:p>" +
-        "<w:p><w:r><w:t>Wakiil:{{#WAKIILLO}} {{NUMBER}}. {{MAGAC}} [{{NOOCA_WAKIILKA}}]{{/WAKIILLO}}</w:t></w:r></w:p>" +
+        "<w:p><w:r><w:t>Wakiil:{{#WAKIILO_IIBIYEYAAL}} {{NUMBER}}. {{MAGAC}} [{{NOOCA_WAKIILKA}}]{{/WAKIILO_IIBIYEYAAL}}</w:t></w:r></w:p>" +
         '<w:p><w:r><w:t>Qiimaha: {{QIIMAHA}} · La bixiyay: {{LACAGTA_BIXIYAY}}</w:t></w:r></w:p>' +
         '<w:p><w:r><w:t>Maragyo: {{MARAGYO_LIST}}</w:t></w:r></w:p>' +
         "</w:body></w:document>",
@@ -317,9 +325,9 @@ describe("ACCEPTANCE B — 10 sellers → 1 representative → 1 photo → 1 sig
       sida_hantida_loo_helay: "iibsaday",
       notary_ref: "Tr No 4471",
     },
-    iibiyeyaal: names.map((n, i) =>
-      r(`s${i + 1}`, { magac: n, jinsi: i === 0 ? "male" : "female", degan: "Hargeisa", wakiil: "ABDI WAKIIL" }),
-    ),
+    iibiyeyaal: names.map((n, i) => ({
+      ...r(`s${i + 1}`, { magac: n, jinsi: i === 0 ? "male" : "female", degan: "Hargeisa" }),
+      attendance: { status: "wakiil" as const, representativeId: "r1" } })),
     wakiilo_iibiyeyaal: [r("r1", { magac: "ABDI WAKIIL" })],
     iibsadayaal: [
       {

@@ -604,17 +604,17 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
     group: "Kooxaha",
   },
   {
-    token: "WAKIILLO",
+    token: "WAKIILO_IIBIYEYAAL",
     kind: "block",
-    label: "Wakiillo (hal qof oo matalaa dad badan)",
-    bodyTokens: [
-      "NUMBER",
-      "MAGAC",
-      "NOOCA_WAKIILKA",
-      "XIRIIRKA_QOYSKA",
-      "TIXRAACA_WAKIILNIMO",
-      "XADKA_WAKIILNIMO",
-    ],
+    label: "Wakiillo iibiyayaasha (hal qof oo matalaa dad badan)",
+    bodyTokens: ["NUMBER", "MAGAC", "SAWIR", "NOOCA_WAKIILKA", "MATALAYA"],
+    group: "Wakiil",
+  },
+  {
+    token: "WAKIILO_IIBSADAYAAL",
+    kind: "block",
+    label: "Wakiillo iibsadayaasha",
+    bodyTokens: ["NUMBER", "MAGAC", "SAWIR", "NOOCA_WAKIILKA", "MATALAYA"],
     group: "Wakiil",
   },
   {
@@ -644,8 +644,6 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
   /* ---- Count flags for the independent lists (countFirst groups) ---- */
   { token: "KOOXAHA_HAL", kind: "flag", label: "Hal koox", group: "Kooxaha" },
   { token: "KOOXAHA_BADAN", kind: "flag", label: "Kooxo badan", group: "Kooxaha" },
-  { token: "WAKIILLO_HAL", kind: "flag", label: "Hal wakiil", group: "Wakiil" },
-  { token: "WAKIILLO_BADAN", kind: "flag", label: "Wakiillo badan", group: "Wakiil" },
   { token: "SAWIRRADA_HAL", kind: "flag", label: "Hal sawir", group: "Sawirrada" },
   { token: "SAWIRRADA_BADAN", kind: "flag", label: "Sawirro badan", group: "Sawirrada" },
   { token: "SAXEEXAYAASHA_HAL", kind: "flag", label: "Hal saxeex", group: "Saxeexayaasha" },
@@ -683,14 +681,15 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
          Asked once in Dejinta Heshiiska. Each decides whether its list
          exists at all, so a sale with no photographs has no
          {{IF:SAWIRRO_MA_JIRAAN}} body to fill. ---- */
-  { token: "WAKIILLO_MA_JIRAAN", kind: "flag", label: "Wakiil ma jiraan?", group: "Wakiil" },
   { token: "SAWIRRO_MA_JIRAAN", kind: "flag", label: "Sawirro ma jiraan?", group: "Sawirrada" },
   { token: "SAXEEXO_MA_JIRAAN", kind: "flag", label: "Saxeexyaal ma jiraan?", group: "Saxeexayaasha" },
   { token: "SHAXADO_MA_JIRAAN", kind: "flag", label: "Shaxado / Tixraacyo ma jiraan?", group: "Shaxadaha" },
 
   /* ---- Attendance-derived flags (resolveFlags(): <GROUP>_JOOGA / _WAKIIL).
-         Only the BUYERS carry attendance in this document — a seller always
-         signs his own sale, so no iibiyaha attendance flag exists. ---- */
+         BOTH sides carry attendance — sellers and buyers are asked the same
+         "Ma Joogaa Heshiiska?" in the same place, on the same card. ---- */
+  { token: "IIBIYAHA_JOOGA", kind: "flag", label: "Waxaa jooga iibiyaha", group: "Iibiyayaal" },
+  { token: "IIBIYAHA_WAKIIL", kind: "flag", label: "Waxaa jooga iibiye u wakiil", group: "Iibiyayaal" },
   { token: "IIBSADAHA_JOOGA", kind: "flag", label: "Waxaa jooga iibsade", group: "Iibsadayaal" },
   { token: "IIBSADAHA_WAKIIL", kind: "flag", label: "Waxaa jooga iibsade u wakiil", group: "Iibsadayaal" },
 

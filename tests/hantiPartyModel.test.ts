@@ -125,7 +125,7 @@ describe("TEST 1 — 1 seller + 1 buyer + 3 witnesses", () => {
 
 describe("TEST 2 — 10 sellers + 1 representative + 1 photo + 1 signature", () => {
   const v = values({
-    iibiyeyaal: represented(sellers(10, { wakiil: "ABDI WAKIIL" }), "r1"),
+    iibiyeyaal: represented(sellers(10), "r1"),
     iibsadayaal: [row("b1", { magac: "SOMALI JAMAC", jinsi: "male", degan: "Hargeisa", telefoon: "0622222222" }, "jooga")],
     wakiilo_iibiyeyaal: [row("r1", { magac: "ABDI WAKIIL" })],
     sawirrada: [row("p1", { magac: "IIBIYE 1", sawir: "stor_p1" })],
@@ -163,13 +163,14 @@ describe("TEST 2 — 10 sellers + 1 representative + 1 photo + 1 signature", () 
 
 describe("TEST 3 — 10 sellers, TWO representatives splitting them 6 / 4", () => {
   const v = values({
-    iibiyeyaal: sellers(10).map((s, i) =>
-      row(s.id, { ...s.values, wakiil: i < 6 ? "RUUN QAALIB" : "FARAX AHMED" }),
-    ),
+    iibiyeyaal: [
+      ...represented(sellers(10).slice(0, 6), "r1"),
+      ...represented(sellers(10).slice(6), "r2"),
+    ],
     wakiilo_iibiyeyaal: [
       row("r1", { magac: "RUUN QAALIB" }),
       row("r2", { magac: "FARAX AHMED" }),
-    ]] });
+    ] });
   const model = buildHantiPartyModel(v);
   const [a, b] = model.representations;
 
@@ -199,9 +200,9 @@ describe("TEST 4 — a 13-member family: 13 sellers, 8 photos, 6 signatures, 2 w
   const names = Array.from({ length: 13 }, (_, i) => `XUBIN ${i + 1}`);
   const v = values({
     kooxaha: [row("g", { magac: "Ilma Xassan Qaalib" })],
-    iibiyeyaal: names.map((n, i) =>
-      row(`s${i + 1}`, { magac: n, jinsi: i % 2 === 0 ? "male" : "female", degan: "Hargeisa", koox: "Ilma Xassan Qaalib" }),
-    ),
+    iibiyeyaal: names.map((n, i) => ({
+      ...row(`s${i + 1}`, { magac: n, jinsi: i % 2 === 0 ? "male" : "female", degan: "Hargeisa", koox: "Ilma Xassan Qaalib" }),
+      attendance: { status: "jooga" as const } })),
     sawirrada: names.slice(0, 8).map((n, i) => row(`p${i + 1}`, { magac: n, sawir: `stor_p${i + 1}` })),
     saxeexayaasha: names.slice(0, 6).map((n, i) => row(`x${i + 1}`, { magac: n, prefix: "IIBIYE" })),
     maragyo: [row("m1", { magac: "MARAG KOOW" }), row("m2", { magac: "MARAG LABO" })],
@@ -288,7 +289,7 @@ describe("TEST 5 — gender words: female seller, male seller, mixed group", () 
 describe("TEST 6 — a seller who is ALSO the representative", () => {
   const v = values({
     iibiyeyaal: [
-      { ...row("s1", { magac: "RUUN XASSAN QAALIB", jinsi: "female", degan: "Hargeisa", wakiil: "RUUN XASSAN QAALIB" }), attendance: { status: "jooga" as const } },
+      { ...row("s1", { magac: "RUUN XASSAN QAALIB", jinsi: "female", degan: "Hargeisa" }), attendance: { status: "wakiil" as const, representativeId: "r1" } },
       { ...row("s2", { magac: "Ibraahin XASSAN", jinsi: "male", degan: "Hargeisa" }), attendance: { status: "jooga" as const } },
     ],
     wakiilo_iibiyeyaal: [row("r1", { magac: "RUUN XASSAN QAALIB" })] });
@@ -314,13 +315,15 @@ describe("TEST 6 — a seller who is ALSO the representative", () => {
 
 describe("TEST 7 — Wakiil caadi ah is NOT Wakiil Qayim", () => {
   const v = values({
-    iibiyeyaal: sellers(4, { wakiil: "WAKIIL CAAJI" }).map((s, i) =>
-      i === 3 ? row(s.id, { ...s.values, wakiil: "WAKIIL QAYIM" }) : s,
-    ),
+    iibiyeyaal: [
+      ...represented(sellers(4).slice(0, 3), "r1"),
+      ...represented(sellers(4).slice(3), "r2"),
+    ],
     wakiilo_iibiyeyaal: [
       row("r1", { magac: "WAKIIL CAAJI" }),
-      row("r2", { magac: "WAKIIL QAYIM" }),
-    ]] });
+      // §7 is an ANSWER on this row, not something read off the people.
+      row("r2", { magac: "WAKIIL QAYIM", nooca_wakiilka: "wakiil_qayim" }),
+    ] });
   const model = buildHantiPartyModel(v);
 
   test("the two authorities are stored as two different things", () => {
@@ -338,18 +341,24 @@ describe("TEST 7 — Wakiil caadi ah is NOT Wakiil Qayim", () => {
     expect(qayim.type).toBe("wakiil_qayim");
   });
 
-  test("a mother may be a wakiil WITHOUT that relationship granting authority", () => {
+  test("a mother may stand for her sons — and the relationship grants nothing", () => {
     const withRelationship = buildHantiPartyModel(
       values({
-        wakiilo_iibiyeyaal: [
-          row("r1", { magac: "WAKIIL CAAJI" }),
-        ]],
-        iibiyeyaal: sellers(2, { wakiil: "WAKIIL CAAJI" }) }),
+        wakiilo_iibiyeyaal: [row("r1", { magac: "WAKIIL CAAJI" })],
+        // "Hooyada" / "Wiil" are typed answers about the PEOPLE. They create
+        // no authority and no wakiil-qayim: the authority exists only because
+        // each row's own attendance answer named THIS wakiil.
+        iibiyeyaal: represented(
+          [
+            row("s1", { magac: "HOOYADA", jinsi: "female", degan: "Hargeisa", xiriirka_qoyska: "Hooyada" }),
+            row("s2", { magac: "XUBIN", jinsi: "male", degan: "Hargeisa", xiriirka_qoyska: "Wiil" }),
+          ],
+          "r1",
+        ) }),
     );
-    // The relationship is data ON the person; the authority is the edge.
-    // They are recorded separately and neither implies the other.
-    expect(withRelationship.representations[0].type).toBe("wakiil_qayim");
+    expect(withRelationship.representations[0].type).toBe("wakiil");
     expect(withRelationship.representations[0].representedPersonIds).toHaveLength(2);
+    expect(withRelationship.people.map((p) => p.familyRelationship)).toEqual(["Hooyada", "Wiil"]);
   });
 });
 
@@ -409,10 +418,10 @@ describe("TEST 9 — one group NAME plus many individual members", () => {
   const v = values({
     kooxaha: [row("g", { magac: "Ilma Xassan Qaalib" })],
     iibiyeyaal: [
-      { ...row("s1", { magac: "Ruun Xassan Qaalib", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib", wakiil: "Ruun Xassan Qaalib" }), attendance: { status: "jooga" as const } },
-      { ...row("s2", { magac: "Ibraahin Xassan Qaalib", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib", wakiil: "Ruun Xassan Qaalib" }), attendance: { status: "jooga" as const } },
-      { ...row("s3", { magac: "Farax Axmed Xassan", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib", wakiil: "Ruun Xassan Qaalib" }), attendance: { status: "jooga" as const } },
-      { ...row("s4", { magac: "Maryan Xassan Muuse", jinsi: "female", degan: "Hargeisa", koox: "Ilma Xassan Qaalib", wakiil: "Ruun Xassan Qaalib" }), attendance: { status: "jooga" as const } },
+      { ...row("s1", { magac: "Ruun Xassan Qaalib", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib" }), attendance: { status: "wakiil" as const, representativeId: "r1" } },
+      { ...row("s2", { magac: "Ibraahin Xassan Qaalib", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib" }), attendance: { status: "wakiil" as const, representativeId: "r1" } },
+      { ...row("s3", { magac: "Farax Axmed Xassan", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib" }), attendance: { status: "wakiil" as const, representativeId: "r1" } },
+      { ...row("s4", { magac: "Maryan Xassan Muuse", jinsi: "female", degan: "Hargeisa", koox: "Ilma Xassan Qaalib" }), attendance: { status: "wakiil" as const, representativeId: "r1" } },
     ],
     wakiilo_iibiyeyaal: [row("r1", { magac: "Ruun Xassan Qaalib" })] });
   const model = buildHantiPartyModel(v);
@@ -453,8 +462,7 @@ describe("TEST 10 — one person in several roles, without being duplicated", ()
         jinsi: "female",
         degan: "Hargeisa",
         koox: "Ilma Xassan Qaalib",
-        dooro: "wakiil",
-        wakiil: "Ruun Xassan Qaalib" }), attendance: { status: "jooga" as const } },
+        dooro: "wakiil" }), attendance: { status: "wakiil" as const, representativeId: "r1" } },
       { ...row("s2", { magac: "Ibraahin Xassan Qaalib", jinsi: "male", degan: "Hargeisa", koox: "Ilma Xassan Qaalib" }), attendance: { status: "jooga" as const } },
     ],
     wakiilo_iibiyeyaal: [row("r1", { magac: "Ruun Xassan Qaalib" })],

@@ -173,7 +173,10 @@ export function HantiReviewSummary({
   const sectionFor: Record<string, string> = {
     sellers: "iibiyaha",
     groups: "kooxaha",
-    representatives: "wakiillada",
+    // Representatives live inside the party steps now — the wakiil is
+    // declared in the same card as "Ma Joogaa Heshiiska?". There is no
+    // separate wakiil section to send the notary back to.
+    representatives: "iibiyaha",
     photos: "sawirrada",
     signatories: "saxeexayaasha",
     buyers: "iibsadaha",
