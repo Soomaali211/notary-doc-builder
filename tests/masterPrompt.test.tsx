@@ -244,7 +244,10 @@ describe("§3/§4 — Home, navigation and the unsaved-changes gate", () => {
 
   test("a draft is resumable — it links back into the interview", () => {
     const page = read("pages/Dashboard.tsx");
-    expect(page).toContain("to={`/documents/${d._id}`}");
+    // §3 — the row id is the LOCAL id now, so the link points at the record
+    // in this machine's own database rather than at a server document.
+    expect(page).toContain("to={`/documents/${d.id}`}");
+    expect(page).toContain("useLocalAgreements");
   });
 
   test("the interview offers Home, Back, Next, Save Draft and Exit", () => {
@@ -284,7 +287,15 @@ describe("§3/§4 — Home, navigation and the unsaved-changes gate", () => {
 
   test("search reaches the property answers, not just the reference", () => {
     const page = read("pages/Archive.tsx");
-    expect(page).toContain("d.valuesJson");
+    // §39 — the page no longer reaches into the answers blob itself; the
+    // haystack is built by the repository, which reads BOTH the stored row
+    // and the property answers. Both halves are pinned here so a future
+    // "simplification" cannot quietly drop the property.
+    expect(page).toContain("searchHaystack(d)");
+    const repo = readFileSync(resolve("src/lib/notary/localRepository.ts"), "utf8");
+    expect(repo).toContain("agreement.valuesJson");
+    expect(repo).toContain("agreementProperty");
+    expect(repo).toContain("PROPERTY_FIELDS");
   });
 
   test("the archive offers all four statuses and the office's names", () => {

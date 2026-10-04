@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Link, useNavigate } from "react-router";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { AppShell } from "@/components/notary/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { documentConfigs } from "@/lib/notary/documents";
+import { useLocalAgreements } from "@/lib/notary/localHooks";
+import { filterAgreements } from "@/lib/notary/localRepository";
 import { formatSomaliDate } from "@/lib/notary/format";
+import { exportBackup } from "@/lib/notary/localBackup";
 import { documentStatusLabel, isFinishedStatus } from "@/lib/notary/documentStatus";
 import {
   ArrowRight,
@@ -21,6 +23,7 @@ import {
   Search as SearchIcon,
   Settings as SettingsIcon,
   ShieldCheck,
+  HardDriveDownload,
 } from "lucide-react";
 
 /**
@@ -95,8 +98,14 @@ const AREAS = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const documents = useQuery(api.notaryDocuments.listMyDocuments);
-  const appointments = useQuery(api.notaryAppointments.listMine);
+  /**
+   * §3 — Home reads the office's OWN database. Nothing is fetched, so the
+   * counts and the search below are correct with the internet switched off.
+   * Appointments are a team/cloud feature and are not part of the offline
+   * promise, so they simply read as empty rather than failing.
+   */
+  const { documents } = useLocalAgreements();
+
   /** §43 — search from Home, not only from inside the archive. */
   const [query, setQuery] = useState("");
 
@@ -109,34 +118,16 @@ export default function Dashboard() {
     () => (documents ?? []).filter((d) => d.status === "draft" || d.status === "completed"),
     [documents],
   );
-  const upcoming = useMemo(
-    () =>
-      (appointments ?? [])
-        .filter((a) => a.status === "scheduled")
-        .slice(0, 3),
-    [appointments],
-  );
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return (documents ?? [])
-      .filter((d) =>
-        [
-          d.referenceNumber,
-          d.subTypeLabel,
-          d.documentTypeTitle,
-          d.fileBaseName,
-          ...d.parties.map((p) => `${p.name} ${p.phone ?? ""} ${p.idNumber ?? ""}`),
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(q),
-      )
-      .slice(0, 8);
+    // §39 — the same local search the archive uses, so Home and the archive
+    // can never disagree about what a reference number means.
+    return filterAgreements(documents, q).slice(0, 8);
   }, [documents, query]);
 
-  const recent = (documents ?? []).slice(0, 5);
+  const recent = documents.slice(0, 5);
 
   return (
     <AppShell title="Home" subtitle="Halkan aad ka bilowdo — document cusub, draft, ama raadi.">
@@ -151,10 +142,8 @@ export default function Dashboard() {
           <p className="mt-1 text-2xl font-bold">{drafts.length}</p>
         </div>
         <div className="notebook-page paper-grain rounded-md p-4">
-          <p className="notebook-annotation text-xs text-muted-foreground">Upcoming signings</p>
-          <p className="mt-1 text-2xl font-bold">
-            {(appointments ?? []).filter((a) => a.status === "scheduled").length}
-          </p>
+          <p className="notebook-annotation text-xs text-muted-foreground">Kaydiyo (Archive)</p>
+          <p className="mt-1 text-2xl font-bold">{documents.length}</p>
         </div>
       </div>
 
@@ -190,9 +179,9 @@ export default function Dashboard() {
               </li>
             )}
             {matches.map((d) => (
-              <li key={d._id}>
+              <li key={d.id}>
                 <Link
-                  to={`/archive/${d._id}`}
+                  to={`/archive/${d.id}`}
                   className="flex items-center gap-3 py-2.5 transition-colors hover:bg-muted/50"
                 >
                   <FileSignature className="size-4 shrink-0 text-primary" />
@@ -282,9 +271,9 @@ export default function Dashboard() {
             ) : (
               <ul className="divide-y divide-dashed divide-border/70">
                 {drafts.slice(0, 6).map((d) => (
-                  <li key={d._id}>
+                  <li key={d.id}>
                     <Link
-                      to={`/documents/${d._id}`}
+                      to={`/documents/${d.id}`}
                       className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-muted/50"
                     >
                       <PenLine className="size-4 shrink-0 text-pen-orange" />
@@ -321,9 +310,9 @@ export default function Dashboard() {
             ) : (
               <ul className="divide-y divide-dashed divide-border/70">
                 {recent.map((d) => (
-                  <li key={d._id}>
+                  <li key={d.id}>
                     <Link
-                      to={`/archive/${d._id}`}
+                      to={`/archive/${d.id}`}
                       className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-muted/50"
                     >
                       <FileSignature className="size-4 shrink-0 text-primary" />
@@ -337,7 +326,7 @@ export default function Dashboard() {
                         {documentStatusLabel(d.status)}
                       </Badge>
                       <span className="notebook-annotation hidden text-xs text-muted-foreground sm:inline">
-                        {formatSomaliDate(new Date(d.createdAt).toISOString().slice(0, 10))}
+                        {formatSomaliDate(new Date(d.createdAt ?? 0).toISOString().slice(0, 10))}
                       </span>
                     </Link>
                   </li>
@@ -347,32 +336,41 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Upcoming signings */}
+        {/* Backup — §41. The office keeps its own copy of everything, on
+            this machine, and downloads it as ONE file. */}
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Upcoming signings</h2>
-            <Link to="/schedule" className="text-xs font-medium text-primary hover:underline">
-              Schedule →
+            <h2 className="text-sm font-semibold">Backup &amp; Restore</h2>
+            <Link to="/settings" className="text-xs font-medium text-primary hover:underline">
+              Settings →
             </Link>
           </div>
-          <div className="notebook-page paper-grain rounded-md p-2">
-            {upcoming.length === 0 ? (
-              <p className="p-6 text-center text-sm text-muted-foreground">
-                Nothing booked yet. Book a signing from the Schedule page.
-              </p>
-            ) : (
-              <ul className="divide-y divide-dashed divide-border/70">
-                {upcoming.map((a) => (
-                  <li key={a._id} className="flex items-center gap-3 px-3 py-3">
-                    <CalendarClock className="size-4 shrink-0 text-pen-orange" />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{a.title}</span>
-                    <span className="notebook-annotation text-xs text-muted-foreground">
-                      {a.date} · {a.time}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+          <div className="notebook-page paper-grain rounded-md p-4">
+            <p className="text-xs leading-5 text-muted-foreground">
+              Nidaamku wuxuu ka shaqeeyaa internet la'aan. Hayso nuqul amaar-amar
+              suurtogal ah: <strong className="text-foreground">.notary-backup.json</strong>{" "}
+              wuxuu ku jiraa dhammaan heshiisyada, drafts, tixraacyada, settings-ka iyo
+              templates-kaaga.
+            </p>
+            <Button
+              variant="outline"
+              className="mt-3 gap-2"
+              onClick={async () => {
+                try {
+                  const backup = await exportBackup();
+                  toast.success(
+                    `Backup waa la soo saaray — ${backup.counts.agreements ?? 0} heshiis, ${
+                      backup.counts.drafts ?? 0
+                    } draft.`,
+                  );
+                } catch (err) {
+                  console.error(err);
+                  toast.error("Backup-ku lama sameeyn karin — isku day mar kale.");
+                }
+              }}
+            >
+              <HardDriveDownload className="size-4" /> Backup Database
+            </Button>
           </div>
         </section>
       </div>

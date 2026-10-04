@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
+import { isOffline } from "@/lib/notary/offlineMode";
 import { Loader2, Lock } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router";
@@ -15,11 +16,16 @@ import { Navigate, useLocation, useNavigate } from "react-router";
 /**
  * Wraps a route that requires a signed-in user.
  *
- * Signed-out visitors used to be bounced straight to `/auth`, which left them
- * on a bare sign-in form with no idea which page they had asked for or why they
- * were moved. The block is now stated on the page they landed on, and sign-in
- * still returns them to it via `returnTo`. Pass `redirectImmediately` for a
- * route where the bounce really is the better experience.
+ * §3 — the notary system runs OFFLINE, on one machine, for one office. There
+ * is no account to sign into and no server to sign in to, so in offline mode
+ * this guard simply lets the user through: the data they need is already on
+ * their own computer, and demanding a login would make the app unusable with
+ * the internet switched off.
+ *
+ * Outside offline mode the original behaviour is untouched: signed-out
+ * visitors are shown why they are blocked, and sign-in returns them to the
+ * page they asked for via `returnTo`. Pass `redirectImmediately` for a route
+ * where the bounce really is the better experience.
  */
 export function RequireAuth({
   children,
@@ -38,6 +44,14 @@ export function RequireAuth({
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // The office's own machine: the whole database is here, so there is
+  // nothing to sign in to. Reading the flag directly (not a hook) keeps this
+  // synchronous — a route must never flash a spinner waiting on a flag it
+  // already knows.
+  if (isOffline()) {
+    return children;
+  }
 
   if (isLoading) {
     return (

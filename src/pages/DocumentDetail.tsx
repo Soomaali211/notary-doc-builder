@@ -1,18 +1,16 @@
-import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { AppShell } from "@/components/notary/AppShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getConfig, getSubTypeLabel } from "@/lib/notary/documents";
 import { getTemplateById } from "@/lib/notary/registry";
 import { formatSomaliDate } from "@/lib/notary/format";
 import { documentStatusLabel, isFinishedStatus } from "@/lib/notary/documentStatus";
+import { useLocalAgreement } from "@/lib/notary/localHooks";
+import { agreementNames, agreementSides, getGeneratedFile, saveAgreement } from "@/lib/notary/localRepository";
+import { downloadBlob } from "@/lib/notary/documentExport";
 import {
   Archive,
   ArrowLeft,
@@ -20,38 +18,56 @@ import {
   Download,
   FileDown,
   FileText,
-  MessagesSquare,
-  Send,
-  Trash2,
+  HardDrive,
   Users,
 } from "lucide-react";
 
 function DocumentDetailView({ docId }: { docId: string }) {
-  const document = useQuery(api.notaryDocuments.getDocument, {
-    documentId: docId as Id<"notary_documents">,
-  });
-  const docxUrl = useQuery(api.notaryDocuments.getDocxUrl, {
-    documentId: docId as Id<"notary_documents">,
-  });
-  const comments = useQuery(api.notaryComments.listByDocument, {
-    documentId: docId as Id<"notary_documents">,
-  });
-  const addComment = useMutation(api.notaryComments.add);
-  const removeComment = useMutation(api.notaryComments.remove);
-  const archiveDoc = useMutation(api.notaryDocuments.archiveDocument);
-  const cloneAsDraft = useMutation(api.notaryDocuments.cloneAsDraft);
+  /**
+   * §3 — the document is read from THIS machine, and so are its files. There
+   * is no download URL to fetch: the generated DOCX and PDF are stored beside
+   * the agreement, so they open with the network switched off.
+   */
+  const { document, loading } = useLocalAgreement(docId);
   const navigate = useNavigate();
 
-  const [commentBody, setCommentBody] = useState("");
-  const [posting, setPosting] = useState(false);
+  /**
+   * §32 — the parties are derived from the stored answers rather than kept
+   * as a second copy that could drift. One answer, one rendering.
+   */
+  const partyNames = document ? agreementNames(document) : [];
+  const sides = document ? agreementSides(document) : { sellers: "", buyers: "" };
 
-  if (!document) {
+  const downloadGenerated = async (kind: "docx" | "pdf") => {
+    if (!document) return;
+    const file = await getGeneratedFile(document.id, kind);
+    if (!file) {
+      toast.error(
+        `Faylka ${kind.toUpperCase()} ma jiro halkan. Soo saar document-ga mar kale oo halkan ayuu ku soo qaadan doonaa.`,
+      );
+      return;
+    }
+    downloadBlob(file.blob, file.fileName);
+  };
+
+  if (loading) {
     return (
       <AppShell title="Document">
         <div className="space-y-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-64 w-full" />
         </div>
+      </AppShell>
+    );
+  }
+
+  if (!document) {
+    return (
+      <AppShell title="Document">
+        <p className="text-sm text-muted-foreground" data-empty="document">
+          Dukumeentigan lama helin. Wuxuu noqon karaa in la tirtiray, ama in kale ayaa
+          lagu qaldamay.
+        </p>
       </AppShell>
     );
   }
@@ -65,44 +81,49 @@ function DocumentDetailView({ docId }: { docId: string }) {
     }
   })();
 
-  // Phase 3H — template version binding (immutable generation metadata).
-  const templateInfo = document.generatedMetadata
-    ? getTemplateById(document.generatedMetadata.templateId)
-    : undefined;
+  // The template this document was made from, by name where the office gave
+  // one. The id alone would show a code, not a template the notary recognises.
+  const templateInfo = document.templateId ? getTemplateById(document.templateId) : undefined;
 
+  /**
+   * Regeneration NEVER overwrites: the finished document is copied into a
+   * NEW draft, so the version that was already signed stays exactly as it is.
+   */
   const regenerate = async () => {
     try {
-      // Regeneration never overwrites: clone → fresh draft → new version.
-      const newId = await cloneAsDraft({ documentId: document._id });
+      const copy = await saveAgreement({
+        documentType: document.documentType,
+        documentTypeTitle: document.documentTypeTitle,
+        subType: document.subType,
+        subTypeLabel: document.subTypeLabel,
+        referenceNumber: "",
+        status: "draft",
+        valuesJson: document.valuesJson,
+      });
       toast.success("Waa la nuquliyay — version cusub oo draft ah ayaa diyaar.");
-      navigate(`/documents/${newId}`);
+      navigate(`/documents/${copy.id}`);
     } catch (e) {
-      toast.error((e as Error).message || "Nuqulidda waa fashilantay.");
+      console.error(e);
+      toast.error("Nuqulidda waa fashilantay.");
     }
   };
 
   const archiveNow = async () => {
     try {
-      await archiveDoc({ documentId: document._id });
+      await saveAgreement({
+        id: document.id,
+        documentType: document.documentType,
+        documentTypeTitle: document.documentTypeTitle,
+        subType: document.subType,
+        subTypeLabel: document.subTypeLabel,
+        referenceNumber: document.referenceNumber,
+        status: "archived",
+        valuesJson: document.valuesJson,
+      });
       toast.success("Dukumeentiga waa la kaydiyay kaydka.");
     } catch (e) {
-      toast.error((e as Error).message || "Kaydinta waa fashilantay.");
-    }
-  };
-
-  const postComment = async () => {
-    if (!commentBody.trim()) return;
-    setPosting(true);
-    try {
-      await addComment({
-        documentId: document._id,
-        body: commentBody,
-      });
-      setCommentBody("");
-    } catch {
-      // surfaced via Convex error; keep it simple here
-    } finally {
-      setPosting(false);
+      console.error(e);
+      toast.error("Kaydinta waa fashilantay.");
     }
   };
 
@@ -123,8 +144,8 @@ function DocumentDetailView({ docId }: { docId: string }) {
                   {document.referenceNumber || "(reference pending)"}
                 </h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Created {formatSomaliDate(new Date(document.createdAt).toISOString().slice(0, 10))} ·
-                  Updated {formatSomaliDate(new Date(document.updatedAt).toISOString().slice(0, 10))}
+                  Created {formatSomaliDate(new Date(document.createdAt ?? 0).toISOString().slice(0, 10))} ·
+                  Updated {formatSomaliDate(new Date(document.updatedAt ?? 0).toISOString().slice(0, 10))}
                 </p>
                 {/* §69 — the audit trail: the four moments, each shown only
                     once it has actually happened. A moment that has not
@@ -159,36 +180,34 @@ function DocumentDetailView({ docId }: { docId: string }) {
                 <Badge variant={isFinishedStatus(document.status) ? "default" : "secondary"}>
                   {documentStatusLabel(document.status)}
                 </Badge>
-                {document.generatedMetadata && (
+                {document.templateId && (
                   <p className="text-right text-[11px] text-muted-foreground">
                     Template:{" "}
                     <span className="font-medium text-foreground">
-                      {templateInfo?.name ?? document.generatedMetadata.templateId} V
-                      {document.generatedMetadata.templateVersion}
+                      {document.templateName ?? templateInfo?.name ?? document.templateId}
                     </span>
                   </p>
                 )}
-                {document.status === "generated" && docxUrl && (
-                  <a
-                    href={docxUrl}
-                    download={`${document.fileBaseName}.docx`}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-                  >
-                    <Download className="size-4" /> Open / Download DOCX
-                  </a>
-                )}
-                {document.status === "generated" && document.generatedMetadata?.outputPdfPath && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled
-                    title="PDF conversion waa Phase 4 — DOCX-ga ayaa diyaar."
-                  >
-                    <FileDown className="size-4" /> Open PDF
-                  </Button>
+                {/* The generated files live on THIS machine, so both buttons
+                    are real downloads \u2014 no URL, no server. */}
+                {isFinishedStatus(document.status) && (
+                  <>
+                    <Button size="sm" onClick={() => void downloadGenerated("docx")}>
+                      <Download className="size-4" /> DOCX
+                    </Button>
+                    {document.outputPdfPath && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void downloadGenerated("pdf")}
+                      >
+                        <FileDown className="size-4" /> PDF
+                      </Button>
+                    )}
+                  </>
                 )}
                 {document.status === "draft" && (
-                  <Button size="sm" onClick={() => navigate(`/documents/${document._id}`)}>
+                  <Button size="sm" onClick={() => navigate(`/documents/${document.id}`)}>
                     Resume interview
                   </Button>
                 )}
@@ -205,48 +224,35 @@ function DocumentDetailView({ docId }: { docId: string }) {
               </div>
             </div>
 
-            {/* Parties */}
+            {/* Parties — §32/§39. Read out of the stored answers, so the
+                list here can never disagree with the form the notary filled. */}
             <div className="mt-6 border-t border-dashed border-border pt-4">
               <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold">
                 <Users className="size-4 text-primary" /> Parties
               </h3>
-              {document.parties.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Not recorded yet.</p>
+              {partyNames.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Weli lama diiwaangelin.</p>
               ) : (
-                <ul className="grid gap-2 sm:grid-cols-2">
-                  {document.parties.map((p, i) => (
-                    <li
-                      key={i}
-                      className="flex items-center justify-between rounded border border-border/70 bg-card/60 px-3 py-2 text-sm"
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {(
+                    [
+                      ["Iibiyayaasha", sides.sellers],
+                      ["Iibsadayaasha", sides.buyers],
+                    ] as const
+                  ).map(([label, names]) => (
+                    <div
+                      key={label}
+                      className="rounded border border-border/70 bg-card/60 px-3 py-2 text-sm"
                     >
-                      <span>
-                        <span className="text-xs font-semibold text-primary uppercase">{p.role}</span>
-                        <span className="ml-2 font-medium">{p.name}</span>
-                        {p.attendance === "jooga" && (
-                          <span className="ml-1.5 text-xs font-semibold text-pen-green">✓ Jooga</span>
-                        )}
-                        {p.attendance === "ma_joogo" && (
-                          <span className="ml-1.5 text-xs font-semibold text-destructive">✗ Ma Joogo</span>
-                        )}
-                        {p.representative && (
-                          <span className="ml-1.5 text-xs text-pen-purple">◉ {p.representative}</span>
-                        )}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {[
-                          p.phone,
-                          p.idNumber,
-                          p.representing ? `Matalaya: ${p.representing}` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                    </li>
+                      <p className="text-xs font-semibold text-primary uppercase">{label}</p>
+                      <p className="mt-1 leading-6">{names || "—"}</p>
+                    </div>
                   ))}
-                </ul>
+                </div>
               )}
             </div>
           </div>
+
 
           {/* Stored values */}
           <div className="notebook-page paper-grain rounded-md p-6">
@@ -271,64 +277,35 @@ function DocumentDetailView({ docId }: { docId: string }) {
           </div>
         </div>
 
-        {/* Side column: comments */}
+        {/* Side column — §3. Comments were a cloud feature and are not part
+            of the offline promise, so they are absent rather than
+            half-working. */}
         <div className="space-y-6">
           <section className="notebook-page paper-grain rounded-md p-5">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <MessagesSquare className="size-4 text-primary" /> Comments
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+              <HardDrive className="size-4 text-primary" /> Faylaha maxalliga ah
             </h3>
-
-            {!comments && <p className="text-sm text-muted-foreground">Loading…</p>}
-            {comments && comments.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No comments yet — start the discussion about this contract.
-              </p>
-            )}
-            <ul className="space-y-3">
-              {(comments ?? []).map((c) => (
-                <li key={c._id} className="rounded border border-border/70 bg-card/60 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="notebook-annotation text-xs text-primary">{c.authorName}</p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-1.5 text-destructive hover:text-destructive"
-                      onClick={() => removeComment({ id: c._id })}
-                    >
-                      <Trash2 className="size-3" />
-                    </Button>
-                  </div>
-                  <p className="mt-1 text-sm leading-6 whitespace-pre-wrap">{c.body}</p>
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    {new Date(c.createdAt).toLocaleString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                </li>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Dukumeentiga, drafts-ka iyo faylaha la soo saaray waxay ku jiraan
+              computer-gaan oo keliya — internet la’aan. Soo saar nuqul
+              <strong className="text-foreground"> .notary-backup.json</strong> oo
+              Settings-ka, si xogtu had iyo jeer ugu jirato.
+            </p>
+            <dl className="mt-3 space-y-1 text-[11px] text-muted-foreground">
+              {(
+                [
+                  ["DOCX", document.outputDocxPath],
+                  ["PDF", document.outputPdfPath],
+                ] as const
+              ).map(([label, path]) => (
+                <div key={label} className="flex gap-1">
+                  <dt>{label}:</dt>
+                  <dd className="font-medium text-foreground">{path || "—"}</dd>
+                </div>
               ))}
-            </ul>
-
-            <div className="mt-4 flex gap-2 border-t border-dashed border-border pt-4">
-              <Input
-                value={commentBody}
-                onChange={(e) => setCommentBody(e.target.value)}
-                placeholder="Write a comment…"
-                className="bg-card/80"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey && commentBody.trim()) {
-                    e.preventDefault();
-                    postComment();
-                  }
-                }}
-              />
-              <Button size="icon" onClick={postComment} disabled={posting || !commentBody.trim()}>
-                <Send className="size-4" />
-              </Button>
-            </div>
+            </dl>
           </section>
+
 
           <Link
             to="/archive"

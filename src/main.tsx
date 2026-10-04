@@ -7,6 +7,7 @@ import { ConvexReactClient } from "convex/react";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
+import { isOffline } from "./lib/notary/offlineMode";
 import "./index.css";
 
 // Lazy load route components for better code splitting
@@ -19,17 +20,14 @@ const NewDocumentInterview = lazy(() => import("./pages/NewDocumentInterview.tsx
 const Archive = lazy(() => import("./pages/Archive.tsx"));
 const DocumentDetailPage = lazy(() => import("./pages/DocumentDetail.tsx"));
 const Catalog = lazy(() => import("./pages/Catalog.tsx"));
-const Schedule = lazy(() => import("./pages/Schedule.tsx"));
-const TeamBoard = lazy(() => import("./pages/TeamBoard.tsx"));
 const Templates = lazy(() => import("./pages/Templates.tsx"));
 const Settings = lazy(() => import("./pages/Settings.tsx"));
-const Admin = lazy(() => import("./pages/Admin.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Loading...</div>
+      <div className="animate-pulse text-muted-foreground">Waa la soo rarayaa…</div>
     </div>
   );
 }
@@ -73,7 +71,7 @@ class RootErrorBoundary extends React.Component<
       return (
         <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-6">
           <div className="max-w-lg text-center">
-            <p className="text-sm font-semibold">Preview runtime error</p>
+            <p className="text-sm font-semibold">Qalad ayaa la sameeyay</p>
             <p className="mt-2 text-xs text-muted-foreground break-words">
               {this.state.message}
             </p>
@@ -90,9 +88,22 @@ class RootErrorBoundary extends React.Component<
   }
 }
 
-const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
-
-
+/**
+ * §3 — THE OFFLINE BOOT.
+ *
+ * In offline mode (the default) the app never constructs a Convex client and
+ * never mounts a Convex provider. That is deliberate: a reactive provider
+ * above the tree would let any `useQuery` still present in a code path try to
+ * open a socket and fail noisily. Without it, the offline notary app is a
+ * plain React app with a plain router — which is what it actually is.
+ *
+ * The flag is read synchronously on purpose: a value in localStorage must not
+ * make the app flash a spinner before it knows what it is.
+ */
+const OFFLINE = isOffline();
+const convex = OFFLINE
+  ? null
+  : new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 function RouteSyncer() {
   const location = useLocation();
@@ -117,6 +128,88 @@ function RouteSyncer() {
   return null;
 }
 
+/** Every route. Rendered either inside or outside the cloud provider. */
+function App() {
+  return (
+    <BrowserRouter>
+      <RouteSyncer />
+      <Suspense fallback={<RouteLoading />}>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route
+            path="/auth"
+            element={<AuthPage redirectAfterAuth="/dashboard" />}
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <Dashboard />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/new"
+            element={
+              <RequireAuth>
+                <NewDocument />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/documents/:docId"
+            element={
+              <RequireAuth>
+                <NewDocumentInterview />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/archive"
+            element={
+              <RequireAuth>
+                <Archive />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/archive/:docId"
+            element={
+              <RequireAuth>
+                <DocumentDetailPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/catalog"
+            element={
+              <RequireAuth>
+                <Catalog />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/templates"
+            element={
+              <RequireAuth>
+                <Templates />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <RequireAuth>
+                <Settings />
+              </RequireAuth>
+            }
+          />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
+  );
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -124,110 +217,14 @@ createRoot(document.getElementById("root")!).render(
       <ToolbarErrorBoundary>
         <VlyToolbar />
       </ToolbarErrorBoundary>
-      <ConvexAuthProvider client={convex}>
-        <BrowserRouter>
-          <RouteSyncer />
-          <Suspense fallback={<RouteLoading />}>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route
-                path="/auth"
-                element={<AuthPage redirectAfterAuth="/dashboard" />}
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <RequireAuth>
-                    <Dashboard />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/new"
-                element={
-                  <RequireAuth>
-                    <NewDocument />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/documents/:docId"
-                element={
-                  <RequireAuth>
-                    <NewDocumentInterview />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/archive"
-                element={
-                  <RequireAuth>
-                    <Archive />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/archive/:docId"
-                element={
-                  <RequireAuth>
-                    <DocumentDetailPage />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/catalog"
-                element={
-                  <RequireAuth>
-                    <Catalog />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/schedule"
-                element={
-                  <RequireAuth>
-                    <Schedule />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/board"
-                element={
-                  <RequireAuth>
-                    <TeamBoard />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/templates"
-                element={
-                  <RequireAuth>
-                    <Templates />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <RequireAuth>
-                    <Settings />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <RequireAuth>
-                    <Admin />
-                  </RequireAuth>
-                }
-              />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-        <Toaster />
-      </ConvexAuthProvider>
+      {convex ? (
+        <ConvexAuthProvider client={convex}>
+          <App />
+        </ConvexAuthProvider>
+      ) : (
+        <App />
+      )}
+      <Toaster />
     </RootErrorBoundary>
   </StrictMode>,
 );

@@ -1,57 +1,72 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, Loader2, Trash2 } from "lucide-react";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 
 /**
- * Photo picker for a person — the value stored in the form is the Convex
- * STORAGE ID, never the image bytes. Keeping the draft small is what lets
- * the notary paste ten photos into one agreement without the saved record
- * blowing past the server's size limit.
+ * Photo picker for a person — §36: a photograph is its OWN entity, attached
+ * to a person, never to a "seller slot" and never counted against anyone.
  *
- * It lives in its own component on purpose: the upload needs Convex's
- * `useMutation`, and FieldRenderer is rendered in isolation (server-side
- * tests, the review screen). Only a field explicitly typed "photo" ever
- * mounts this — every existing field of every other document type takes the
- * untouched input branch, so nothing else depends on a Convex provider.
+ * §3/§54 — the image never leaves this machine. The value stored in the form
+ * is a `data:` URL, so the photograph is kept inside the draft, travels in
+ * the backup, and is embedded in the generated DOCX and PDF without a single
+ * byte being uploaded anywhere. The old path fetched an upload URL from a
+ * server and POSTed the file to it; that path is gone.
  *
- * The image itself is fetched and placed into the .docx by the generation
- * step (Phase 2); here we only collect and store it.
+ * It stays in its own component because FieldRenderer is rendered in
+ * isolation (server-side tests, the review screen): only a field explicitly
+ * typed "photo" ever mounts this, so nothing else gains a dependency on it.
  */
+
+/** How large a stored photograph may be, in bytes. */
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+
+async function readAsDataUrl(file: File): Promise<string> {
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Sawirka lama akhrin karo."));
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function PhotoField({
   value,
   disabled,
   error,
   onChange,
 }: {
-  /** Convex storage id of the uploaded photo, or "" when none. */
+  /** The stored `data:` URL of the photograph, or "" when there is none. */
   value: string;
   disabled?: boolean;
   error?: string;
-  onChange: (storageId: string) => void;
+  onChange: (dataUrl: string) => void;
 }) {
-  const getUploadUrl = useMutation(api.notaryDocuments.generateUploadUrl);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
-  const upload = async (file: File) => {
-    setBusy(true);
+  /**
+   * §43 — a failure the notary can act on. A photo over the size limit says
+   * so in plain words; it never shows a technical error and never fails
+   * silently.
+   */
+  const pick = async (file: File) => {
     setUploadError("");
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Faylka ma aha sawir. Dooro sawir.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setUploadError(
+        "Sawirku waa weyn (4 MB ka badan). Dooro sawir yar oo la qaadi karo.",
+      );
+      return;
+    }
+    setBusy(true);
     try {
-      const url = await getUploadUrl({});
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      });
-      if (!res.ok) throw new Error("Sawirka lama soo roobin.");
-      const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
-      onChange(storageId);
+      onChange(await readAsDataUrl(file));
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Sawirka lama soo roobin.");
+      setUploadError(err instanceof Error ? err.message : "Sawirka lama akhrin karo.");
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -59,7 +74,7 @@ export function PhotoField({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-photo-field="">
       <input
         ref={inputRef}
         type="file"
@@ -69,14 +84,22 @@ export function PhotoField({
         disabled={disabled || busy}
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) void upload(file);
+          if (file) void pick(file);
         }}
       />
 
       {value ? (
         <div className="neu-inset-sm flex items-center justify-between gap-3 px-3 py-2">
-          <span className="truncate text-sm text-muted-foreground">
-            Sawir waa la soo roobay
+          {/* The notary sees the picture they chose, not just a status line. */}
+          <span className="flex min-w-0 items-center gap-2">
+            <img
+              src={value}
+              alt="Sawirka la beddelay"
+              className="size-9 shrink-0 rounded object-cover"
+            />
+            <span className="truncate text-sm text-muted-foreground">
+              Sawir waa la beddelay
+            </span>
           </span>
           <div className="flex shrink-0 items-center gap-1">
             <Button
@@ -114,7 +137,7 @@ export function PhotoField({
           {busy ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Waa la soo roobaa…
+              Waa la akhrinayaa…
             </>
           ) : (
             <>

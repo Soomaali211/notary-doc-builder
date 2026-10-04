@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { AppShell } from "@/components/notary/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +12,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { documentConfigs, getConfig, getSubTypeLabel } from "@/lib/notary/documents";
+import { useLocalAgreements } from "@/lib/notary/localHooks";
+import {
+  agreementNames,
+  agreementProperty,
+  agreementSides,
+  searchHaystack,
+} from "@/lib/notary/localRepository";
 import { DOCUMENT_STATUSES, documentStatusLabel } from "@/lib/notary/documentStatus";
 import { Search, FileText, FolderOpen, CalendarRange } from "lucide-react";
 
@@ -23,7 +28,11 @@ import { Search, FileText, FolderOpen, CalendarRange } from "lucide-react";
  * document type and status.
  */
 export default function Archive() {
-  const documents = useQuery(api.notaryDocuments.listMyDocuments);
+  /**
+   * §3/§39 — the archive is a LOCAL table. The search below runs on this
+   * machine, so it answers with the network off and cannot fail because of it.
+   */
+  const { documents, loading } = useLocalAgreements();
   const navigate = useNavigate();
   // §3 Home links straight into a filtered archive (?q=… / ?status=…).
   const [params] = useSearchParams();
@@ -43,30 +52,19 @@ export default function Archive() {
   }, [params]);
 
   const filtered = useMemo(() => {
-    if (!documents) return [];
     const query = q.trim().toLowerCase();
     const fromTs = fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : null;
     const toTs = toDate ? new Date(`${toDate}T23:59:59.999`).getTime() : null;
     return documents.filter((d) => {
       if (typeFilter !== "all" && d.documentType !== typeFilter) return false;
       if (statusFilter !== "all" && d.status !== statusFilter) return false;
-      if (fromTs !== null && d.createdAt < fromTs) return false;
-      if (toTs !== null && d.createdAt > toTs) return false;
+      if (fromTs !== null && (d.createdAt ?? 0) < fromTs) return false;
+      if (toTs !== null && (d.createdAt ?? 0) > toTs) return false;
       if (!query) return true;
-      // §42/§43 — reference, type, date, seller/buyer name AND the property
-      // answers. The property lives in the answers blob, so the search reads
-      // it too: searching a plot number finds the sale it belongs to.
-      const haystack = [
-        d.referenceNumber,
-        d.subTypeLabel,
-        d.documentTypeTitle,
-        d.fileBaseName,
-        ...d.parties.map((p) => `${p.name} ${p.phone ?? ""} ${p.idNumber ?? ""}`),
-        d.valuesJson,
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(query);
+      // §39 — reference, name, document type, property, date, buyer, seller.
+      // The haystack is built from the stored row, so an edited draft is
+      // searched as it stands now, never as it stood when the index was made.
+      return searchHaystack(d).includes(query);
     });
   }, [documents, q, typeFilter, statusFilter, fromDate, toDate]);
 
@@ -152,13 +150,13 @@ export default function Archive() {
 
       {/* List */}
       <div className="mt-6 space-y-3">
-        {!documents && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {documents && filtered.length === 0 && (
+        {loading && <p className="text-sm text-muted-foreground">Waa la soo rarayaa…</p>}
+        {!loading && filtered.length === 0 && (
           <div className="notebook-page paper-grain rounded-md p-10 text-center" data-empty="archive">
             <FolderOpen className="mx-auto size-8 text-muted-foreground" />
             {/* §71 — an empty archive and a filtered-to-nothing archive are
                 different situations and must not say the same thing. */}
-            {(documents ?? []).length === 0 ? (
+            {documents.length === 0 ? (
               <>
                 <p className="mt-3 font-medium">Ma jiraan documents.</p>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -182,8 +180,8 @@ export default function Archive() {
           const cfg = getConfig(d.documentType);
           return (
             <Link
-              key={d._id}
-              to={`/archive/${d._id}`}
+              key={d.id}
+              to={`/archive/${d.id}`}
               className="notebook-page paper-grain block rounded-md p-4 transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
               <div className="flex flex-wrap items-center gap-3">
@@ -205,12 +203,14 @@ export default function Archive() {
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {getSubTypeLabel(cfg, d.subType)} ·{" "}
-                    {d.parties.slice(0, 3).map((p) => p.name).join(", ")}
-                    {d.parties.length > 3 ? ` +${d.parties.length - 3}` : ""}
+                    {agreementNames(d).slice(0, 3).join(", ")}
+                    {agreementNames(d).length > 3
+                      ? ` +${agreementNames(d).length - 3}`
+                      : ""}
                   </p>
                 </div>
                 <span className="notebook-annotation text-xs text-muted-foreground">
-                  {new Date(d.createdAt).toLocaleDateString("en-GB", {
+                  {new Date(d.createdAt ?? 0).toLocaleDateString("en-GB", {
                     day: "numeric",
                     month: "short",
                     year: "numeric",

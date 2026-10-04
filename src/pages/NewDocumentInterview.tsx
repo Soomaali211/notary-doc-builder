@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
@@ -57,14 +54,34 @@ import {
 import { validateDocument } from "@/lib/notary/validation";
 import { getVisibleFields } from "@/lib/notary/engine";
 import { getAnswer } from "@/lib/notary/engine";
-import { buildFileBaseName, uniqueBaseName } from "@/lib/notary/archiver";
+import { buildFileBaseName, sanitizeFileName, uniqueBaseName } from "@/lib/notary/archiver";
 import { generateDocument } from "@/lib/notary/pipeline";
 import {
   effectiveUserTemplate,
-  fetchTemplateBytes,
   toTemplateSpec,
   type UserTemplateRecord,
 } from "@/lib/notary/userTemplate";
+import { useLocalAgreement } from "@/lib/notary/localHooks";
+import {
+  allocateSerial,
+  putGeneratedFile,
+  saveAgreement,
+  setupDateAnswer,
+} from "@/lib/notary/localRepository";
+import { useLocalAgreements } from "@/lib/notary/localHooks";
+import {
+  asUserTemplateRecord,
+  listTemplatesLocal,
+  templateBytesLocal,
+  type LocalTemplateRow,
+} from "@/lib/notary/localTemplates";
+import { documentToPdf } from "@/lib/notary/pdfRenderer";
+import {
+  buildUniversalDocument,
+  downloadBlob,
+  printDocument,
+} from "@/lib/notary/documentExport";
+import { DocumentActionBar } from "@/components/notary/DocumentActionBar";
 import { deserializeDraft } from "@/lib/notary/engine";
 import { makeGetter } from "@/lib/notary/conditions";
 import { getPartyRows, getRepresentatives, personChoices, stripSkipMarkers } from "@/lib/notary/formValues";
@@ -495,15 +512,26 @@ export function SectionStep({
 export default function NewDocumentInterview() {
   const { docId } = useParams<{ docId: string }>();
   const navigate = useNavigate();
-  const document = useQuery(api.notaryDocuments.getDocument, {
-    documentId: docId as Id<"notary_documents">,
-  });
+  /**
+   * §3 — the document is read from THIS machine, not from a server. There is
+   * no loading spinner and no failed request to retry: the row is either in
+   * the local database or it is not, and both answers arrive immediately.
+   */
+  const { document } = useLocalAgreement(docId);
+  const { documents: allLocalDocuments } = useLocalAgreements();
 
   const [values, setValues] = useState<FormValues | null>(null);
   const [step, setStep] = useState(0);
   const [stepErrors, setStepErrors] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  /**
+   * §29 — "Review & Confirm". The notary states that this is the document
+   * they approve; nothing is final until they have. It is a statement, not a
+   * download, and it is remembered for this session so the bar says so
+   * instead of asking again.
+   */
+  const [confirmed, setConfirmed] = useState(false);
   /** #15 — pending Step 1 change that hides a section holding entered data. */
   const [hiddenDataChoice, setHiddenDataChoice] = useState<null | {
     sectionId: string;
@@ -598,60 +626,79 @@ export default function NewDocumentInterview() {
     }
   }, [config, document]);
 
-  const saveDraft = useMutation(api.notaryDocuments.saveDraft);
-
   // Reference allocation — documents that declare a `referenceFormat`.
   // Kala Iibsi Dhul Banaan prints "Ref/Dpn/MG/001/01/26", and the user must
   // never type it: the notary_counters table hands out a strictly sequential
   // serial (never reused, never random) once per draft. Heshiis Kiro
   // declares no referenceFormat, keeps its own reference field, and this
   // effect never runs for it.
-  const nextReference = useMutation(api.notaryDocuments.nextReference);
+  /**
+   * The reference is allocated from the office's own HIGH-WATER MARK, kept in
+   * the local database. It is never a server counter and never a random
+   * number, and it is never handed out twice: deleting a draft does not make
+   * the next reference repeat one that is already on a signed page.
+   */
   const allocatedReferenceRef = useRef(false);
   useEffect(() => {
     if (!config?.referenceFormat || !values || allocatedReferenceRef.current) return;
     if (referenceAnswer(config, values).trim()) return;
     allocatedReferenceRef.current = true;
-    nextReference({ prefix: config.referencePrefix })
-      .then((reference) =>
-        setValues((v) => (v ? setAnswer(v, setupSectionId(config), "reference", reference) : v)),
-      )
+    allocateSerial(allLocalDocuments, config.id, subTypeAnswer(config, values) ?? "")
+      .then((serial) => {
+        // The office's stored reference is the SHORT serial ("DPN-MG-001");
+        // the long printed form ("Ref/Dpn/MG/001/01/26") is composed from it
+        // at export time, from the document's own date.
+        const reference = `${config.referencePrefix}-${String(serial).padStart(3, "0")}`;
+        setValues((v) => (v ? setAnswer(v, setupSectionId(config), "reference", reference) : v));
+      })
       .catch(() => {
-        // Keep the draft usable — the user can still type nothing and the
-        // Generate step reports a missing reference instead of inventing one.
+        // Keep the draft usable — the Generate step reports a missing
+        // reference instead of inventing one.
         allocatedReferenceRef.current = false;
       });
-  }, [config, values, nextReference]);
+  }, [config, values, allLocalDocuments]);
 
+  /**
+   * Autosave / Save Draft — one local write.
+   *
+   * §30 — the draft keeps the document type, the sub-type, EVERY form value
+   * and the current state, so reopening it restores exactly what was typed.
+   * §31 — a blank count stays blank and a count of ten comes back as ten,
+   * because the values are stored as the strings the notary entered.
+   */
   const persist = useCallback(
     (next: FormValues) => {
       if (!config || !document) return;
       const json = serializeDraft(next);
       if (json === lastSavedJsonRef.current) return;
-      saveDraft({
-        documentId: document._id,
-        payload: {
-          documentType: config.id,
-          documentTypeTitle: config.title,
-          subType: subTypeAnswer(config, next) || document.subType,
-          subTypeLabel: getSubTypeLabel(
-            config,
-            subTypeAnswer(config, next) || document.subType,
-          ),
-          referenceNumber: document.referenceNumber,
-          fileBaseName:
-            document.fileBaseName ||
-            buildFileBaseName(config, document.referenceNumber || "DPN-K-000"),
-          parties: getPartySummary(config, next),
-          valuesJson: json,
-        },
+      const subType = subTypeAnswer(config, next) || document.subType;
+      const referenceNumber =
+        referenceAnswer(config, next).trim() || document.referenceNumber || "";
+      saveAgreement({
+        id: document.id,
+        documentType: config.id,
+        documentTypeTitle: config.title,
+        subType,
+        subTypeLabel: getSubTypeLabel(config, subType),
+        referenceNumber,
+        agreementDate: setupDateAnswer(config, next),
+        status: document.status === "draft" ? "draft" : document.status,
+        valuesJson: json,
+        fileBaseName:
+          document.fileBaseName ||
+          buildFileBaseName(config, referenceNumber || "DPN-K-000"),
       })
         .then(() => {
           lastSavedJsonRef.current = json;
         })
-        .catch(() => undefined);
+        .catch((err: unknown) => {
+          // Autosave failing must never lose what the notary typed, and it
+          // must never show a raw technical message.
+          console.error("[localStore] draft save failed:", err);
+          toast.error("Draft-ku ma kaydin karo — isku day mar kale.");
+        });
     },
-    [config, document, saveDraft],
+    [config, document],
   );
 
   // Autosave (debounced) — skips unchanged payloads to avoid loops.
@@ -669,8 +716,6 @@ export default function NewDocumentInterview() {
     }
   }, [values]);
 
-  const generateUploadUrl = useMutation(api.notaryDocuments.generateUploadUrl);
-  const commitGenerated = useMutation(api.notaryDocuments.commitGenerated);
 
   /* -------------------------------------------------------------- */
   /* Phase Document Generation — user template + generation state    */
@@ -678,9 +723,29 @@ export default function NewDocumentInterview() {
 
   // The user's OWN Word templates (Template Manager). Empty selection →
   // the registry sample template is used.
-  const myTemplates = useQuery(
-    api.notaryTemplates.listMyTemplates,
-    document ? { documentType: document.documentType } : "skip",
+  /**
+   * The office's OWN Word templates, read from this machine.
+   *
+   * §3 — the bytes live in the local database, so there is no URL to fetch
+   * and nothing that can fail when the network is off. The selection rules
+   * are unchanged: an explicit choice wins, then the default, then the newest
+   * upload; the registry sample is the fallback only when the office has
+   * uploaded nothing.
+   */
+  const [localTemplateRows, setLocalTemplateRows] = useState<LocalTemplateRow[]>([]);
+  useEffect(() => {
+    if (!document) return;
+    let cancelled = false;
+    listTemplatesLocal(document.documentType).then((rows) => {
+      if (!cancelled) setLocalTemplateRows(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [document]);
+  const myTemplates = useMemo(
+    () => localTemplateRows.map(asUserTemplateRecord),
+    [localTemplateRows],
   );
   const [pickedTemplateId, setPickedTemplateId] = useState<string>(FOLLOW_MY_TEMPLATE);
   /**
@@ -703,13 +768,30 @@ export default function NewDocumentInterview() {
     [myTemplates, pickedTemplateId],
   );
   const selectedTemplateId = selectedTemplate?._id ?? "";
-  const templateUrl = useQuery(
-    api.notaryTemplates.getTemplateUrl,
-    selectedTemplate ? { templateId: selectedTemplate._id as Id<"notary_templates"> } : "skip",
-  );
+  /** The bytes, read from the local database. `null` = use the registry sample. */
+  const [localTemplateBytes, setLocalTemplateBytes] = useState<ArrayBuffer | null>(null);
+  useEffect(() => {
+    if (!selectedTemplate) {
+      setLocalTemplateBytes(null);
+      return;
+    }
+    let cancelled = false;
+    templateBytesLocal(selectedTemplate._id)
+      .then((bytes) => {
+        if (!cancelled) setLocalTemplateBytes(bytes);
+      })
+      .catch((err: unknown) => {
+        console.error("[localStore] template bytes could not be read:", err);
+        if (!cancelled) setLocalTemplateBytes(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTemplate]);
+  const templateUrl = localTemplateBytes ? "local" : null;
   /** Their template exists but its bytes have not arrived yet: WAIT, never
       fall back to the sample — a preview of the wrong file is worse. */
-  const templatePending = !!selectedTemplate && !templateUrl;
+  const templatePending = !!selectedTemplate && !localTemplateBytes;
   const selectedTemplateSpec = useMemo(
     () => (selectedTemplate ? toTemplateSpec(selectedTemplate) : undefined),
     [selectedTemplate],
@@ -988,6 +1070,138 @@ export default function NewDocumentInterview() {
     }, 400);
   };
 
+  /* -------------------------------------------------------------- */
+  /* §52 — the final document actions                                */
+  /* -------------------------------------------------------------- */
+
+  /**
+   * Everything the outputs need, resolved ONCE: the same template, the same
+   * values and the same reference the DOCX would be built from. §27 depends
+   * on this — the PDF is not a second document, it is the SAME model.
+   */
+  const resolveForOutput = async () => {
+    if (!config || !values || !document) throw new Error("Dokumeentigu ma diyaar yahir.");
+    const subType = subTypeAnswer(config, values) || document.subType;
+    const referenceNumber =
+      (referenceAnswer(config, values) || document.referenceNumber || "").trim();
+    let userBytes: ArrayBuffer | undefined;
+    let userSpec;
+    if (selectedTemplate) {
+      if (templatePending) {
+        throw new Error("Template-kaaga weli waa la soo rarayaa — isku day mar kale.");
+      }
+      userBytes = localTemplateBytes ?? undefined;
+      userSpec = selectedTemplateSpec;
+    }
+    // §27 — ONE model, three surfaces. `buildUniversalDocument` resolves the
+    // template exactly as Live Review and the DOCX do, so the PDF can never
+    // come from a different layout than the document the notary approved.
+    const { model } = await buildUniversalDocument({
+      config,
+      values: stripSkipMarkers(config, values),
+      referenceNumber,
+      subTypeLabel: getSubTypeLabel(config, subType),
+      templateBytes: userBytes,
+      spec: userSpec,
+    });
+    return { model, referenceNumber, subType, subTypeLabel: getSubTypeLabel(config, subType) };
+  };
+
+  /**
+   * "Soo Saar PDF" — the operating system's own print workflow (§25/§28).
+   *
+   * This is the fast, exact route: the browser prints the very review pane
+   * the notary has been looking at, photographs and all, and the user picks
+   * "Save as PDF". Nothing is re-rendered by this app, so there is no second
+   * layout that could disagree with the page on screen.
+   */
+  const handlePrintPdf = () => {
+    const ok = printDocument();
+    if (!ok) {
+      toast.error(
+        "Daabacaadda ma shaqayn karo. Isticmaal \"PDF dhaqaaq ah\" — wuxuu file si toos ah u sameeyaa.",
+      );
+    }
+  };
+
+  /**
+   * "PDF dhaqaaq ah" — the local generator's own file (§27).
+   *
+   * The PDF is written from the SAME model the DOCX is generated from, on
+   * this machine, with no network. The file is also stored beside the
+   * agreement so the archive can hand it back without generating it again.
+   */
+  const handleLocalPdf = async () => {
+    if (!document || !values) return;
+    setGenerating(true);
+    setGenerationError(null);
+    try {
+      const { model, referenceNumber } = await resolveForOutput();
+      const out = documentToPdf(model);
+      const fileName = `${sanitizeFileName(referenceNumber || document.referenceNumber || document.id)}.pdf`;
+      downloadBlob(out.blob, fileName);
+      await putGeneratedFile(document.id, out.blob, fileName, "pdf");
+      await saveAgreement({
+        id: document.id,
+        documentType: document.documentType,
+        documentTypeTitle: document.documentTypeTitle,
+        subType: document.subType,
+        subTypeLabel: document.subTypeLabel,
+        referenceNumber,
+        status: document.status === "draft" ? "draft" : document.status,
+        valuesJson: serializeDraft(values),
+        outputPdfPath: fileName,
+        fileName,
+      });
+      for (const warning of out.warnings) console.warn("[pdf]", warning);
+      if (out.warnings.length > 0) {
+        toast.message("PDF dhaqaaq ah waa la soo saaray", {
+          description: out.warnings.join(" "),
+        });
+      } else {
+        toast.success("PDF dhaqaaq ah waa la soo saaray!");
+      }
+    } catch (err) {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : "";
+      setGenerationError(
+        msg || "PDF-ku lama sameeyn karin — xogtaada way kaydsan tahay. Isku day mar kale.",
+      );
+      toast.error(
+        msg || "PDF-ku lama sameeyn karin — xogtaada way kaydsan tahay. Isku day mar kale.",
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  /** §29 — the notary states the document is approved. */
+  const handleConfirm = () => {
+    if (missingRequired.length > 0) {
+      toast.error("Xog muhiim ah oo dhab ahaan looga baahan yahay weli ma qabsoomaa.");
+      return;
+    }
+    setConfirmed(true);
+    toast.success("Dukumeentiga waa la xaqiijiyay. Hadda waad soo saari kartaa.");
+  };
+
+  /**
+   * §52 "Edit" — go back and change an answer.
+   *
+   * It returns to the FIRST step that still holds a gap, and never
+   * discards anything: the form state is untouched, only the cursor moves.
+   */
+  const handleEdit = () => {
+    const firstGapped = missingRequired[0];
+    if (firstGapped && firstGapped.stepIndex >= 0 && firstGapped.stepIndex < steps.length) {
+      setStep(firstGapped.stepIndex);
+      setStepErrors(true);
+    } else {
+      setStep(Math.max(0, steps.length - 1));
+    }
+    toast.message("Wax ka beddel — waxaa dib ugu laabacay tallaabada hore.");
+  };
+
   /** Validation check for the CURRENT step only (inline, per-step). */
   const currentStepHasErrors = (): boolean => {
     if (!values || !config || !currentStep) return false;
@@ -1243,17 +1457,17 @@ export default function NewDocumentInterview() {
       const subType = subTypeAnswer(config, values) || document.subType;
       const subTypeLabel = getSubTypeLabel(config, subType);
 
-      // Phase Document Generation — the USER'S OWN template wins. Its bytes
-      // are fetched from file storage; the pipeline validates the
+      // The office's OWN template wins. Its bytes were read from the LOCAL
+      // database when the selection changed; the pipeline validates the
       // placeholders against the FINAL FORM STATE and fills them without
       // touching the user's design. No user template → registry template.
       let userBytes: ArrayBuffer | undefined;
       let userSpec;
       if (selectedTemplate) {
-        if (!templateUrl) {
+        if (templatePending) {
           throw new Error("Template-kaaga weli waa la soo rarayaa — isku day mar kale.");
         }
-        userBytes = await fetchTemplateBytes(templateUrl);
+        userBytes = localTemplateBytes ?? undefined;
         userSpec = selectedTemplateSpec;
       }
 
@@ -1282,36 +1496,28 @@ export default function NewDocumentInterview() {
       a.remove();
       URL.revokeObjectURL(a.href);
 
-      const uploadUrl = await generateUploadUrl({});
-      const uploadRes = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": DOCX_MIME },
-        body: out.result.blob,
+      // §40 — the generated file is recorded WITH the agreement, on this
+      // machine. The DOCX bytes are kept in the local database as well, so
+      // the archive can hand the file back later without regenerating it and
+      // without a download URL that would need a server.
+      await saveAgreement({
+        id: document.id,
+        documentType: config.id,
+        documentTypeTitle: config.title,
+        subType,
+        subTypeLabel,
+        referenceNumber,
+        agreementDate: setupDateAnswer(config, values),
+        status: "generated",
+        valuesJson: serializeDraft(values),
+        fileBaseName: out.result.fileName.replace(/\.docx$/, ""),
+        outputDocxPath: out.result.outputDocxPath,
+        outputPdfPath: out.result.outputPdfPath,
+        fileName: out.result.fileName,
+        templateId: out.result.templateId,
+        templateName: selectedTemplate?.name,
       });
-      if (!uploadRes.ok) throw new Error("Upload failed");
-      const { storageId } = (await uploadRes.json()) as { storageId: Id<"_storage"> };
-
-      await commitGenerated({
-        documentId: document._id,
-        storageId,
-        payload: {
-          documentType: config.id,
-          documentTypeTitle: config.title,
-          subType,
-          subTypeLabel,
-          referenceNumber,
-          fileBaseName: out.result.fileName.replace(/\.docx$/, ""),
-          parties: getPartySummary(config, stripSkipMarkers(config, values)),
-          valuesJson: serializeDraft(values),
-        },
-        metadata: {
-          templateId: out.result.templateId,
-          templateVersion: out.result.templateVersion,
-          outputDocxPath: out.result.outputDocxPath,
-          outputPdfPath: out.result.outputPdfPath,
-          fileName: out.result.fileName,
-        },
-      });
+      await putGeneratedFile(document.id, out.result.blob, out.result.fileName);
 
       if (out.warnings.length > 0) {
         toast.message("Dukumeentiga DOCX waa la sameeyay", {
@@ -1320,7 +1526,8 @@ export default function NewDocumentInterview() {
       } else {
         toast.success("Dukumeentiga waa la sameeyay oo la kaydiyay!");
       }
-      navigate(`/archive/${document._id}`);
+      setConfirmed(true);
+      navigate(`/archive/${document.id}`);
     } catch (err) {
       console.error(err);
       const msg = err instanceof Error ? err.message : "";
@@ -1360,7 +1567,7 @@ export default function NewDocumentInterview() {
         if (!templateUrl) {
           throw new Error("Template-kaaga weli waa la soo rarayaa — isku day mar kale.");
         }
-        userBytes = await fetchTemplateBytes(templateUrl);
+        userBytes = localTemplateBytes ?? undefined;
         userSpec = selectedTemplateSpec;
       }
       const out = await generateDocument({
@@ -2152,48 +2359,52 @@ export default function NewDocumentInterview() {
               </>
             )}
 
-            {/* Sticky navigation — floating soft bar */}
-            <div className="neu-raised-sm sticky bottom-4 mt-8 flex items-center justify-between gap-2 px-4 py-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStep((s) => Math.max(0, s - 1))}
-                disabled={step === 0 || generating}
-                className="gap-2"
-              >
-                <ArrowLeft className="size-4" /> Dib
-              </Button>
-              <span className="notebook-annotation text-xs text-muted-foreground">
-                {step + 1}/{totalSteps}
-              </span>
-              {isReview ? (
+            {/* Sticky navigation — the §52 action bar. Every step carries
+                it; on the review step it becomes the full bar (Save Draft,
+                Edit, Confirm, DOCX, both PDFs, Home). */}
+            {isReview ? (
+              <DocumentActionBar
+                onBack={() => setStep((s) => Math.max(0, s - 1))}
+                canGoBack={step > 0}
+                onSaveDraft={handleSaveDraft}
+                onEdit={handleEdit}
+                onConfirm={handleConfirm}
+                onGenerateDocx={tryContinue}
+                onPrintPdf={handlePrintPdf}
+                onLocalPdf={() => void handleLocalPdf()}
+                onHome={() => requestLeave(HOME_ROUTE)}
+                position={`${step + 1}/${totalSteps}`}
+                busy={generating}
+                saving={saving}
+                confirmed={confirmed}
+                blockedReason={
+                  missingRequired.length > 0
+                    ? `Xog muhiim ah weli lama buuxin — eeg liiska xogta maqan (${
+                        missingRequired.length
+                      }).`
+                    : undefined
+                }
+              />
+            ) : (
+              <div className="neu-raised-sm sticky bottom-4 mt-8 flex items-center justify-between gap-2 px-4 py-3">
                 <Button
                   type="button"
-                  onClick={tryContinue}
-                  disabled={generating || missingRequired.length > 0}
-                  className="glow-primary-sm gap-2"
-                  title={
-                    missingRequired.length > 0
-                      ? "Xog muhiim ah weli lama buuxin — eeg liiska xogta maqan."
-                      : undefined
-                  }
+                  variant="outline"
+                  onClick={() => setStep((s) => Math.max(0, s - 1))}
+                  disabled={step === 0 || generating}
+                  className="gap-2"
+                  data-action="back"
                 >
-                  {generating ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" /> La abuurayo…
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="size-4" /> Abuur Dukumeenti
-                    </>
-                  )}
+                  <ArrowLeft className="size-4" /> Dib
                 </Button>
-              ) : (
-                <Button type="button" onClick={tryContinue} className="glow-primary-sm gap-2">
+                <span className="notebook-annotation text-xs text-muted-foreground tabular-nums">
+                  {step + 1}/{totalSteps}
+                </span>
+                <Button type="button" onClick={tryContinue} className="glow-primary-sm gap-2" data-action="next">
                   Sii wad <ArrowRight className="size-4" />
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </section>
 
           {/* Universal Live Document Review — same data, same template, same

@@ -39,12 +39,12 @@ import { HantiReviewSummary } from "../src/pages/NewDocumentInterview";
  * from the order the notary reads aloud, THIS list fails.
  */
 const SECTION_ORDER_PROBE = [
-  "Dejinta Heshiiska",
-  "Xogta & Xaaladda Iibiyayaasha",
-  "Xogta & Xaaladda Iibsadayaasha",
-  "Xogta Hantida & Faahfaahinta Hantida",
-  "Qiimaha & Faahfaahinta Lacagta",
-  "Xogta Damiinka & Maragyada",
+  "Dejinta",
+  "Iibiyayaasha",
+  "Iibsadayaasha",
+  "Hantida",
+  "Qiimaha",
+  "Damiin & Maragyo",
 ];
 
 function r(id: string, v: Record<string, string>): PartyRow {

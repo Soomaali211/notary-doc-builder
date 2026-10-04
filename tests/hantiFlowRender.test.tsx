@@ -157,12 +157,12 @@ describe("Hanti — the six steps as the notary walks them", () => {
   test("the flow is exactly six steps, in the order the spec gives", () => {
     expect(steps).toHaveLength(6);
     expect(steps.map((s) => s.short)).toEqual([
-      "Dejinta Heshiiska",
-      "Xogta & Xaaladda Iibiyayaasha",
-      "Xogta & Xaaladda Iibsadayaasha",
-      "Xogta Hantida & Faahfaahinta Hantida",
-      "Qiimaha & Faahfaahinta Lacagta",
-      "Xogta Damiinka & Maragyada",
+      "Dejinta",
+      "Iibiyayaasha",
+      "Iibsadayaasha",
+      "Hantida",
+      "Qiimaha",
+      "Damiin & Maragyo",
     ]);
   });
 
@@ -215,7 +215,8 @@ describe("Hanti — step 2 renders every seller-side section (§3, §6, §25)", 
   const html = renderStep(fullValues, 1);
 
   test("the step title is shown once for the whole step", () => {
-    expect(html).toContain("Xogta &amp; Xaaladda Iibiyayaasha");
+    // §50 — the stepper names this step "Iibiyayaasha".
+    expect(html).toContain(">Iibiyayaasha</p>");
   });
 
   test("both sellers from the step-1 count are rendered", () => {

@@ -744,7 +744,7 @@ requiresWitness: false,
     {
       id: DEJINTA,
       title: "Dejinta Hantida",
-      flowStep: { n: 1, title: "Dejinta Heshiiska" },
+      flowStep: { n: 1, title: "Dejinta" },
       description: "Nooca hantida la iibsaday iyo taariikhda iibka.",
       fields: [
         {
@@ -879,7 +879,7 @@ requiresWitness: false,
     {
       id: "iibiyaha",
       title: "Iibiyaha",
-      flowStep: { n: 2, title: "Xogta & Xaaladda Iibiyayaasha" },
+      flowStep: { n: 2, title: "Iibiyayaasha" },
       description: "Qofka ama dadka hantida iibsanaya.",
       parties: [
         {
@@ -915,7 +915,7 @@ requiresWitness: false,
       // however many roles he holds.
       id: "kooxaha",
       title: "Kooxa / Qoysku Iibiyaha",
-      flowStep: { n: 2, title: "Xogta & Xaaladda Iibiyayaasha" },
+      flowStep: { n: 2, title: "Iibiyayaasha" },
       description:
         "Magaca kooxka ama qoysku — xubnihuna waa iibiyayaasha.",
       parties: [
@@ -948,7 +948,7 @@ requiresWitness: false,
       // none at all. Each row names the PERSON the picture belongs to.
       id: "sawirrada",
       title: "Sawirrada",
-      flowStep: { n: 4, title: "Xogta Hantida & Faahfaahinta Hantida" },
+      flowStep: { n: 4, title: "Hantida" },
       description: "Sawirka qofka — tiradu ma la xiriirin tirada iibiyayaasha.",
       visibleWhen: isGate("sawirro_ma_jiraan"),
       parties: [
@@ -998,7 +998,7 @@ requiresWitness: false,
       // chosen by the notary for that line — never assembled from the name.
       id: "saxeexayaasha",
       title: "Saxeexayaasha",
-      flowStep: { n: 4, title: "Xogta Hantida & Faahfaahinta Hantida" },
+      flowStep: { n: 4, title: "Hantida" },
       description: "Yaa saxeexaya? Kasta hal unug — ma la xiriirin tirada iibiyayaasha.",
       visibleWhen: isGate("saxeexo_ma_jiraan"),
       parties: [
@@ -1044,7 +1044,7 @@ requiresWitness: false,
       id: "shaxadaha",
       // (the buyers section sits below, after the signatories)
       title: "Shaxadaha iyo Warqadaha",
-      flowStep: { n: 4, title: "Xogta Hantida & Faahfaahinta Hantida" },
+      flowStep: { n: 4, title: "Hantida" },
       description: "Beerta, wakiilnimo, tixraac — hal warqad ama badan.",
       visibleWhen: isGate("shaxado_ma_jiraan"),
       parties: [
@@ -1096,7 +1096,7 @@ requiresWitness: false,
       // room, who signs, and only then who is buying.
       id: "iibsadaha",
       title: "Iibsadaha",
-      flowStep: { n: 3, title: "Xogta & Xaaladda Iibsadayaasha" },
+      flowStep: { n: 3, title: "Iibsadayaasha" },
       description: "Qofka ama dadka hantida iibsanaya.",
       parties: [
         {
@@ -1123,7 +1123,7 @@ requiresWitness: false,
     {
       id: HANTIDA_DHUL_BANAAN,
       title: "Faahfaahinta Dhulka",
-      flowStep: { n: 4, title: "Xogta Hantida & Faahfaahinta Hantida" },
+      flowStep: { n: 4, title: "Hantida" },
       description: "Goobta dhulka la iibsanayo iyo caddaynta lahaanshaha.",
       visibleWhen: isHanti("dhul_banaan"),
       fields: [
@@ -1213,7 +1213,7 @@ requiresWitness: false,
       // are untouched, so selecting them still collects their own property data.
       id: "hantida_guri",
       title: "Faahfaahinta Guriga",
-      flowStep: { n: 4, title: "Xogta Hantida & Faahfaahinta Hantida" },
+      flowStep: { n: 4, title: "Hantida" },
       description: "Xuduudaha guriga la iibsanayo.",
       visibleWhen: isHanti("guri"),
       fields: [
@@ -1229,7 +1229,7 @@ requiresWitness: false,
     {
       id: "hantida_beer",
       title: "Faahfaahinta Beeraha",
-      flowStep: { n: 4, title: "Xogta Hantida & Faahfaahinta Hantida" },
+      flowStep: { n: 4, title: "Hantida" },
       description: "Xuduudaha beeraha la iibsanayo.",
       visibleWhen: isHanti("beer"),
       fields: [
@@ -1290,7 +1290,7 @@ requiresWitness: false,
     {
       id: "damiinka",
       title: "Dammaanadda",
-      flowStep: { n: 6, title: "Xogta Damiinka & Maragyada" },
+      flowStep: { n: 6, title: "Damiin & Maragyo" },
       description: "Qofka dammaanadda bixinaya — qof 3aad, ama iibiyaha isagu.",
       // The WHETHER is already answered in Step 1, so it is never asked a
       // second time here. This step only collects what that answer made
@@ -1346,7 +1346,7 @@ requiresWitness: false,
     {
       id: "qiimaha",
       title: "Qiimaha Hantida",
-      flowStep: { n: 5, title: "Qiimaha & Faahfaahinta Lacagta" },
+      flowStep: { n: 5, title: "Qiimaha" },
       description: "Qiimaha guud ee dhulka. Qoraalka waxuu system-ka iska soo saaraa.",
       fields: [
         {
@@ -1411,7 +1411,7 @@ requiresWitness: false,
     {
       id: "maragyada",
       title: "Maragyada",
-      flowStep: { n: 6, title: "Xogta Damiinka & Maragyada" },
+      flowStep: { n: 6, title: "Damiin & Maragyo" },
       description: "W maragyo — dynamic list, ugu yaraan hal.",
       parties: [
         {

@@ -383,7 +383,8 @@ describe("Hanti — property information", () => {
     expect(step4.length).toBeGreaterThanOrEqual(4);
     const titles = new Set(step4.map((s) => s.flowStep!.title));
     expect(titles.size).toBe(1);
-    expect([...titles][0]).toContain("Faahfaahinta Hantida");
+    // §50 — the stepper names this step "Hantida", whatever it contains.
+    expect([...titles][0]).toBe("Hantida");
   });
 });
 

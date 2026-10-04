@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useMutation } from "convex/react";
 import { toast } from "sonner";
-import { api } from "@/convex/_generated/api";
+import { saveAgreement } from "@/lib/notary/localRepository";
 import { AppShell } from "@/components/notary/AppShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,22 +16,32 @@ export default function NewDocument() {
   const [subType, setSubType] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const createDraft = useMutation(api.notaryDocuments.createDraft);
   const config = documentConfigs.find((c) => c.id === typeId) ?? null;
 
+  /**
+   * §3 — the draft is created in the LOCAL database. There is no account to
+   * sign into and no server to wait for, so the interview opens the moment
+   * the row exists.
+   */
   const start = async () => {
     if (!config || !subType) return;
     setCreating(true);
     try {
       const sub = config.subTypes.find((s) => s.value === subType);
-      const id = await createDraft({
+      const created = await saveAgreement({
         documentType: config.id,
         documentTypeTitle: config.title,
         subType: sub!.value,
         subTypeLabel: sub!.label,
+        // The reference is allocated once the interview knows the document's
+        // date; until then the draft simply has none.
+        referenceNumber: "",
+        status: "draft",
+        valuesJson: "{}",
       });
-      navigate(`/documents/${id}`);
-    } catch {
+      navigate(`/documents/${created.id}`);
+    } catch (err) {
+      console.error("[localStore] draft could not be created:", err);
       toast.error("Lama abuuri karin draft — fadlan isku day mar kale.");
       setCreating(false);
     }

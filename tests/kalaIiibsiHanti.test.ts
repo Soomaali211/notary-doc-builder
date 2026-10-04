@@ -134,12 +134,12 @@ describe("B — form flow", () => {
     // sold, what it costs — and only then the evidence that goes on the
     // paper (photographs, signatures, witnesses, certificates).
     expect(steps.map((s) => s.short)).toEqual([
-      "Dejinta Heshiiska",
-      "Xogta & Xaaladda Iibiyayaasha",
-      "Xogta & Xaaladda Iibsadayaasha",
-      "Xogta Hantida & Faahfaahinta Hantida",
-      "Qiimaha & Faahfaahinta Lacagta",
-      "Xogta Damiinka & Maragyada",
+      "Dejinta",
+      "Iibiyayaasha",
+      "Iibsadayaasha",
+      "Hantida",
+      "Qiimaha",
+      "Damiin & Maragyo",
     ]);
   });
 
@@ -186,12 +186,12 @@ describe("B — form flow", () => {
     } as FormValues);
     // Still exactly six steps — the gated lists simply are not inside them.
     expect(steps.map((s) => s.short)).toEqual([
-      "Dejinta Heshiiska",
-      "Xogta & Xaaladda Iibiyayaasha",
-      "Xogta & Xaaladda Iibsadayaasha",
-      "Xogta Hantida & Faahfaahinta Hantida",
-      "Qiimaha & Faahfaahinta Lacagta",
-      "Xogta Damiinka & Maragyada",
+      "Dejinta",
+      "Iibiyayaasha",
+      "Iibsadayaasha",
+      "Hantida",
+      "Qiimaha",
+      "Damiin & Maragyo",
     ]);
     // Step 2 carries the sellers and their family, and no representative.
     const step2 = steps[1].detail as { kind: "section"; sectionIds: string[] };
@@ -321,7 +321,7 @@ describe("B — form flow", () => {
       } as FormValues)[3];
       return s.detail.kind === "section" ? s.detail.sectionIds : [];
     };
-    expect(forSub("guri")).toContain("Xogta Hantida & Faahfaahinta Hantida");
+    expect(forSub("guri")).toContain("Hantida");
     expect(step4("guri")).toEqual(["hantida_guri"]);
     expect(step4("dhul_banaan")).toEqual(["hantida_dhul_banaan"]);
     expect(step4("beer")).toEqual(["hantida_beer"]);
@@ -633,7 +633,7 @@ describe("E — dammaanadda (the decision is made in Step 1)", () => {
     const q = setup.fields.find((f) => f.id === "nooca_damiinta")!;
     expect(q.options?.map((o) => o.value)).toEqual(["qof_3aad", "iibiyaha"]);
     // Asked here…
-    expect(setup.flowStep).toEqual({ n: 1, title: "Dejinta Heshiiska" });
+    expect(setup.flowStep).toEqual({ n: 1, title: "Dejinta" });
     // …and NEVER again in the guarantor step.
     const dam = C.sections.find((s) => s.id === "damiinka")!;
     expect(dam.fields.map((f) => f.id)).not.toContain("nooca_damiinta");

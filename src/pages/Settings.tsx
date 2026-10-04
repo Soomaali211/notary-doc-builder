@@ -30,74 +30,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Check, Eye, Save } from "lucide-react";
+import { Building2, Check, Eye, Save, WifiOff } from "lucide-react";
+import { BackupRestore } from "@/components/notary/BackupRestore";
+import {
+  readOfflineSettings,
+  writeOfflineSettings,
+  type OfflineSettings,
+} from "@/lib/notary/offlineMode";
+import {
+  EMPTY_SETTINGS,
+  headerLines,
+  readSettings,
+  writeSettings,
+  type OfficeSettings,
+} from "@/lib/notary/settings";
 
-/** Bumped only when the stored shape changes. */
-const STORAGE_KEY = "notary.settings.v1";
-
-export interface OfficeSettings {
-  /** Office name — as the office writes it, never auto-generated. */
-  officeName: string;
-  address: string;
-  phone: string;
-  /** Extra line printed under the phone (e.g. email). */
-  extra: string;
-  /** Date format used on exported file names. */
-  dateFormat: "iso" | "dmy";
-}
-
-/** Every field starts blank: an unverified office detail must stay unset. */
-export const EMPTY_SETTINGS: OfficeSettings = {
-  officeName: "",
-  address: "",
-  phone: "",
-  extra: "",
-  dateFormat: "iso",
+export {
+  EMPTY_SETTINGS,
+  headerLines,
+  readSettings,
+  writeSettings,
+  type OfficeSettings,
 };
-
-/** Read the stored settings, tolerating absent/partial/corrupt storage. */
-export function readSettings(): OfficeSettings {
-  if (typeof localStorage === "undefined") return { ...EMPTY_SETTINGS };
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...EMPTY_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<OfficeSettings> | null;
-    if (!parsed || typeof parsed !== "object") return { ...EMPTY_SETTINGS };
-    return {
-      officeName: String(parsed.officeName ?? ""),
-      address: String(parsed.address ?? ""),
-      phone: String(parsed.phone ?? ""),
-      extra: String(parsed.extra ?? ""),
-      dateFormat: parsed.dateFormat === "dmy" ? "dmy" : "iso",
-    };
-  } catch {
-    return { ...EMPTY_SETTINGS };
-  }
-}
-
-export function writeSettings(value: OfficeSettings): void {
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-  } catch {
-    // Storage full or blocked: the settings simply do not persist. Never
-    // throw into the notary's face over a preference.
-  }
-}
-
-/**
- * The header lines these settings produce — in the order they print, with
- * blank lines dropped so an unfilled field leaves no empty line behind.
- * This is typography only: it invents no wording and adds no label.
- */
-export function headerLines(s: OfficeSettings): string[] {
-  return [s.officeName, s.address, s.phone, s.extra]
-    .map((line) => line.trim())
-    .filter((line) => line !== "");
-}
 
 export default function Settings() {
   const [settings, setSettings] = useState<OfficeSettings>(EMPTY_SETTINGS);
+  const [offline, setOffline] = useState<OfflineSettings>(readOfflineSettings());
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -214,6 +172,55 @@ export default function Settings() {
             </div>
           </div>
         </section>
+      </div>
+
+      {/* §3 — the offline promise, stated where the office can see it. */}
+      <div className="mt-6 grid gap-6">
+        <section
+          className="notebook-page paper-grain rounded-md p-5"
+          data-offline-mode=""
+        >
+          <h2 className="flex items-center gap-2 font-semibold">
+            <WifiOff className="size-4 text-primary" />
+            Offline Mode
+          </h2>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {offline.offline ? (
+              <>
+                <strong className="text-foreground">Waa la shaqeeyaa.</strong> Database-ku,
+                template-yada, search-ka, drafts-ka iyo files-ka waa computer-gaan oo keliya.
+                Internet markii la damiyo, nidaamku wuxuu weli ka shaqeeyaa: Create → Edit →
+                Review → Save → DOCX → PDF → Print → Search.
+              </>
+            ) : (
+              <>
+                <strong className="text-foreground">Waa la damay.</strong> Nidaamku wuxuu
+                hadda isticmaali karaa khadka. Tan iyo dad-ka xogta sidaas ayuu ula wareegayaa
+                (wixii <span className="underline">offline</span>).
+              </>
+            )}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              variant={offline.offline ? "outline" : "default"}
+              onClick={() => {
+                const next = { ...offline, offline: !offline.offline };
+                setOffline(next);
+                writeOfflineSettings(next);
+                toast.success(
+                  next.offline
+                    ? "Offline mode ayaa la furay — nidaamku hadda wuxuu local buuq yahay."
+                    : "Cloud mode ayaa la furay.",
+                );
+              }}
+              data-action="toggle-offline"
+            >
+              {offline.offline ? "Dami" : "Fur"}
+            </Button>
+          </div>
+        </section>
+
+        <BackupRestore />
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">

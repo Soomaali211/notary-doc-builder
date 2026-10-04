@@ -1,8 +1,6 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/notary/AppShell";
@@ -13,6 +11,13 @@ import {
   type TemplateTokenReport,
   type UserTemplateRecord,
 } from "@/lib/notary/userTemplate";
+import {
+  asUserTemplateRecord,
+  listTemplatesLocal,
+  makeDefaultTemplateLocal,
+  retireTemplateLocal,
+  saveTemplateLocal,
+} from "@/lib/notary/localTemplates";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -31,19 +36,24 @@ import {
   buildHeshiisKiroTemplateV2Blob,
 } from "@/lib/notary/templateBuilderV2";
 
-const DOCX_MIME =
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
 export default function Templates() {
   const [docType, setDocType] = useState("heshiis_kiro");
   const config = getConfig(docType);
-  const templates = useQuery(api.notaryTemplates.listMyTemplates, {
-    documentType: docType,
-  });
-  const uploadUrl = useMutation(api.notaryTemplates.generateTemplateUploadUrl);
-  const save = useMutation(api.notaryTemplates.saveTemplate);
-  const setDefault = useMutation(api.notaryTemplates.setDefaultTemplate);
-  const remove = useMutation(api.notaryTemplates.deleteTemplate);
+  /**
+   * §3 — templates live on THIS machine. The office's own .docx bytes are
+   * read from the local database, so a template always opens even with the
+   * internet switched off. Nothing here is uploaded anywhere (§54).
+   */
+  const [templates, setTemplates] = useState<UserTemplateRecord[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const refreshTemplates = useCallback(async () => {
+    const rows = await listTemplatesLocal(docType);
+    setTemplates(rows.map(asUserTemplateRecord));
+    setLoadingTemplates(false);
+  }, [docType]);
+  useEffect(() => {
+    void refreshTemplates();
+  }, [refreshTemplates]);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -117,28 +127,22 @@ export default function Templates() {
       const report = await scanTemplateTokens(bytes, config);
       setLastReport({ name: file.name, report });
 
-      const url = await uploadUrl({});
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": DOCX_MIME },
-        body: bytes,
-      });
-      if (!res.ok) throw new Error("Upload failed");
-      const { storageId } = (await res.json()) as { storageId: string };
-
-      await save({
+      // The bytes are stored ON this machine. An upload is a NEW record, so
+      // an earlier template is never overwritten — the newest one is the
+      // revision in force.
+      await saveTemplateLocal({
         documentType: docType,
         name: file.name.replace(/\.docx$/i, ""),
         fileName: file.name,
-        storageId: storageId as never,
-        sizeBytes: file.size,
-        placeholdersJson: JSON.stringify(report.tokens),
-        warningsJson: JSON.stringify([
+        bytes,
+        placeholders: report.tokens,
+        warnings: [
           ...report.unknown.map((u) => `Placeholder aan la aqoon: {{${u}}}`),
           ...report.syntaxErrors,
-        ]),
+        ],
       });
-      toast.success("Template-ka waa la soo geliyay oo la kaydiyay!");
+      await refreshTemplates();
+      toast.success("Template-ka waa la soo geliyay oo la kaydiyay (maxalli ah).");
     } catch (err) {
       console.error(err);
       toast.error("Soo gelidda template-ka wuu fashilmay — isku day mar kale.");
@@ -421,14 +425,14 @@ export default function Templates() {
 
         {/* Template list */}
         <div className="space-y-3">
-          {templates === undefined && <Skeleton className="h-24 w-full" />}
-          {templates?.length === 0 && (
+          {loadingTemplates && <Skeleton className="h-24 w-full" />}
+          {!loadingTemplates && templates.length === 0 && (
             <p className="neu-inset p-4 text-sm text-muted-foreground">
               Weli template lama soo gelin. Soo geli .docx aad sameysay si aad u
               isticmaasho generation-ka.
             </p>
           )}
-          {(templates ?? []).map((t: UserTemplateRecord) => {
+          {templates.map((t) => {
             const unknown = JSON.parse(t.warningsJson ?? "[]") as string[];
             return (
               <div key={t._id} className="neu-raised flex flex-wrap items-center gap-3 p-4">
@@ -458,11 +462,16 @@ export default function Templates() {
                       variant="outline"
                       size="sm"
                       className="gap-1.5"
-                      onClick={() =>
-                        setDefault({ templateId: t._id as never })
-                          .then(() => toast.success("Template-ka default waa loo dhigay."))
-                          .catch(() => toast.error("Lama dhejin karo — isku day mar kale."))
-                      }
+                      onClick={async () => {
+                        try {
+                          await makeDefaultTemplateLocal(t._id);
+                          await refreshTemplates();
+                          toast.success("Template-ka default waa loo dhigay.");
+                        } catch (err) {
+                          console.error(err);
+                          toast.error("Lama dhejin karo — isku day mar kale.");
+                        }
+                      }}
                     >
                       <Star className="size-3.5" /> Default
                     </Button>
@@ -472,11 +481,16 @@ export default function Templates() {
                     variant="outline"
                     size="sm"
                     className="gap-1.5 text-destructive hover:text-destructive"
-                    onClick={() =>
-                      remove({ templateId: t._id as never })
-                        .then(() => toast.success("Template-ka waa la tirtiray."))
-                        .catch(() => toast.error("Lama tirtirin — isku day mar kale."))
-                    }
+                    onClick={async () => {
+                      try {
+                        await retireTemplateLocal(t._id);
+                        await refreshTemplates();
+                        toast.success("Template-ka waa la tirtiray.");
+                      } catch (err) {
+                        console.error(err);
+                        toast.error("Lama tirtirin — isku day mar kale.");
+                      }
+                    }}
                   >
                     <Trash2 className="size-3.5" /> Tirtir
                   </Button>

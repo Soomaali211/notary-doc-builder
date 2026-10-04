@@ -1,27 +1,32 @@
-import { Link, useLocation, useNavigate } from "react-router";
-import { useAuth } from "@/hooks/use-auth";
+import { Link, useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  CalendarClock,
+  DatabaseBackup,
   FileSignature,
+  FileUp,
   LayoutDashboard,
-  LogOut,
   PenLine,
   Settings as SettingsIcon,
-  ShieldCheck,
-  StickyNote,
 } from "lucide-react";
 
+/**
+ * §3 — the navigation of an OFFLINE notary system.
+ *
+ * Everything here runs on this machine. The cloud-era pages (Schedule, Team
+ * Board, Admin, Sign out) are not part of the offline promise — they need a
+ * server that an offline machine does not have — so they are removed rather
+ * than left as links that fail. Backup replaces Admin: on a machine that holds
+ * the only copy of the office's work, the user's own backup is the thing that
+ * matters, and it gets a place in the bar for that reason.
+ */
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Home", icon: LayoutDashboard },
-  { to: "/new", label: "New Document", icon: FileSignature },
-  { to: "/archive", label: "Archive", icon: PenLine },
+  { to: "/new", label: "Heshiis Cusub", icon: FileSignature },
+  { to: "/archive", label: "Kaydka Heshiisyada", icon: PenLine },
   { to: "/catalog", label: "Catalog", icon: FileSignature },
-  { to: "/schedule", label: "Schedule", icon: CalendarClock },
-  { to: "/board", label: "Team Board", icon: StickyNote },
+  { to: "/templates", label: "Templates", icon: FileUp },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
-  { to: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 
 export function AppShell({
@@ -33,14 +38,7 @@ export function AppShell({
   title?: string;
   subtitle?: string;
 }) {
-  const { user, signOut } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/");
-  };
 
   return (
     <div className="notebook-bg min-h-screen">
@@ -54,11 +52,10 @@ export function AppShell({
             Notary Doc Builder
           </Link>
           <div className="flex items-center gap-2">
-            {user?.email && (
-              <span className="hidden text-xs text-muted-foreground sm:inline">{user.email}</span>
-            )}
-            <Button variant="ghost" size="sm" className="gap-1.5" onClick={handleSignOut}>
-              <LogOut className="size-4" /> Sign out
+            <Button asChild variant="ghost" size="sm" className="gap-1.5">
+              <Link to="/settings#backup">
+                <DatabaseBackup className="size-4" /> Backup
+              </Link>
             </Button>
           </div>
         </div>
