@@ -172,7 +172,7 @@ export function RepresentativeGroupingEditor({
 
               {memberNames.length > 0 && (
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  Wuxuu matalayaa: {memberNames.join(", ")}
+                  Wuxuu matalayaa ahaan: {memberNames.join(", ")}
                 </p>
               )}
 

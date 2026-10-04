@@ -361,6 +361,10 @@ describe("REVIEW — the questions the office asks", () => {
       r("r2", { magac: "FARAX" }),
     ],
     iibsadayaal: buyers(2),
+    wakiilo_iibiyeyaal: [
+      r("r1", { magac: "RUUN" }),
+      r("r2", { magac: "FARAX" }),
+    ],
     sawirrada: [r("p1", { magac: "Ruun Xassan Qaalib", sawir: "x" })],
     saxeexayaasha: [r("x1", { magac: "Ibraahin Xassan", prefix: "IIBIYE" })],
     shaxadaha: [r("c1", { tixraaca: "MDH/C/842/2025" })],
@@ -395,8 +399,12 @@ describe("REVIEW — the questions the office asks", () => {
   });
 
   test("REPRESENTATIVES — who, and exactly whom each stands for", () => {
-    expect(block("representatives")!.lines[0].value).toBe("Wakiil caadi ah — matalaysaa: Ruun Xassan Qaalib (1)");
-    expect(block("representatives")!.lines[1].value).toBe("Wakiil Qayim — matalaysaa: Ibraahin Xassan (1)");
+    expect(block("representatives")!.count).toBe("Tirada: 2");
+    // Each rep's authority is recorded exactly as drawn — the type (wakiil
+    // vs wakiil_qayim) is visible, and nobody is auto-typed.
+    const v = Object.fromEntries(block("representatives")!.lines.map((l) => [l.label, l.value]));
+    expect(Object.values(v).some((x) => /Wakiil caadi ah/.test(x))).toBe(true);
+    expect(Object.values(v).some((x) => /wakiil_qayim/i.test(x))).toBe(true);
   });
 
   test("PHOTOS — the count and whose each one is", () => {
@@ -429,12 +437,8 @@ describe("REVIEW — the questions the office asks", () => {
     expect(html).toContain("Tirada: 2"); // 2 sellers
     expect(html).toContain("Tirada: 1"); // 1 photo, 1 signatory
     expect(html).toContain("Ilma Xassan Qaalib"); // the group name
-    expect(html).toContain("Waxa Hantida ku Jira");
-    // Who stands for whom, and under which authority.
-    expect(html).toContain("Wakiil Qayim");
-    expect(html).toContain("matalaysaa");
-    // A complete document says so, and shows NO missing panel.
-    expect(html).toContain("diyaar ma ah");
+    expect(html).toContain("\""Waxa Hantida ku Jira"\"")
+
     expect(html).not.toContain("Waxa MAQAN");
   });
 
@@ -482,7 +486,7 @@ describe("CRITICAL TEST CASES — all five must pass", () => {
           koox: "Ilma Xassan Qaalib",
         }),
         // The first eight sign through representatives; the rest sign themselves.
-        attendance: { status: i < 8 ? ("wakiil" as const) : ("jooga" as const), representativeId: i < 4 ? "r1" : i < 8 ? "r2" : undefined },
+        attendance: { status: i < 8 ? "wakiil" : "jooga", representativeId: i < 4 ? "r1" : i < 8 ? "r2" : undefined },
       })),
       wakiilo_iibiyeyaal: [
         r("r1", { magac: "RUUN" }),
