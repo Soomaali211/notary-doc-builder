@@ -15,10 +15,11 @@ import {
 } from "@/components/ui/input-otp";
 
 import { useAuth } from "@/hooks/use-auth";
+import { isOffline } from "@/lib/notary/offlineMode";
 import logo from "@/assets/logo.svg";
 import { ArrowRight, Loader2, Mail, UserX } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Navigate, useNavigate, useSearchParams } from "react-router";
 
 interface AuthProps {
   redirectAfterAuth?: string;
@@ -296,6 +297,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 }
 
 export default function AuthPage(props: AuthProps) {
+  // §3 — the offline notary system has no account to sign into: the data is
+  // on this machine and the notary is already "in". So the sign-in screen is
+  // never shown; the notary goes straight to their own data.
+  if (isOffline()) {
+    return <Navigate to="/dashboard" replace />;
+  }
   return (
     <Suspense>
       <Auth {...props} />
