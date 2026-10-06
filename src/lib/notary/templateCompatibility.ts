@@ -27,12 +27,13 @@
  */
 
 import type { DocumentConfig } from "./types";
-import { knownPlaceholderNames } from "./dataContext";
+import { representativesKeyFor } from "./types";
 import {
   canonicalNameFor,
   placeholderRegistry,
   type PlaceholderSpec,
 } from "./placeholderRegistry";
+import { knownPlaceholderNames } from "./dataContext";
 import { extractTemplateTokenStream } from "./templateValidator";
 
 export { extractTemplateTokenStream };
@@ -109,12 +110,26 @@ function rowTokensFor(config: DocumentConfig, blockId: string): Set<string> {
   const partyDef = config.sections
     .flatMap((s) => s.parties ?? [])
     .find((p) => p.id === mapping.partyId);
-  for (const f of partyDef?.fields ?? []) names.add(f.id.toUpperCase());
-  if (partyDef?.attendance) {
+  // A WAKIILO_* block repeats over a PARENT attendance party's shared
+  // representative list (representativesKeyFor), exactly the way the
+  // generation engine looks the parent up in buildRepeatBlockData. Its rows
+  // therefore carry the parent's representativeFields as tokens (MAGAC,
+  // SAWIR, NOOCA_WAKIILKA) even though no party has id "wakiilo_…" — the
+  // office's own templates use them and must classify as row tokens.
+  const parentDef =
+    partyDef ??
+    (mapping.partyId.startsWith("wakiilo_")
+      ? config.sections
+          .flatMap((s) => s.parties ?? [])
+          .find((p) => representativesKeyFor(p) === mapping.partyId)
+      : undefined);
+  for (const f of (parentDef ?? partyDef)?.fields ?? []) names.add(f.id.toUpperCase());
+  if (parentDef?.attendance) {
     names.add("JOOGA");
     names.add("WAKIIL");
     names.add("MATALAYA");
-    for (const f of partyDef.representativeFields ?? []) {
+    for (const f of parentDef.representativeFields ?? []) {
+      names.add(f.id.toUpperCase());
       names.add(`WAKIIL_${f.id.toUpperCase()}`);
     }
   }

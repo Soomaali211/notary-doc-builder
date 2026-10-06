@@ -35,6 +35,11 @@ import {
   TEMPLATE_FILE_NAME_V2,
   buildHeshiisKiroTemplateV2Blob,
 } from "@/lib/notary/templateBuilderV2";
+import {
+  HANTI_STARTER_TEMPLATES,
+  fetchHantiStarterBytes,
+  type HantiStarterTemplate,
+} from "@/lib/notary/hantiTemplate";
 
 export default function Templates() {
   const [docType, setDocType] = useState("heshiis_kiro");
@@ -109,6 +114,37 @@ export default function Templates() {
       toast.error("Template-ka v2 lama soo celin karo — isku day mar kale.");
     } finally {
       setBuildingV2(false);
+    }
+  };
+
+  /**
+   * KALA IIBSI HANTI — the starter IS the office's own .docx, served
+   * byte-for-byte from this machine (nothing generated, no wording invented).
+   * The user edits it in Word and re-uploads it above.
+   */
+  const [buildingHanti, setBuildingHanti] = useState<string | null>(null);
+  const downloadHantiStarter = async (starter: HantiStarterTemplate) => {
+    setBuildingHanti(starter.subtype);
+    try {
+      const bytes = await fetchHantiStarterBytes(starter);
+      const blob = new Blob([bytes.slice().buffer as ArrayBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const a = window.document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = starter.downloadName;
+      window.document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+      toast.success(
+        `Template-ka ${starter.label} waa la soo celiyay — furi Word-ka si aad u edisto.`,
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error("Template-ka lama soo celin karo — isku day mar kale.");
+    } finally {
+      setBuildingHanti(null);
     }
   };
 
@@ -377,6 +413,52 @@ export default function Templates() {
             <code className="bg-muted px-1">heshiis_kiro_template_final.docx</code>) oo
             soo geli Template Manager-ka — user-kayga waa la ilaaliyaa, lama
             beddelin.
+          </p>
+        </div>
+        )}
+
+        {/* KALA IIBSI HANTI — the office's OWN templates, verbatim.
+            Only the three subtypes that have a real office file are offered;
+            Hanti Kale has NO scan and NO template (open decision) and is
+            therefore deliberately absent. */}
+        {config?.id === "kala_iibsi_hanti" && (
+        <div className="neu-raised border-primary/40 p-6">
+          <h2 className="text-base font-bold">
+            Template-yada xafiiska — Kala Iibsi Hanti{" "}
+            <span className="ml-1 rounded-full bg-pen-green/10 px-2 py-0.5 text-[10px] font-semibold text-pen-green">
+              QORAALKA XAFIISKA OO DHAN
+            </span>
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Kuwani waa template-yada xafiiska oo dhab ah — waxba lama abuurin,
+            waxba lama beddelin. Soo deji faylka nooca aad doorbido, furi
+            Word-ka, u samee edit gaar ah (placeholder-yada{" "}
+            <code className="rounded bg-muted px-1">{"{{PLACEHOLDER}}"}</code>{" "}
+            <strong>haba seyn</strong>), ka dibna kor ku soo geli Template
+            Manager-ka si uu document-yada cusub laga abuuro.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {HANTI_STARTER_TEMPLATES.map((starter) => (
+              <Button
+                key={starter.subtype}
+                type="button"
+                variant="outline"
+                className="gap-2"
+                disabled={buildingHanti !== null}
+                onClick={() => void downloadHantiStarter(starter)}
+              >
+                {buildingHanti === starter.subtype ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                Soo celi {starter.downloadName}
+              </Button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            "Hanti Kale" ma laha template (waa go'aan furan — marka sawiradda
+            scan-keeda la keeno, faylkeeda oo keliya ayaa halkan lagu daraa).
           </p>
         </div>
         )}
