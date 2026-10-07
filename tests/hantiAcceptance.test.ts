@@ -30,10 +30,17 @@ import { validateDocument } from "../src/lib/notary/validation";
 import { generateDocument } from "../src/lib/notary/pipeline";
 import { selectTemplate } from "../src/lib/notary/registry";
 import { kalaIiibsiHantiConfig as C } from "../src/lib/notary/documents/kalaIiibsiHanti";
+import { KALA_IIBSI_HANTI_PLACEHOLDERS } from "../src/lib/notary/placeholderRegistry";
 import { createInitialValues } from "../src/lib/notary/formValues";
 import { buildHantiPartyModel, inspectHantiParties } from "../src/lib/notary/hantiParties";
 import { countParties, representedPeople } from "../src/lib/notary/partyModel";
-import { SCAN_EVIDENCE, SCAN_GAPS } from "../src/lib/notary/scanEvidence";
+import {
+  DHUL_BANAAN_SCAN,
+  HANTI_SCAN_OPEN_DECISIONS,
+  SCAN_EVIDENCE,
+  SCAN_GAPS,
+  SCAN_OPEN_ITEMS,
+} from "../src/lib/notary/scanEvidence";
 import type { FormValues, PartyRow } from "../src/lib/notary/types";
 
 function r(id: string, values: Record<string, string>): PartyRow {
@@ -438,5 +445,125 @@ describe("SCAN EVIDENCE — nothing the paper shows is dropped", () => {
     expect(sellerMin.min).toBe(1);
     expect(photoMin.min).toBe(0);
     expect(photoMin.optionalList).toBe(true);
+  });
+});
+
+/* ================================================================== */
+/* THE 22/Aug/2026 D/SALAAM SCAN — TRANSCRIPT FIDELITY                 */
+/* ================================================================== */
+
+/**
+ * The transcript is legal text. These tests do not check that it reads well;
+ * they check that it has not been quietly retyped, paraphrased, or closed
+ * with a word nobody printed.
+ */
+describe("D/SALAAM scan transcript — verbatim, and never invented", () => {
+  test("the five clauses are recorded in order with their own words", () => {
+    expect(DHUL_BANAAN_SCAN.clauses.map((c) => c.no)).toEqual([1, 2, 3, 4, 5]);
+    expect(DHUL_BANAAN_SCAN.clauses[0].title).toBe("IIBISADA DHULKA:");
+    expect(DHUL_BANAAN_SCAN.clauses[3].title).toBe("DAMAANAD:-");
+    // Clause 5 is a bare sentence with no heading — the scan prints none.
+    expect(DHUL_BANAAN_SCAN.clauses[4].title).toBeNull();
+
+    // Anchors that must never be smoothed into "better" Somali.
+    expect(DHUL_BANAAN_SCAN.clauses[0].text).toContain("dhulkaygan sare ku faahfaahsan");
+    expect(DHUL_BANAAN_SCAN.clauses[0].text).toContain("$3,000 Saddex Kun Oo Dollar");
+    expect(DHUL_BANAAN_SCAN.clauses[2].text).toContain("Laga Bilaabo manta");
+    expect(DHUL_BANAAN_SCAN.clauses[3].text).toContain(
+      "hantidayda guud ee aan gaarka u leeyahay guurto iyo ma guurtaba",
+    );
+  });
+
+  test("clause 1 names the OFFICE'S OWN agent as guarantor, not a free-text name", () => {
+    // The scan writes a ROLE. If this ever became a text field the notary
+    // would be pushed into typing the office's own guarantee.
+    const c1 = DHUL_BANAAN_SCAN.clauses[0];
+    expect(c1.text).toContain("(Xafiiskan Dhexiisa)");
+    // Only names and figures vary — the guarantee wording is static.
+    expect(c1.variables).toEqual([
+      "IIBSADAHA_MAGAC",
+      "QIIMAHA_HANTIDA",
+      "QIIMAHA_QORAAL",
+    ]);
+  });
+
+  test("clauses 1 and 3 name the SAME buyer, and clause 2 names nobody", () => {
+    // Clause 2 is pure prose on the paper. A name smuggled in there would be
+    // printed where the office printed none.
+    expect(DHUL_BANAAN_SCAN.clauses[1].variables).toEqual([]);
+    expect(DHUL_BANAAN_SCAN.clauses[1].text).not.toContain("Warda");
+    expect(DHUL_BANAAN_SCAN.clauses[0].variables).toContain("IIBSADAHA_MAGAC");
+    expect(DHUL_BANAAN_SCAN.clauses[2].variables).toContain("IIBSADAHA_MAGAC");
+    expect(DHUL_BANAAN_SCAN.clauses[2].text).toContain("Iibsato");
+  });
+
+  test("every variable a clause names is a placeholder the app actually has", () => {
+    const names = knownPlaceholderNames(C);
+    for (const clause of DHUL_BANAAN_SCAN.clauses) {
+      for (const token of clause.variables) expect(names.has(token)).toBe(true);
+    }
+  });
+
+  test("the delivery clause collects NO date — 'manta' is the document date", () => {
+    // Guards against a delivery-date field being invented from clause 3.
+    expect(DHUL_BANAAN_SCAN.clauses[2].variables).toEqual(["IIBSADAHA_MAGAC"]);
+    const dj = C.sections.flatMap((s) => s.fields ?? []).filter((f) => /siiyay|bilaabo/i.test(f.id));
+    expect(dj).toEqual([]);
+  });
+
+  test("Hanti's closing attestation is its OWN wording, not Kiro's", () => {
+    expect(DHUL_BANAAN_SCAN.closingHeading).toBe("Cadaynta Xafiiska");
+    expect(DHUL_BANAAN_SCAN.closingBody).toContain("in kala iibkani u dhacay");
+    expect(DHUL_BANAAN_SCAN.closingBody).toContain("camal falsi doona");
+    // Kiro's sentence must NOT be borrowed here — the office prints two.
+    expect(DHUL_BANAAN_SCAN.closingBody).not.toContain("kirada");
+    expect(DHUL_BANAAN_SCAN.notaryTitle).toBe(
+      "Sarkaalka Xafiiska Nootaayada Sharciga ah EeDaloodho",
+    );
+  });
+
+  test("the notary's name is recorded as a finding, not as a token we made up", () => {
+    expect(DHUL_BANAAN_SCAN.notaryName).toContain("Gar. Maxamed Cumar Cabdillaahi");
+    // NOTARY_NAME must not exist yet — the office has not said whether it is
+    // form data or fixed template text.
+    expect(knownPlaceholderNames(C).has("NOTARY_NAME")).toBe(false);
+  });
+
+  test("the day name 'Sabti' is recorded, and is NOT confused with the month", () => {
+    expect(DHUL_BANAAN_SCAN.maalinta).toBe("Sabti");
+    // Hanti DOES have MAALINTA — but it renders the MONTH ("Bishii"), which
+    // is a different word from the weekday the scan prints. Reusing it for
+    // "Sabti" would print "Aug" where the paper prints "Sabti".
+    expect(knownPlaceholderNames(C).has("MAALINTA")).toBe(true);
+    const maalinta = KALA_IIBSI_HANTI_PLACEHOLDERS.find((s) => s.token === "MAALINTA")!;
+    expect(maalinta.format).toBe("month");
+    expect(maalinta.label).toBe("Bishii (sida qoraal)");
+  });
+
+  test("open items are held SEPARATELY from closed gaps, and point at real points", () => {
+    // SCAN_GAPS means "fixed"; SCAN_OPEN_ITEMS means "seen, not built".
+    for (const item of SCAN_OPEN_ITEMS) {
+      expect(SCAN_EVIDENCE.some((p) => p.point === item.point)).toBe(true);
+      expect(item.found.length).toBeGreaterThan(0);
+      expect(item.blockedOn.length).toBeGreaterThan(0);
+    }
+    expect(SCAN_OPEN_ITEMS.length).toBeGreaterThan(0);
+    // No open item may smuggle itself into the closed list.
+    for (const item of SCAN_OPEN_ITEMS) expect(item.fix).toBeUndefined();
+  });
+
+  test("every open decision is a QUESTION, with a stated fallback", () => {
+    expect(HANTI_SCAN_OPEN_DECISIONS.length).toBeGreaterThan(0);
+    for (const d of HANTI_SCAN_OPEN_DECISIONS) {
+      expect(SCAN_EVIDENCE.some((p) => p.point === d.point)).toBe(true);
+      expect(d.question).toMatch(/\?$/);
+      expect(d.untilAnswered.length).toBeGreaterThan(0);
+    }
+  });
+
+  test("the hand-drawn parcel sketch is registered as needing a drawing", () => {
+    const sketch = SCAN_OPEN_ITEMS.find((i) => i.couldBeFormData === "needs_drawing");
+    expect(sketch).toBeDefined();
+    expect(sketch!.point).toBe(13);
   });
 });
