@@ -1,18 +1,45 @@
 /**
  * KALA IIBSI HANTI — starter templates.
  *
- * The office's OWN .docx files (public/templates/kala_iiibsi_hanti/) are the
- * starter. They are served byte-for-byte from this same machine, so the
- * downloaded Word file is 100% the office's wording — nothing is generated
- * and no legal sentence is invented. The user edits it in Word, keeps the
- * {{PLACEHOLDER}} tokens intact, and re-uploads it through Template Manager.
+ * The office's rule: the template the user downloads and edits in Word is
+ * THE template of the system — the app never designs Word documents. The
+ * CANONICAL all-in-one template (canonical.docx) carries the three property
+ * subtypes as {{IF:…}} conditionals, so ONE file serves Dhul Banaan, Guri
+ * and Beer — the office's own decision (Hal template ALL-IN-ONE).
  *
- * Hanti Kale has NO template and NO scan (OPEN_DECISIONS.hantiKaleScan) — it
- * is deliberately absent from this list. When its scan arrives, its file is
- * added to public/templates/kala_iiibsi_hanti/ and to this list only.
+ * The three per-subtype office files REMAIN available as starters too:
+ * they are the office's own .docx files served byte-for-byte, and nothing
+ * here replaces or renames them.
+ *
+ * Hanti Kale has NO template and NO scan (OPEN_DECISIONS.hantiKaleScan) —
+ * it is deliberately absent from this list. When its scan arrives, its file
+ * is added to public/templates/kala_iiibsi_hanti/ and to this list only.
  */
 
-export type HantiStarterSubtype = "dhul_banaan" | "guri" | "beer";
+export type HantiStarterSubtype = "dhul_banaan" | "guri" | "beer" | "canonical";
+
+export interface HantiStarterTemplate {
+  /** The HANTI_SUBTYPES value this file belongs to ("canonical" = all three). */
+  subtype: HantiStarterSubtype;
+  /** Somali label shown on the download button. */
+  label: string;
+  /** File name on disk inside public/templates/kala_iiibsi_hanti/. */
+  fileName: string;
+  /** Name the downloaded file carries. */
+  downloadName: string;
+}
+
+/**
+ * The CANONICAL all-in-one template comes FIRST: it is the template the
+ * production path uses, editable in Word, re-uploadable in Template Manager,
+ * and valid for all three subtypes.
+ */
+export const HANTI_CANONICAL_STARTER: HantiStarterTemplate = {
+  subtype: "canonical",
+  label: "Kala Iibsi Hanti (Hal Template — Dhul Banaan · Guri · Beer)",
+  fileName: "canonical.docx",
+  downloadName: "kala_iibsi_hanti_canonical_template.docx",
+};
 
 export interface HantiStarterTemplate {
   /** The HANTI_SUBTYPES value this file belongs to. */
@@ -26,6 +53,7 @@ export interface HantiStarterTemplate {
 }
 
 export const HANTI_STARTER_TEMPLATES: HantiStarterTemplate[] = [
+  HANTI_CANONICAL_STARTER,
   {
     subtype: "dhul_banaan",
     label: "Dhul Banaan",

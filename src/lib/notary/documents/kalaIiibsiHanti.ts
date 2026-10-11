@@ -382,13 +382,32 @@ const sidaHantida = (...values: string[]): Condition => ({
 const NOW = 0;
 const HANTI_TEMPLATES: TemplateSpec[] = [
   {
+    // THE CANONICAL all-in-one template: ONE file for Dhul Banaan, Guri
+    // and Beer. No subtype, so the registry's fallback rule (selectTemplate
+    // → dedicated first, then universal) selects it whenever a subtype has
+    // no dedicated active template — ONE TEMPLATE for the whole sale.
+    templateId: "HANTI_CANONICAL_V2",
+    documentType: "kala_iibsi_hanti",
+    subtype: "",
+    name: "Kala Iibsi Hanti — Hal Template (Dhul Banaan · Guri · Beer)",
+    filePath: "/templates/kala_iiibsi_hanti/canonical.docx",
+    version: 2,
+    status: "active",
+    createdAt: NOW,
+    updatedAt: NOW,
+  },
+  {
     templateId: "HANTI_DHUL_BANAAN_V1",
     documentType: "kala_iibsi_hanti",
     subtype: "dhul_banaan",
     name: "Kala Iibsi Dhul Banaan",
     filePath: "/templates/kala_iiibsi_hanti/dhul_banaan.docx",
     version: 1,
-    status: "active",
+    // Retired in favour of HANTI_CANONICAL_V2: the office chose ONE
+    // all-in-one template for Dhul Banaan + Guri + Beer. The file stays
+    // on disk and this spec stays registered so history (and the office's
+    // own Word file) is never lost.
+    status: "retired",
     createdAt: NOW,
     updatedAt: NOW,
   },
@@ -399,7 +418,8 @@ const HANTI_TEMPLATES: TemplateSpec[] = [
     name: "Kala Iibsi Guri",
     filePath: "/templates/kala_iiibsi_hanti/guri.docx",
     version: 1,
-    status: "active",
+    // Retired in favour of HANTI_CANONICAL_V2 — the office's all-in-one.
+    status: "retired",
     createdAt: NOW,
     updatedAt: NOW,
   },
@@ -410,7 +430,8 @@ const HANTI_TEMPLATES: TemplateSpec[] = [
     name: "Kala Iibsi Beer",
     filePath: "/templates/kala_iiibsi_hanti/beer.docx",
     version: 1,
-    status: "active",
+    // Retired in favour of HANTI_CANONICAL_V2 — the office's all-in-one.
+    status: "retired",
     createdAt: NOW,
     updatedAt: NOW,
   },
@@ -555,7 +576,10 @@ export const kalaIiibsiHantiConfig: DocumentConfig = {
     "Kala iibsi hanti oo u dhaxeeya iibiyaha iyo iibsadaha — dhul banaan, guri ama beer.",
   fileNamePrefix: "Kala-Iibsi-Hanti",
   outputFolder: "KalaIibsiHanti",
-  templatePath: "/templates/kala_iiibsi_hanti/guri.docx",
+  // The CANONICAL all-in-one template: ONE Word file serves Dhul Banaan,
+  // Guri, and Beer — subtype switching happens inside the document through
+  // {{IF:HANTI_DHUL_BANAAN}} / {{IF:HANTI_GURI}} / {{IF:HANTI_BEER}}.
+  templatePath: "/templates/kala_iiibsi_hanti/canonical.docx",
   // The short serial the DATABASE stores. It is allocated by the notary_counters
   // table (strictly sequential, never reused) and passes the server's
   // letters/digits/dashes rule untouched.
