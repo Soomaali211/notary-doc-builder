@@ -52,8 +52,14 @@ export interface HantiStarterTemplate {
   downloadName: string;
 }
 
+/**
+ * The starter list holds EXACTLY the three sub-types with office files —
+ * per the Template Manager contract, one download per sub-type. The
+ * canonical file itself stays on disk (the production path uses it and a
+ * power user can fetch it), exposed separately via HANTI_CANONICAL_STARTER
+ * rather than as a fourth entry in this inventory list.
+ */
 export const HANTI_STARTER_TEMPLATES: HantiStarterTemplate[] = [
-  HANTI_CANONICAL_STARTER,
   {
     subtype: "dhul_banaan",
     label: "Dhul Banaan",

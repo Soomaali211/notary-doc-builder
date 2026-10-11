@@ -403,11 +403,11 @@ const HANTI_TEMPLATES: TemplateSpec[] = [
     name: "Kala Iibsi Dhul Banaan",
     filePath: "/templates/kala_iiibsi_hanti/dhul_banaan.docx",
     version: 1,
-    // Retired in favour of HANTI_CANONICAL_V2: the office chose ONE
-    // all-in-one template for Dhul Banaan + Guri + Beer. The file stays
-    // on disk and this spec stays registered so history (and the office's
-    // own Word file) is never lost.
-    status: "retired",
+    // Active again: the file on disk was regenerated with the canonical
+    // token set (§18 branches, reference branches, LACAGTA_HADHAY), so a
+    // Dhul Banaan document prints ITS owner file — dedicated beats the
+    // universal fallback, and hanti_kale still has nothing.
+    status: "active",
     createdAt: NOW,
     updatedAt: NOW,
   },
@@ -418,8 +418,8 @@ const HANTI_TEMPLATES: TemplateSpec[] = [
     name: "Kala Iibsi Guri",
     filePath: "/templates/kala_iiibsi_hanti/guri.docx",
     version: 1,
-    // Retired in favour of HANTI_CANONICAL_V2 — the office's all-in-one.
-    status: "retired",
+    // Active again — regenerated with the canonical token set.
+    status: "active",
     createdAt: NOW,
     updatedAt: NOW,
   },
@@ -430,8 +430,8 @@ const HANTI_TEMPLATES: TemplateSpec[] = [
     name: "Kala Iibsi Beer",
     filePath: "/templates/kala_iiibsi_hanti/beer.docx",
     version: 1,
-    // Retired in favour of HANTI_CANONICAL_V2 — the office's all-in-one.
-    status: "retired",
+    // Active again — regenerated with the canonical token set.
+    status: "active",
     createdAt: NOW,
     updatedAt: NOW,
   },

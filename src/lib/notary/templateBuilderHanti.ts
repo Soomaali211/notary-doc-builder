@@ -416,7 +416,7 @@ export function buildHantiCanonicalTemplate(): Document {
           marker(`{{IF:${N("SHAXADO_MA_JIRAAN")}}}`),
           clauseTitle("SHAXADAYAHA IYO WARQADAH"),
           marker(`{{#${N("SHAXADAHA")}}}`),
-          body(`{{NUMBER}}. {{TIXRAACA}} — {{NOOCA_SHAXADAH}}`),
+          body(`{{NUMBER}}. {{TIXRAACA}} — {{NOOCA_SHAXADAHA}}`),
           marker(`{{/${N("SHAXADAHA")}}}`),
           marker(`{{END:${N("SHAXADO_MA_JIRAAN")}}}`),
 

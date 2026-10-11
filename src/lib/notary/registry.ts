@@ -87,6 +87,12 @@ export function selectTemplate(
         t.status !== "retired",
     );
     if (dedicated) return dedicated;
+    // A sub-type the config DECLARES but no template covers (Hanti's
+    // "hanti_kale" — no scan, no wording yet) gets NOTHING: falling back to
+    // a universal template would print a document nobody approved. Only a
+    // sub-type the config never listed may reach the universal fallback.
+    const declared = (config.subTypes ?? []).some((s) => s.value === subType);
+    if (declared) return undefined;
     const universal = registryTemplates().find(
       (t) => t.documentType === config.id && !t.subtype && t.status !== "retired",
     );
