@@ -148,6 +148,51 @@ export default function Templates() {
     }
   };
 
+  /**
+   * CADAYN CILAAJ — the starter IS the system template generated from the
+   * office's scan (public/templates/cadayn_cilaaj/cilaaj.docx), served
+   * byte-for-byte from this machine. The user edits it in Word — keeping
+   * the {{PLACEHOLDER}} tokens — and re-uploads it above; the newest
+   * upload becomes the template in force, exactly like every other type.
+   */
+  const CILAAJ_STARTER = {
+    label: "Cadayn Cilaaj — Cadayn Masuuliyad Qaadis Bukaan",
+    path: "/templates/cadayn_cilaaj/cilaaj.docx",
+    downloadName: "cadayn_cilaaj_template.docx",
+  };
+  const [buildingCilaaj, setBuildingCilaaj] = useState(false);
+  const downloadCilaajStarter = async () => {
+    setBuildingCilaaj(true);
+    try {
+      const response = await fetch(CILAAJ_STARTER.path);
+      if (!response.ok) {
+        throw new Error(`Cilaaj template ma helnin (${response.status})`);
+      }
+      const bytes = await response.arrayBuffer();
+      if (bytes.byteLength === 0) {
+        throw new Error("Cilaaj template madhan yahay.");
+      }
+      const blob = new Blob([bytes], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const a = window.document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = CILAAJ_STARTER.downloadName;
+      window.document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+      toast.success(
+        "Template-ka Cadayn Cilaaj waa la soo celiyay — furi Word-ka si aad u edisto.",
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error("Template-ka lama soo celin karo — isku day mar kale.");
+    } finally {
+      setBuildingCilaaj(false);
+    }
+  };
+
   const handleUpload = async (file: File) => {
     if (!config) return;
     if (!/\.docx$/i.test(file.name)) {
@@ -459,6 +504,45 @@ export default function Templates() {
           <p className="mt-2 text-xs text-muted-foreground">
             "Hanti Kale" ma laha template (waa go'aan furan — marka sawiradda
             scan-keeda la keeno, faylkeeda oo keliya ayaa halkan lagu daraa).
+          </p>
+        </div>
+        )}
+
+        {/* CADAYN CILAAJ — the office's scan-based template, verbatim.
+            One file, no sub-types: download, edit in Word, re-upload. */}
+        {config?.id === "cadayn_cilaaj" && (
+        <div className="neu-raised border-primary/40 p-6">
+          <h2 className="text-base font-bold">
+            Template-ka xafiiska — Cadayn Cilaaj{" "}
+            <span className="ml-1 rounded-full bg-pen-green/10 px-2 py-0.5 text-[10px] font-semibold text-pen-green">
+              QORAALKA XAFIISKA (SCAN OO DHAN)
+            </span>
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Waa dukumenti xafiiska — "Cadayn Masuuliyad Qaadis Bukaan"
+            (Ref/Dpn/CC/…). Soo deji faylka, furi Word-ka, u samee edit gaar ah
+            (placeholder-yada{" "}
+            <code className="rounded bg-muted px-1">{"{{PLACEHOLDER}}"}</code>{" "}
+            <strong>haba seyn</strong>), ka dibna kor ku soo geli Template
+            Manager-ka si document-yada cusub laga abuuro.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3 gap-2"
+            disabled={buildingCilaaj}
+            onClick={() => void downloadCilaajStarter()}
+          >
+            {buildingCilaaj ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Download className="size-4" />
+            )}
+            Soo celi {CILAAJ_STARTER.downloadName}
+          </Button>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Marka aad Word-ka ku edit-gareeyo, ku kaydi ( ama magac cusub ) oo
+            soo geli kore — record cusub ayaa la abuuraa, tii hore luma dumin.
           </p>
         </div>
         )}
