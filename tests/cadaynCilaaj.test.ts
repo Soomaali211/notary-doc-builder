@@ -131,8 +131,8 @@ describe("CADAYN CILAAJ — the template carries the scan verbatim", () => {
     for (const phrase of [
       "In aan masuul buuxa ka ahay bukaanka",
       "In Bukaankan Da&apos;diisu Tahay",
-      "In aanay jirin Wax Hanti ah oo uu Gaar u leeyahay Iyo Dhadhaxaltoona",
-      "In Xiddhiidhka naga dhexeeya Ee Eehnimoyahaya Iyo Eehlhinimo yahay (",
+      "In aanay jirin Wax Hanti ah oo uu Gaar u leeyahay Iyo Dhaxal toona",
+      "In Xidhiidhka naga dhexeeya Ee Ehelnimo yahay (",
       "Sidoo Kalena aanay Jirin ama aanan Ku Ogayn Wax Xanuun ah",
       "In aniga la ii raaci doono masuulna aan ka ahay wixii dhib ah",
       "Inaan u hogaansamayo shuruucda Hospitalka",
@@ -147,7 +147,7 @@ describe("CADAYN CILAAJ — the template carries the scan verbatim", () => {
 
   test("the fixed headings arrive exactly as the scan prints them", () => {
     for (const text of [
-      "Cadaynta Xafiiska",
+      "CadayntaXafiiska",
       "Saxeexa Masuulka Bukaanka",
       "Marag Goob Jooga",
       "(Gr. Maxamed Cumar C/Jaahi)",
