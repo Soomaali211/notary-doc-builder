@@ -90,10 +90,13 @@ function errorsOf(values: FormValues, sectionId: string): string {
 describe("A — document type registration", () => {
   test("Kala Iibsi Hanti is registered next to Heshiis Kiro, not beside it", () => {
     expect(getConfig("kala_iibsi_hanti")).toBe(C);
-    expect(documentConfigs.map((c) => c.id)).toEqual([
+    // Cadayn Cilaaj joins the registry AFTER the older types — the order
+    // of the older two is never disturbed by a new document type.
+    expect(documentConfigs.slice(0, 2).map((c) => c.id)).toEqual([
       "heshiis_kiro",
       "kala_iibsi_hanti",
     ]);
+    expect(documentConfigs.at(-1)!.id).toBe("cadayn_cilaaj");
   });
 
   test("Dhul Banaan, Guri, Beer and Hanti Kale are all offered", () => {

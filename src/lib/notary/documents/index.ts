@@ -1,6 +1,7 @@
 import type { DocumentConfig } from "../types";
 import { heshiisKiroConfig } from "./heshiisKiro";
 import { kalaIiibsiHantiConfig } from "./kalaIiibsiHanti";
+import { cadaynCilaajConfig } from "./cadaynCilaaj";
 
 /**
  * Document type registry. Future document types (Heshiis Deyn,
@@ -10,6 +11,7 @@ import { kalaIiibsiHantiConfig } from "./kalaIiibsiHanti";
 export const documentConfigs: DocumentConfig[] = [
   heshiisKiroConfig,
   kalaIiibsiHantiConfig,
+  cadaynCilaajConfig,
 ];
 
 export function getConfig(id: string): DocumentConfig | undefined {

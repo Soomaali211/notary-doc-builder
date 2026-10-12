@@ -288,6 +288,94 @@ export const HESHIIS_KIRO_PLACEHOLDERS: PlaceholderSpec[] = [
 ];
 
 /* ------------------------------------------------------------------ */
+/* Cadayn Cilaaj — canonical contract                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * CADAYN CILAAG — “Cadayn Masuuliyad Qaadis Bukaan” (Ref/ Dpn/CC/…).
+ *
+ * The scan (SCAN_OPEN_ITEMS below, transcribed from the office's live
+ * paper) is the single source of the WORDING. Everything here is either a
+ * direct answer, a repeat block, a computed name, or a conditional flag —
+ * the same shapes the Kiro and Hanti registries already use. The eight
+ * numbered clauses of the scan are fixed template TEXT (never placeholders)
+ * because the guarantor's attestation never changes.
+ */
+export const CADAYN_CILAAJ_PLACEHOLDERS: PlaceholderSpec[] = [
+  /* ---- Dejinta: the document's own facts (the scan's header) ---- */
+  {
+    token: "REF_NUMBER",
+    key: "dejinta.reference",
+    label: "Nambarka Tixraaca (Ref/Dpn/CC/…)",
+    aliases: ["REFERENCE_NUMBER"],
+    group: "Dejinta",
+  },
+  {
+    token: "TAARIIKH",
+    key: "dejinta.taariikhda_cadaynta",
+    format: "date",
+    label: "Taariikhda Cadaynta",
+    aliases: ["CONTRACT_DATE", "TAARIIKHDA"],
+    group: "Dejinta",
+  },
+  {
+    // "Ku: - Maamulka Salaxadin Mental Hospital." — the recipient the
+    // certificate is addressed to. A plain text answer, never hard-coded:
+    // another admission may be certified to a different facility.
+    token: "MACNAAS",
+    key: "dejinta.macnaas",
+    label: "La uu ku cadaynayo (Ku: …)",
+    group: "Dejinta",
+  },
+  {
+    // The scan's heading is the legal TITLE: "Cadayn Masuuliyad Qaadis
+    // Bukaan". An admission to another kind of facility may need a
+    // different title, so it is an ANSWER with a Somali default label.
+    token: "CINWAANKA_CADAYNTA",
+    key: "dejinta.cinwaanka_cadaynta",
+    label: "Cinwaanka Cadaynta",
+    group: "Dejinta",
+  },
+
+  /* ---- The responsible person (the guarantor): ONE row — the scan
+         prints exactly one Anigoo ah … person. Repeatable because the
+         office never caps a count; the document reads the first row. ---- */
+  { token: "MASUULKA_MAGAC", key: "masuulayaal.magac", label: "Magaca Masuulka", group: "Masuulka" },
+  { token: "MASUULKA_DEGAN", key: "masuulayaal.degan", label: "Degan Masuulka", group: "Masuulka" },
+  { token: "MASUULKA_TELEFOON", key: "masuulayaal.telefoon", label: "Telefoonka Masuulka", group: "Masuulka" },
+
+  /* ---- The admitted patient (bukaanka): one row, the scan's subject. ---- */
+  { token: "BUKAANKA_MAGAC", key: "bukaanka.magac", label: "Magaca Bukaanka", group: "Bukaanka" },
+  { token: "BUKAANKA_DAADI", key: "bukaanka.da_diisa", label: "Da'da Bukaanka", group: "Bukaanka" },
+
+  /* ---- The relationship word. Stored value "adeer" etc.; the derive
+         text maps it to Somali prose, so a raw code can never leak. ---- */
+  {
+    token: "XIRIIRKA",
+    key: "bukaanka.xiriirka",
+    label: "Xiddhiidhka naga dhexeeya",
+    group: "Bukaanka",
+  },
+
+  /* ---- Maragyo Goob-Joogayaal — the scan's TWO witnesses; repeatable. - */
+  {
+    token: "MARAGYO",
+    kind: "block",
+    label: "Maragyo (kasta hal unug)",
+    bodyTokens: ["NUMBER", "MAGAC", "PHONE"],
+    group: "Maragyo",
+  },
+  { token: "MARAGYO_LIST", kind: "list", label: "Maragyada (liis)", group: "Maragyo" },
+];
+
+/** Registry entries for a document type (config-driven, extensible). */
+export function placeholderRegistry(documentTypeId = "heshiis_kiro"): PlaceholderSpec[] {
+  if (documentTypeId === "heshiis_kiro") return HESHIIS_KIRO_PLACEHOLDERS;
+  if (documentTypeId === "kala_iibsi_hanti") return KALA_IIBSI_HANTI_PLACEHOLDERS;
+  if (documentTypeId === "cadayn_cilaaj") return CADAYN_CILAAJ_PLACEHOLDERS;
+  return [];
+}
+
 /* Kala Iibsi Hanti — canonical contract                                */
 /* ------------------------------------------------------------------ */
 
@@ -704,13 +792,6 @@ export const KALA_IIBSI_HANTI_PLACEHOLDERS: PlaceholderSpec[] = [
 /* ------------------------------------------------------------------ */
 /* Registry helpers                                                     */
 /* ------------------------------------------------------------------ */
-
-/** Registry entries for a document type (config-driven, extensible). */
-export function placeholderRegistry(documentTypeId = "heshiis_kiro"): PlaceholderSpec[] {
-  if (documentTypeId === "heshiis_kiro") return HESHIIS_KIRO_PLACEHOLDERS;
-  if (documentTypeId === "kala_iibsi_hanti") return KALA_IIBSI_HANTI_PLACEHOLDERS;
-  return [];
-}
 
 /** Every token name (canonical + aliases + blocks + flags), uppercase. */
 export function registryTokenNames(specs: PlaceholderSpec[]): Set<string> {

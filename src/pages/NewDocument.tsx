@@ -23,16 +23,23 @@ export default function NewDocument() {
    * sign into and no server to wait for, so the interview opens the moment
    * the row exists.
    */
-  const start = async () => {
-    if (!config || !subType) return;
+  const start = async (pickedId?: string) => {
+    const effectiveId = pickedId ?? typeId;
+    const config = documentConfigs.find((c) => c.id === effectiveId) ?? null;
+    if (!config || (!subType && config.subTypes.length > 0)) return;
     setCreating(true);
     try {
-      const sub = config.subTypes.find((s) => s.value === subType);
+      // A type with NO sub-types (Cadayn Cilaaj) creates its draft the
+      // moment the type is picked — there is no Step 2 for it. The label
+      // still comes from the type's own identity, never a guessed value.
+      const sub =
+        config.subTypes.find((s) => s.value === subType) ??
+        ({ value: "", label: config.title } as (typeof config.subTypes)[number]);
       const created = await saveAgreement({
         documentType: config.id,
         documentTypeTitle: config.title,
-        subType: sub!.value,
-        subTypeLabel: sub!.label,
+        subType: sub.value,
+        subTypeLabel: sub.label,
         // The reference is allocated once the interview knows the document's
         // date; until then the draft simply has none.
         referenceNumber: "",
@@ -86,6 +93,22 @@ export default function NewDocument() {
                   )}
                 </div>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">{c.description}</p>
+                {/* A type with NO sub-types starts immediately — no Step 2
+                    exists for it, so its card IS its start button. */}
+                {c.subTypes.length === 0 && (
+                  <Button
+                    size="sm"
+                    className="mt-3"
+                    disabled={creating}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTypeId(c.id);
+                      start(c.id);
+                    }}
+                  >
+                    Bilow Hadda
+                  </Button>
+                )}
               </button>
             );
           })}
@@ -103,8 +126,9 @@ export default function NewDocument() {
         </div>
       </section>
 
-      {/* Step 2: sub-type */}
-      {config && (
+      {/* Step 2: sub-type — skipped entirely for types with no sub-types
+          (Cadayn Cilaaj): their Start button lives on the type card itself. */}
+      {config && config.subTypes.length > 0 && (
         <section className="mt-10" aria-label="2 · Nooca Hantida">
           <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             2 · {config.id === "heshiis_kiro" ? "Nooca Kirada" : "Nooca Hantida"}
@@ -136,7 +160,7 @@ export default function NewDocument() {
               Markaad bilowdo waxaa lagu hagayaa tallaabada tallaabada — tirada xubnaha, xogta,
               joogitaanka iyo wakiillada.
             </p>
-            <Button onClick={start} disabled={!subType || creating} className="gap-2">
+            <Button onClick={() => start()} disabled={!subType || creating} className="gap-2">
               {creating ? (
                 <>
                   <Loader2 className="size-4 animate-spin" /> Diyaarinaya…
