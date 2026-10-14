@@ -27,6 +27,63 @@ const SOMALI_MONTHS = [
 
 export type SomaliDateFormat = "D MMMM YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD";
 
+/**
+ * Weekday fixed names — the ORDER is Date#getDay()-indexed (0 = Axad).
+ * The scan's header line pairs "Salaasa" with 13/Jan/2026, which IS a
+ * Tuesday: this office calls Tuesday "Salaasa" and the scan is the
+ * authority, so the scan's idiom wins over the common "Talaado".
+ * (Wednesday keeps the standard "Arbaco"; Saturday is Sabti.)
+ */
+const SOMALI_WEEKDAYS = [
+  "Axad",
+  "Isniin",
+  "Salaasa",
+  "Arbaco",
+  "Khamiis",
+  "Jimce",
+  "Sabti",
+] as const;
+
+/** "2026-01-13" → "Salaasa" (the Somali weekday of that date). */
+export function formatSomaliWeekday(value: string | undefined): string {
+  if (!value) return "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return "";
+  const [, y, m, d] = match;
+  const date = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
+  if (Number.isNaN(date.getTime())) return "";
+  return SOMALI_WEEKDAYS[date.getUTCDay()];
+}
+
+/**
+ * "2026-01-13" → "13/Jan/2026" — the SHORT month word the scan prints.
+ * ("DD/MM/YYYY-with-a-month-WORD" is the Cilaaj header's own idiom.)
+ */
+const SHORT_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+export function formatDateShortMonth(value: string | undefined): string {
+  if (!value) return "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+ if (!match) return "";
+  const [, y, m, d] = match;
+  const monthIndex = Number(m) - 1;
+  if (monthIndex < 0 || monthIndex > 11) return "";
+  return `${d}/${SHORT_MONTHS[monthIndex]}/${y}`;
+}
+
 /** "2026-03-16" → "Maarso" (month name only, Somali). */
 export function formatSomaliMonth(value: string | undefined): string {
   if (!value) return "";
@@ -131,6 +188,10 @@ export function formatValueByKind(
       return formatSomaliDate(value, formatConfig?.dateFormat);
     case "month":
       return formatSomaliMonth(value);
+    case "date_short_month":
+      return formatDateShortMonth(value);
+    case "weekday":
+      return formatSomaliWeekday(value);
     case "currency":
       return formatCurrencyValue(value, formatConfig?.currency);
     case "currency_words":

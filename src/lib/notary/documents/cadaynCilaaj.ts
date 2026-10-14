@@ -185,6 +185,16 @@ export const cadaynCilaajConfig: DocumentConfig = {
           optional: true,
           placeholder: "Si toos ah ayaa la abuurayaa",
         },
+        {
+          // Registry: {{CINWAANKA_CADAYNTA}} — empty, the scan's own legal
+          // title is the fallback, so the slot can never print blank.
+          id: "cinwaanka_cadaynta",
+          type: "text",
+          label: "Cinwaanka Cadaynta (ikhtiyaari)",
+          optional: true,
+          placeholder: "Cadayn Masuuliyad Qaadis Bukaan",
+          hint: "Maran: qoraalka scan-ka ayaa la daabacaa.",
+        },
       ],
     },
     {

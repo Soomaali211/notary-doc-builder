@@ -313,9 +313,20 @@ export const CADAYN_CILAAJ_PLACEHOLDERS: PlaceholderSpec[] = [
   {
     token: "TAARIIKH",
     key: "dejinta.taariikhda_cadaynta",
-    format: "date",
-    label: "Taariikhda Cadaynta",
+    format: "date_short_month",
+    // The scan prints "Taariikh: 13/Jan/2026" — day, SHORT month word,
+    // year. Not the bare DD/MM/YYYY the other documents print.
+    label: "Taariikhda Cadaynta (13/Jan/2026)",
     aliases: ["CONTRACT_DATE", "TAARIIKHDA"],
+    group: "Dejinta",
+  },
+  {
+    // The scan's header line prints the weekday ("Salaasa") beside the
+    // ref and the date — derived from the SAME date, never typed twice.
+    token: "WEEKDAY",
+    key: "dejinta.taariikhda_cadaynta",
+    format: "weekday",
+    label: "Maalinta toddobaadka (Salaasa/Talaado…)",
     group: "Dejinta",
   },
   {
@@ -333,6 +344,9 @@ export const CADAYN_CILAAJ_PLACEHOLDERS: PlaceholderSpec[] = [
     // different title, so it is an ANSWER with a Somali default label.
     token: "CINWAANKA_CADAYNTA",
     key: "dejinta.cinwaanka_cadaynta",
+    // An admission can be certified under a different title; empty, the
+    // scan's own legal title is the fallback — never a blank slot.
+    fallback: "Cadayn Masuuliyad Qaadis Bukaan.",
     label: "Cinwaanka Cadaynta",
     group: "Dejinta",
   },

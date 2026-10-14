@@ -79,10 +79,14 @@ const MASTHEAD = {
 /** The date is printed inside the scan's own header line, exactly as it. */
 const header = {
   ref: "{{REF_NUMBER}}",
-  weekday: "Salaasa",
+  // The scan prints the weekday between the ref and the date — it is
+  // derived from the SAME date the form collects, never typed twice.
+  weekday: "{{WEEKDAY}}",
   dateLine: "Taariikh: {{TAARIIKH}}",
   recipient: "Ku: - {{MACNAAS}}.",
-  title: "Cadayn Masuuliyad Qaadis Bukaan.",
+  // The certificate title — empty in the form, the scan's own legal title
+  // is the fallback (declared in the registry, never hard-coded here).
+  title: "{{CINWAANKA_CADAYNTA}}",
   opening:
     "Anigoo ah {{MASUULKA_MAGAC}} Degan {{MASUULKA_DEGAN}} xafiiskan hortiisa Waxaan ka cadaynayaa",
 } as const;
@@ -224,7 +228,8 @@ function letterhead(): Table[] {
               ],
               AlignmentType.LEFT,
               33,
-            ),            cell(
+            ),
+            cell(
               [
                 new TextRun({ text: MASTHEAD.wasaaraddaArabic, size: 18 }),
               ],
@@ -234,8 +239,24 @@ function letterhead(): Table[] {
             cell(
               [new TextRun({ text: MASTHEAD.ministry, bold: true, size: 22 })],
               AlignmentType.RIGHT,
-              34,
+              27,
             ),
+          ],
+        }),
+        new TableRow({
+          children: [
+            // The scan carries the Republic name in Arabic in its own row
+            // under the ministry line — declared in MASTHEAD, never printed
+            // before. Reproduced exactly as the scan lays it out.
+            cell([], AlignmentType.LEFT, 33),
+            cell(
+              [
+                new TextRun({ text: MASTHEAD.republicArabic, size: 18 }),
+              ],
+              AlignmentType.CENTER,
+              33,
+            ),
+            cell([], AlignmentType.RIGHT, 34),
           ],
         }),
       ],

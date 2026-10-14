@@ -375,6 +375,8 @@ export type FormatKind =
   | "currency_words"
   | "date"
   | "month"
+  | "date_short_month"
+  | "weekday"
   | "yes_no"
   | "number";
 
