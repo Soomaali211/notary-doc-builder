@@ -557,10 +557,10 @@ export default function NewDocumentInterview() {
   /* -------------------------------------------------------------- */
 
   /**
-   * Where Home would take the notary. §4 says Home goes to the Dashboard,
-   * which IS the system Home (§3) — never back into the interview.
+   * Where Home would take the notary. The front page IS the archive
+   * (Dukumentiyada) — never back into the interview.
    */
-  const HOME_ROUTE = "/dashboard";
+  const HOME_ROUTE = "/documents";
 
   /**
    * Unsaved-changes gate.

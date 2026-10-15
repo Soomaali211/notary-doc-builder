@@ -6,22 +6,35 @@ import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router";
 import { isOffline } from "./lib/notary/offlineMode";
 import "./index.css";
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
-const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const NewDocument = lazy(() => import("./pages/NewDocument.tsx"));
 const NewDocumentInterview = lazy(() => import("./pages/NewDocumentInterview.tsx"));
-const Archive = lazy(() => import("./pages/Archive.tsx"));
 const DocumentDetailPage = lazy(() => import("./pages/DocumentDetail.tsx"));
+const Documents = lazy(() => import("./pages/Documents.tsx"));
 const Catalog = lazy(() => import("./pages/Catalog.tsx"));
 const Templates = lazy(() => import("./pages/Templates.tsx"));
 const Settings = lazy(() => import("./pages/Settings.tsx"));
+// The four tabs whose page rebuilds come next; one line each until then.
+import Soon from "./pages/Soon.tsx";
+
+/** Redirect that carries the query string along (?q=…, ?status=…). */
+function Redirect({ to }: { to: string }) {
+  const location = useLocation();
+  return <Navigate to={`${to}${location.search}`} replace />;
+}
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -138,16 +151,20 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route
             path="/auth"
-            element={<AuthPage redirectAfterAuth="/dashboard" />}
+            element={<AuthPage redirectAfterAuth="/documents" />}
           />
+          {/* The front page is the document archive. */}
           <Route
-            path="/dashboard"
+            path="/documents"
             element={
               <RequireAuth>
-                <Dashboard />
+                <Documents />
               </RequireAuth>
             }
           />
+          {/* old front page + old archive path keep their links alive */}
+          <Route path="/dashboard" element={<Redirect to="/documents" />} />
+          <Route path="/archive" element={<Redirect to="/documents" />} />
           <Route
             path="/new"
             element={
@@ -161,14 +178,6 @@ function App() {
             element={
               <RequireAuth>
                 <NewDocumentInterview />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/archive"
-            element={
-              <RequireAuth>
-                <Archive />
               </RequireAuth>
             }
           />
@@ -201,6 +210,39 @@ function App() {
             element={
               <RequireAuth>
                 <Settings />
+              </RequireAuth>
+            }
+          />
+          {/* The other four tabs — rebuilt one page per step. */}
+          <Route
+            path="/clients"
+            element={
+              <RequireAuth>
+                <Soon titleKey="soonTitleClients" />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/payments"
+            element={
+              <RequireAuth>
+                <Soon titleKey="soonTitlePayments" />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <RequireAuth>
+                <Soon titleKey="soonTitleReports" />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/habayn"
+            element={
+              <RequireAuth>
+                <Soon titleKey="soonTitleSettings" />
               </RequireAuth>
             }
           />

@@ -5,7 +5,7 @@
  * and every one runs against the real code and the real templates. Nothing
  * is mocked, so a pass here means the shipped path works.
  *
- *   §3   the Dashboard IS Home
+ *   §3   the Dukumentiyada list IS the front page
  *   §4   Home / Back / Next / Save Draft / Exit + the unsaved-changes dialog
  *   §34  Live Review controls: Fit Width, Fit Page, full-document view
  *   §40  a draft restores without duplicating or resetting
@@ -217,36 +217,31 @@ describe("§62/§63 — office information", () => {
 /* §3 / §42 / §71 — the Home and Archive surfaces                     */
 /* ------------------------------------------------------------------ */
 
-describe("§3/§4 — Home, navigation and the unsaved-changes gate", () => {
+describe("§3/§4 — Front page, navigation and the unsaved-changes gate", () => {
   const read = (file: string) =>
     readFileSync(resolve(import.meta.dir, "../src", file), "utf8");
 
-  test("the Dashboard is titled Home and offers every area the office named", () => {
-    const page = read("pages/Dashboard.tsx");
-    expect(page).toContain('title="Home"');
-    for (const area of [
-      "New Document",
-      "Drafts",
-      "Document Archive",
-      "Search",
-      "Settings",
-      "About",
-    ]) {
-      // The label is either a card title or a search heading.
-      expect(page).toContain(area);
+  test("the front page IS the document archive (Dukumentiyada)", () => {
+    const page = read("pages/Documents.tsx");
+    expect(page).toContain("statDocs");
+    // The office named the places: the archive list, search and the four counts.
+    for (const key of ["newDocument", "searchPlaceholder", "filterAll", "verifyTitle"]) {
+      expect(page).toContain(key);
     }
   });
 
-  test("Home links straight to a filtered archive instead of re-asking", () => {
-    const page = read("pages/Dashboard.tsx");
-    expect(page).toContain("/archive?status=draft");
+  test("the old Home and the old /archive keep their links alive", () => {
+    const page = read("main.tsx");
+    expect(page).toContain('path="/dashboard"');
+    expect(page).toContain("Redirect to=\"/documents\"");
   });
 
   test("a draft is resumable — it links back into the interview", () => {
-    const page = read("pages/Dashboard.tsx");
+    const page = read("pages/Documents.tsx");
     // §3 — the row id is the LOCAL id now, so the link points at the record
-    // in this machine's own database rather than at a server document.
-    expect(page).toContain("to={`/documents/${d.id}`}");
+    // in this machine's own database: a draft into the interview, a filed
+    // document into the archive.
+    expect(page).toContain('? `/archive/${d.id}` : `/documents/${d.id}`');
     expect(page).toContain("useLocalAgreements");
   });
 
@@ -278,15 +273,14 @@ describe("§3/§4 — Home, navigation and the unsaved-changes gate", () => {
     expect(page).toContain("beforeunload");
   });
 
-  test("the archive reads q / status from the URL (Home → filtered archive)", () => {
-    const page = read("pages/Archive.tsx");
+  test("the front page reads q from the URL and carries it into search", () => {
+    const page = read("pages/Documents.tsx");
     expect(page).toContain("useSearchParams");
     expect(page).toContain('params.get("q")');
-    expect(page).toContain('params.get("status")');
   });
 
   test("search reaches the property answers, not just the reference", () => {
-    const page = read("pages/Archive.tsx");
+    const page = read("pages/Documents.tsx");
     // §39 — the page no longer reaches into the answers blob itself; the
     // haystack is built by the repository, which reads BOTH the stored row
     // and the property answers. Both halves are pinned here so a future
@@ -298,23 +292,29 @@ describe("§3/§4 — Home, navigation and the unsaved-changes gate", () => {
     expect(repo).toContain("PROPERTY_FIELDS");
   });
 
-  test("the archive offers all four statuses and the office's names", () => {
-    const page = read("pages/Archive.tsx");
-    expect(page).toContain("DOCUMENT_STATUSES.map");
-    expect(page).toContain("documentStatusLabel");
+  test("the front page offers the office's three states and only those", () => {
+    const page = read("pages/Documents.tsx");
+    // Qabyo = draft · Sugaya = completed · La xaqiijiyay = generated|archived.
+    expect(page).toContain("statusDraft");
+    expect(page).toContain("statusPending");
+    expect(page).toContain("statusVerified");
+    // The three stored statuses collapse into the three groups; no fifth state.
+    expect(page).toContain('status === "draft"');
+    expect(page).toContain('status === "completed"');
+    expect(page).toContain('status === "generated"');
   });
 
   test("§71 — an empty archive and an empty search result say different things", () => {
-    const page = read("pages/Archive.tsx");
-    expect(page).toContain("Ma jiraan documents.");
-    expect(page).toContain("Dooro nooca document-ka si aad u bilowdo.");
-    expect(page).toContain("Nothing found");
+    const page = read("pages/Documents.tsx");
+    expect(page).toContain("docEmpty");
+    expect(page).toContain("docEmptyHint");
+    expect(page).toContain("noSearchMatch");
   });
 
   test("New Document starts from the same empty-state wording", () => {
-    const page = read("pages/Dashboard.tsx");
+    const page = read("pages/Documents.tsx");
     expect(page).toContain('data-empty="documents"');
-    expect(page).toContain('data-empty="drafts"');
+    expect(page).toContain("useLocalAgreements");
   });
 });
 

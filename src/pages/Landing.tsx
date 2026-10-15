@@ -81,7 +81,7 @@ export default function Landing() {
           <nav className="flex items-center gap-2">
             {!isLoading && isAuthenticated ? (
               <Button asChild className="gap-1.5">
-                <Link to="/dashboard">
+                <Link to="/documents">
                   Open workspace <ArrowRight className="size-4" />
                 </Link>
               </Button>

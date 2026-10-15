@@ -301,7 +301,7 @@ export default function AuthPage(props: AuthProps) {
   // on this machine and the notary is already "in". So the sign-in screen is
   // never shown; the notary goes straight to their own data.
   if (isOffline()) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/documents" replace />;
   }
   return (
     <Suspense>

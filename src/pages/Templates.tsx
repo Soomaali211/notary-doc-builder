@@ -669,7 +669,7 @@ export default function Templates() {
         <p className="text-xs text-muted-foreground">
           Template-yada hore lama beddelo oo lama overwrite-gareyn — mar kasta
           oo aad soo gelisid, record cusub ayaa la abuuraa.{" "}
-          <Link to="/dashboard" className="font-medium text-primary hover:underline">
+          <Link to="/documents" className="font-medium text-primary hover:underline">
             ← Dashboard
           </Link>
         </p>
