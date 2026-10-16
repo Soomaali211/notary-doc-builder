@@ -30,6 +30,7 @@ const Settings = lazy(() => import("./pages/Settings.tsx"));
 // The four tabs whose page rebuilds come next; one line each until then.
 import Soon from "./pages/Soon.tsx";
 import Clients from "./pages/Clients.tsx";
+import Payments from "./pages/Payments.tsx";
 
 /** Redirect that carries the query string along (?q=…, ?status=…). */
 function Redirect({ to }: { to: string }) {
@@ -227,7 +228,7 @@ function App() {
             path="/payments"
             element={
               <RequireAuth>
-                <Soon titleKey="soonTitlePayments" />
+                <Payments />
               </RequireAuth>
             }
           />

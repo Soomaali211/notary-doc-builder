@@ -106,6 +106,39 @@ const DICT: Dict = {
   ],
   noClientSearchMatch: ["Lama helin raadinka.", "Nothing found."],
   groupBadge: ["Koox", "Group"],
+
+  // Payments page (Lacagaha)
+  payTitle: ["Lacagaha", "Payments"],
+  paySub: [
+    "Lacagta dukumintiyadu qabtaan iyo diiwaanka bixineed ee xafiiska.",
+    "The money the documents hold and the office's payment ledger.",
+  ],
+  payRecorded: ["Diiwaanada", "Records"],
+  payDocsWithMoney: ["Dukumi lacag leh", "Docs with money"],
+  payDocsTotal: ["Dukumentiyada", "Documents"],
+  payRecordTitle: ["Diiwaan geli bixinta", "Record a payment"],
+  payRecordHint: [
+    "Bixintu waxay galaysaa jaadka Lacagaha — Dakhli oo bogga hore aayaa iskaga warqada.",
+    "Payments go into the real ledger — the front page's Dakhli reads it.",
+  ],
+  payPickDoc: ["Dukumentos leh lacag", "A document with money"],
+  payAmountPlaceholder: ["Tusaale: 600", "e.g. 600"],
+  payNotesPlaceholder: ["Faahfaahin dheeraad ah…", "Notes…"],
+  payRecord: ["Kaydi", "Save"],
+  payBadAmount: ["Gali tirba lacag sax ah.", "Enter a valid amount."],
+  paySaved: ["La kaydiyay diiwaanka.", "Recorded in the ledger."],
+  paySaveFailed: ["Lama kaydin — isku day mar kale.", "Could not save — try again."],
+  payLedgerEmpty: ["Diiwaanka lacagta wuu madhan yahay.", "The ledger is empty."],
+  payLedgerEmptyHint: [
+    "Bixi lacag diiwaan geli maqaamka kor u kac.",
+    "Record a payment above to start it.",
+  ],
+  payTotal: ["Qiimaha", "Total"],
+  payBalance: ["Baaqiga", "Balance"],
+  payNoDocMoney: [
+    "Dukumintiyadu weli ma haystaan jawaab lacageed.",
+    "No document holds a money answer yet.",
+  ],
 };
 
 export interface LangContextValue {
