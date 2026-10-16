@@ -139,6 +139,20 @@ const DICT: Dict = {
     "Dukumintiyadu weli ma haystaan jawaab lacageed.",
     "No document holds a money answer yet.",
   ],
+
+  // Reports page (Warbixinada)
+  repTitle: ["Warbixinada", "Reports"],
+  repSub: [
+    "Tirakoobyada dhabta ah: noocasta, bishii, iyo CSV dukumintiyada.",
+    "Real aggregates: by type, by month, and a CSV of the archive.",
+  ],
+  repByType: ["Noocasta", "By document type"],
+  repByMonth: ["Bishii", "By month"],
+  repMonthDocs: ["Dukumi la dhammeeyay", "Documents finished"],
+  repEmpty: [
+    "Weli wax lama diiwaan geliyin — abuur dukumenti.",
+    "Nothing recorded yet — create a document.",
+  ],
 };
 
 export interface LangContextValue {

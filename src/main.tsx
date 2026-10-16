@@ -31,6 +31,7 @@ const Settings = lazy(() => import("./pages/Settings.tsx"));
 import Soon from "./pages/Soon.tsx";
 import Clients from "./pages/Clients.tsx";
 import Payments from "./pages/Payments.tsx";
+import Reports from "./pages/Reports.tsx";
 
 /** Redirect that carries the query string along (?q=…, ?status=…). */
 function Redirect({ to }: { to: string }) {
@@ -236,7 +237,7 @@ function App() {
             path="/reports"
             element={
               <RequireAuth>
-                <Soon titleKey="soonTitleReports" />
+                <Reports />
               </RequireAuth>
             }
           />
