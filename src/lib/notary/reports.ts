@@ -100,6 +100,9 @@ export function documentCsvRows(agreements: LocalAgreement[], payments: LocalPay
 /** Minimal RFC-4180 CSV: quote everything, escape doubled quotes. */
 export function toCsv(rows: Record<string, string>[], header: string[]): string {
   const escape = (v: string) => `"${(v ?? "").replace(/"/g, '""')}"`;
-  const lines = [header, ...rows.map((r) => header.map((h) => escape(r[h] ?? "")))];
+  const lines = [
+    header.map(escape),
+    ...rows.map((r) => header.map((h) => escape(r[h] ?? ""))),
+  ];
   return lines.map((cells) => cells.join(",")).join("\r\n");
 }
