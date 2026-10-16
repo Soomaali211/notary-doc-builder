@@ -27,8 +27,6 @@ const Documents = lazy(() => import("./pages/Documents.tsx"));
 const Catalog = lazy(() => import("./pages/Catalog.tsx"));
 const Templates = lazy(() => import("./pages/Templates.tsx"));
 const Settings = lazy(() => import("./pages/Settings.tsx"));
-// The four tabs whose page rebuilds come next; one line each until then.
-import Soon from "./pages/Soon.tsx";
 import Clients from "./pages/Clients.tsx";
 import Payments from "./pages/Payments.tsx";
 import Reports from "./pages/Reports.tsx";
@@ -216,7 +214,7 @@ function App() {
               </RequireAuth>
             }
           />
-          {/* The other four tabs — rebuilt one page per step. */}
+          {/* The five tabs — all rebuilt from real data. */}
           <Route
             path="/clients"
             element={
@@ -245,11 +243,16 @@ function App() {
             path="/habayn"
             element={
               <RequireAuth>
-                <Soon titleKey="soonTitleSettings" />
+                <Settings />
               </RequireAuth>
             }
           />
-          <Route path="*" element={<NotFound />} />
+          {/* Keep every old Settings link alive. */}
+          <Route
+            path="/settings"
+            element={<Navigate to="/habayn" replace />}
+          />
+          <Route path="*" element={<NotFound /> } />
         </Routes>
       </Suspense>
     </BrowserRouter>

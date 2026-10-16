@@ -19,7 +19,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
-import { AppShell } from "@/components/notary/AppShell";
+import { AppShellWithLang } from "@/components/notary/AppShell";
+import { useLang } from "@/lib/lang";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +55,7 @@ export {
 };
 
 export default function Settings() {
+  const { t } = useLang();
   const [settings, setSettings] = useState<OfficeSettings>(EMPTY_SETTINGS);
   const [offline, setOffline] = useState<OfflineSettings>(readOfflineSettings());
   const [loaded, setLoaded] = useState(false);
@@ -78,7 +80,7 @@ export default function Settings() {
     setSettings((s) => ({ ...s, [key]: value }));
 
   return (
-    <AppShell title="Settings" subtitle="Xogta xafiiska iyo doorashooyinka export-ka.">
+    <AppShellWithLang title={t("tabSettings")} subtitle={t("setSub")}>
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Office information — §63 */}
         <section className="notebook-page paper-grain rounded-md p-5">
@@ -237,6 +239,6 @@ export default function Settings() {
           Maaree Template-yada →
         </Link>
       </div>
-    </AppShell>
+    </AppShellWithLang>
   );
 }

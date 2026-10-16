@@ -153,6 +153,12 @@ const DICT: Dict = {
     "Weli wax lama diiwaan geliyin — abuur dukumenti.",
     "Nothing recorded yet — create a document.",
   ],
+
+  // Settings page (Habayn)
+  setSub: [
+    "Xogta xafiiska, offline, backup iyo doorashooyinka export-ka.",
+    "Office details, offline mode, backup and export choices.",
+  ],
 };
 
 export interface LangContextValue {
