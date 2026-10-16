@@ -25,9 +25,11 @@ import {
   type BackupFile,
 } from "@/lib/notary/localBackup";
 import { useLocalAgreements } from "@/lib/notary/localHooks";
+import { useLang } from "@/lib/lang";
 import { AlertTriangle, DatabaseBackup, Download, Upload } from "lucide-react";
 
 export function BackupRestore() {
+  const { t } = useLang();
   const { documents } = useLocalAgreements();
   const fileInput = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<BackupFile | null>(null);
@@ -40,13 +42,15 @@ export function BackupRestore() {
       const backup = await buildBackup();
       downloadBackup(backup);
       toast.success(
-        `${BACKUP_FILE_NAME} waa la soo saaray — ${backup.counts.agreements ?? 0} heshiis, ${
-          backup.counts.drafts ?? 0
-        } draft, ${backup.counts.templates ?? 0} template.`,
+        `${BACKUP_FILE_NAME} ${t("bkMade")} — ${backup.counts.agreements ?? 0} ${t(
+          "bkNHyshiis",
+        )}, ${backup.counts.drafts ?? 0} ${t("bkNDrafts")}, ${
+          backup.counts.templates ?? 0
+        } ${t("bkNTemplates")}.`,
       );
     } catch (err) {
       console.error(err);
-      toast.error("Backup-ku lama sameeyn karin — isku day mar kale.");
+      toast.error(t("bkToastBackupFail"));
     } finally {
       setBusy(false);
     }
@@ -63,7 +67,7 @@ export function BackupRestore() {
       }
       setPending(result.backup);
     } catch {
-      toast.error("Faylka lama akhrin karo.");
+      toast.error(t("bkToastFileFail"));
     }
   };
 
@@ -80,12 +84,12 @@ export function BackupRestore() {
         .join(", ");
       toast.success(
         mode === "replace"
-          ? "Xogtu waa la beddelay — hadda waxay ku qaraysaa sida backup-ka."
-          : `Waxaa la soo geliyay${restored ? `: ${restored}` : ""}.`,
+          ? t("bkToastReplaceOk")
+          : `${t("bkRestored")}${restored ? `: ${restored}` : ""}.`,
       );
     } catch (err) {
       console.error(err);
-      toast.error("Restore-ku lama fulin karin — xogtaada hadda waa weli la hay.");
+      toast.error(t("bkToastRestoreFail"));
     } finally {
       setBusy(false);
     }
@@ -96,28 +100,27 @@ export function BackupRestore() {
       className="notebook-page paper-grain rounded-md p-5"
       data-backup-restore=""
       id="backup"
-      aria-label="Backup iyo Restore"
+      aria-label={t("bkAria")}
     >
       <h2 className="flex items-center gap-2 font-semibold">
         <DatabaseBackup className="size-4 text-primary" />
-        Backup &amp; Restore
+        {t("bkTitle")}
       </h2>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">
-        Nidaamku waa <strong>offline</strong> — database-ku, template-yadu iyo
-        dukumeentiguba waa computer-gaan oo keliya. Halkan ayaad nuqul ka soo saari kartaa:
-        hal fayl oo la yiraahdo <strong>{BACKUP_FILE_NAME}</strong>, oo ku jira dhammaan
-        heshiisyada, drafts, tixraacyada, settings-ka iyo template-yada la beddelay.
-        Faylka ma aha erayo gaar ah — waxaad adiguna ma qaban karto.
+        {t("bkIntro")}
+        <strong>{BACKUP_FILE_NAME}</strong>
+        {t("bkIntroTail")}
       </p>
 
       <p className="mt-3 text-xs text-muted-foreground">
-        Haddii computer-ka lumi loo: <strong>{documents.length}</strong> document ayaa hadda
-        maxalliga ah.
+        {t("bkLocalCount")}
+        <strong>{documents.length}</strong>
+        {t("bkDocsLocal")}
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button onClick={onBackup} disabled={busy} className="gap-1.5" data-action="backup">
-          <Download className="size-4" /> Backup Database
+          <Download className="size-4" /> {t("bkBtnBackup")}
         </Button>
         <Button
           variant="outline"
@@ -126,7 +129,7 @@ export function BackupRestore() {
           className="gap-1.5"
           data-action="restore-pick"
         >
-          <Upload className="size-4" /> Restore Backup
+          <Upload className="size-4" /> {t("bkBtnRestore")}
         </Button>
         <input
           ref={fileInput}
@@ -149,44 +152,38 @@ export function BackupRestore() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Restore backup</AlertDialogTitle>
+            <AlertDialogTitle>{t("bkDialogTitle")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm">
                 <p>
-                  Faylkan waxaa lagu daray{" "}
-                  <strong>{new Date(pending?.createdAt ?? 0).toLocaleString("en-GB")}</strong>:
+                  {t("bkDialogIntro")}
+                  <strong>{new Date(pending?.createdAt ?? 0).toLocaleString("en-GB")}</strong>
+                  {t("bkDialogClose")}
                   {" "}
-                  {pending?.counts.agreements ?? 0} heshiis, {pending?.counts.drafts ?? 0} draft,
+                  {pending?.counts.agreements ?? 0} {t("bkNHyshiis")}, {pending?.counts.drafts ?? 0} {t("bkNDrafts")},
                   {" "}
-                  {pending?.counts.templates ?? 0} template.
+                  {pending?.counts.templates ?? 0} {t("bkNTemplates")}.
                 </p>
-                <p>
-                  <strong>Merge</strong> — waxa jira ayaa la ilaaliyaa; waxa faylku wataa ayaa
-                  la daro/ la beddelaa. Tani waa doorashada badbaadada leh.
-                </p>
+                <p>{t("bkMergeDesc")}</p>
                 <p className="flex items-start gap-1.5 text-destructive">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                  <span>
-                    <strong>Replace</strong> — database-ka waxaa la maro maran. Waxa hadda
-                    ku jira oo <em>backup-ka aan ku jirin</em> ayaa si buuxda u baaba&apos;dood
-                    doonaa. Tani waa eex.
-                  </span>
+                  <span>{t("bkReplaceDesc")}</span>
                 </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
             <AlertDialogAction onClick={() => void applyRestore("merge")} data-action="restore-merge">
-              Merge
+              {t("bkBtnMerge")}
             </AlertDialogAction>
             <AlertDialogAction
               className="bg-destructive text-white hover:bg-destructive/90"
               onClick={() => void applyRestore("replace")}
               data-action="restore-replace"
             >
-              Waxa jira oo maro maran
+              {t("bkBtnReplace")}
             </AlertDialogAction>
-            <AlertDialogCancel>Jooji</AlertDialogCancel>
+            <AlertDialogCancel>{t("bkCancel")}</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

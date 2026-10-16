@@ -195,6 +195,63 @@ const DICT: Dict = {
   setSave: ["Kaydi", "Save"],
   setReset: ["Soo celi", "Reset"],
   setManageTemplates: ["Maaree template-yada →", "Manage templates →"],
+
+  // Backup & Restore (Habayn)
+  bkTitle: ["Backup & Restore", "Backup & Restore"],
+  bkIntro: [
+    "Nidaamku waa offline — database-ku, template-yadu iyo dukumeentiguba waxay ku jiraan computer-kan oo keliya. Halkan ayaad nuqul ka soo saari kartaa: hal fayl oo la yidhaahda ",
+    "The system is offline — the database, templates and documents live on this computer only. You can take a copy from here: one file named ",
+  ],
+  bkIntroTail: [
+    ", oo ku jira dhammaan heshiisyada, drafts, tixraacyada, settings-ka iyo template-yada la beddelay.",
+    ", carrying every agreement, draft, reference counter, setting and uploaded template.",
+  ],
+  bkLocalCount: [
+    "Haddii computerkaan lumiyo: ",
+    "If this computer is lost: ",
+  ],
+  bkDocsLocal: [
+    " dukumenti ayaa maxalli jira.",
+    " documents exist only here.",
+  ],
+  bkBtnBackup: ["Backup Database", "Backup database"],
+  bkBtnRestore: ["Soo celi Backup", "Restore backup"],
+  bkMade: ["waa la soo saaray", "was created"],
+  bkNHyshiis: ["heshiis", "agreements"],
+  bkNDrafts: ["qabyo", "drafts"],
+  bkNTemplates: ["template", "templates"],
+  bkToastBackupFail: [
+    "Backup-ku lama sameeyn karin — isku day mar kale.",
+    "Backup failed — try again.",
+  ],
+  bkToastFileFail: ["Faylka lama akhrin karo.", "The file could not be read."],
+  bkToastReplaceOk: [
+    "Xogtu waa la beddelay — hadda waxay la eg tahay backup-ka.",
+    "Data replaced — it now matches the backup.",
+  ],
+  bkRestored: ["la soo geliyay", "restored"],
+  bkToastRestoreFail: [
+    "Restore-ku lama fulin karin — xogtaada waxba ma isbeddelin.",
+    "Restore failed — your data is unchanged.",
+  ],
+  bkDialogTitle: ["Soo celidda backup-ka", "Restore backup"],
+  bkDialogIntro: ["Faylkan waxaa ku jira (", "This file holds ("],
+  bkDialogClose: [
+    "):",
+    "):",
+  ],
+  bkMergeDesc: [
+    "Merge — waxa jira waa la ilaaliyaa; waxa faylku qabo ayaa la daraa. Tan waa doorashada badbaadada leh.",
+    "Merge — what exists is kept; what the file carries is added. This is the safe choice.",
+  ],
+  bkReplaceDesc: [
+    "Beddel — databaseka waa la joojin doonaa waxa hadda jir oo backup-ka aan ku jirin baaba'doona si buuxda. Ee fiirso ka hor intaad dhaqaajiso.",
+    "Replace — the database is emptied. Anything not in the backup is gone for good. Make sure you want this.",
+  ],
+  bkBtnMerge: ["Merge", "Merge"],
+  bkBtnReplace: ["Ku beddel xogta dhammaan", "Replace everything"],
+  bkCancel: ["Jooji", "Cancel"],
+  bkAria: ["Backup iyo Restore", "Backup and restore"],
 };
 
 export interface LangContextValue {
