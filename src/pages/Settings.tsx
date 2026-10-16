@@ -73,7 +73,7 @@ export default function Settings() {
 
   const save = () => {
     writeSettings(settings);
-    toast.success("Settings la kaydiyay.");
+    toast.success(t("setSaved"));
   };
 
   const update = <K extends keyof OfficeSettings>(key: K, value: OfficeSettings[K]) =>
@@ -86,25 +86,22 @@ export default function Settings() {
         <section className="notebook-page paper-grain rounded-md p-5">
           <h2 className="flex items-center gap-2 font-semibold">
             <Building2 className="size-4 text-primary" />
-            Xogta Xafiiska
+            {t("setOffSection")}
           </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Halkan halkan ayaa laga qaadanaysaa. Waxaa la baraf danbeed qarsoon — qofna
-            magac kale ma bixin karo.
-          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("setOffHint")}</p>
 
           <div className="mt-4 space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="office-name">Magaca Xafiiska</Label>
+              <Label htmlFor="office-name">{t("setOfficeName")}</Label>
               <Input
                 id="office-name"
                 value={settings.officeName}
                 onChange={(e) => update("officeName", e.target.value)}
-                placeholder="Sida uu xafiisku u qor"
+                placeholder={t("setOfficeName")}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="office-address">Cinwaan</Label>
+              <Label htmlFor="office-address">{t("setOfficeAddress")}</Label>
               <Input
                 id="office-address"
                 value={settings.address}
@@ -112,7 +109,7 @@ export default function Settings() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="office-phone">Telefoon</Label>
+              <Label htmlFor="office-phone">{t("setOfficePhone")}</Label>
               <Input
                 id="office-phone"
                 value={settings.phone}
@@ -120,7 +117,7 @@ export default function Settings() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="office-extra">Xaraf kale (iimayl, iyo kuwa kale)</Label>
+              <Label htmlFor="office-extra">{t("setOfficeExtra")}</Label>
               <Input
                 id="office-extra"
                 value={settings.extra}
@@ -132,15 +129,11 @@ export default function Settings() {
 
         {/* Export + appearance defaults — §62 */}
         <section className="notebook-page paper-grain rounded-md p-5">
-          <h2 className="font-semibold">Export &amp; Eegis</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Magaca faylka wuxuu hadda ahaa
-            <span className="font-medium"> Reference_DocumentType</span>. Qaabka taariikhda ayaa
-            halkan laga badbaadinayaa.
-          </p>
+          <h2 className="font-semibold">{t("setExpSection")}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">{t("setExpHint")}</p>
 
           <div className="mt-4 space-y-1.5">
-            <Label htmlFor="date-format">Qaabka taariikhda</Label>
+            <Label htmlFor="date-format">{t("setDateFormat")}</Label>
             <Select
               value={settings.dateFormat}
               onValueChange={(v) => update("dateFormat", v as OfficeSettings["dateFormat"])}
@@ -159,13 +152,10 @@ export default function Settings() {
               office's real letterhead. Nothing is generated here. */}
           <div className="mt-5 rounded-md border border-dashed border-border p-3">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-              <Eye className="size-3" /> Sidda u egaysan
+              <Eye className="size-3" /> {t("setPreview")}
             </p>
             <div className="mt-2 rounded-sm bg-white px-3 py-2 text-center text-[13px] leading-5 text-[#111111]">
-              {lines.length === 0 ? (
-                <p className="text-[11px] text-[#888888]">
-                  Siddu waa hadhi weli. Sii magac kor si uu u muuqdo.
-                </p>
+              {lines.length === 0 ? (                  <p className="text-[11px] text-[#888888]">{t("setPreviewEmpty")}</p>
               ) : (
                 lines.map((line, i) => (
                   <p key={i}>{line}</p>
@@ -184,23 +174,10 @@ export default function Settings() {
         >
           <h2 className="flex items-center gap-2 font-semibold">
             <WifiOff className="size-4 text-primary" />
-            Offline Mode
+            {t("setOfflineTitle")}
           </h2>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {offline.offline ? (
-              <>
-                <strong className="text-foreground">Waa la shaqeeyaa.</strong> Database-ku,
-                template-yada, search-ka, drafts-ka iyo files-ka waa computer-gaan oo keliya.
-                Internet markii la damiyo, nidaamku wuxuu weli ka shaqeeyaa: Create → Edit →
-                Review → Save → DOCX → PDF → Print → Search.
-              </>
-            ) : (
-              <>
-                <strong className="text-foreground">Waa la damay.</strong> Nidaamku wuxuu
-                hadda isticmaali karaa khadka. Tan iyo dad-ka xogta sidaas ayuu ula wareegayaa
-                (wixii <span className="underline">offline</span>).
-              </>
-            )}
+            {offline.offline ? t("setOfflineOn") : t("setOfflineOff")}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button
@@ -209,15 +186,11 @@ export default function Settings() {
                 const next = { ...offline, offline: !offline.offline };
                 setOffline(next);
                 writeOfflineSettings(next);
-                toast.success(
-                  next.offline
-                    ? "Offline mode ayaa la furay — nidaamku hadda wuxuu local buuq yahay."
-                    : "Cloud mode ayaa la furay.",
-                );
+                toast.success(next.offline ? t("setToastOffOn") : t("setToastOffOff"));
               }}
               data-action="toggle-offline"
             >
-              {offline.offline ? "Dami" : "Fur"}
+              {offline.offline ? t("setOfflineBtnOff") : t("setOfflineBtnOn")}
             </Button>
           </div>
         </section>
@@ -228,15 +201,15 @@ export default function Settings() {
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <Button onClick={save} disabled={!loaded} className="gap-1.5">
           {isDirty ? <Save className="size-4" /> : <Check className="size-4" />}
-          Kaydi
+          {t("setSave")}
         </Button>
         {isDirty && (
           <Button variant="ghost" onClick={() => setSettings(readSettings())}>
-            Soo celi
+            {t("setReset")}
           </Button>
         )}
         <Link to="/templates" className="text-xs font-medium text-primary hover:underline">
-          Maaree Template-yada →
+          {t("setManageTemplates")}
         </Link>
       </div>
     </AppShellWithLang>

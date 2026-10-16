@@ -54,10 +54,6 @@ const DICT: Dict = {
   newPayment: ["Lacag cusub", "New payment"],
   exportCsv: ["Soo degso CSV", "Download CSV"],
   notYetRebuilt: ["Bogga hore weli waa dib loo dhisayaa.", "This page is being rebuilt."],
-  soonTitleClients: ["Macaamiisha", "Clients"],
-  soonTitlePayments: ["Lacagaha", "Payments"],
-  soonTitleReports: ["Warbixinada", "Reports"],
-  soonTitleSettings: ["Habayn", "Settings"],
 
   // Documents page
   docTitle: ["Dukumentiyada", "Documents"],
@@ -159,6 +155,46 @@ const DICT: Dict = {
     "Xogta xafiiska, offline, backup iyo doorashooyinka export-ka.",
     "Office details, offline mode, backup and export choices.",
   ],
+  setOffSection: ["Xogta Xafiiska", "Office details"],
+  setOffHint: [
+    "Waxa halkan qorto waa wixii dukumintigu daabacayo — waxba lama abuuro.",
+    "Everything typed here is what the documents print — nothing is invented.",
+  ],
+  setOfficeName: ["Magaca Xafiiska", "Office name"],
+  setOfficeAddress: ["Cinwaan", "Address"],
+  setOfficePhone: ["Telefoon", "Phone"],
+  setOfficeExtra: ["Khad kale (iimayl iwm.)", "Extra line (email etc.)"],
+  setExpSection: ["Export & Eegis", "Export & review"],
+  setExpHint: [
+    "Magaca faylka waa Reference_DocumentType. Qaabka taariikhda halkan ayaa lagu dooroartaa.",
+    "Files are named Reference_DocumentType. The date format is chosen here.",
+  ],
+  setDateFormat: ["Qaabka taariikhda", "Date format"],
+  setPreview: ["Sida madaxu u eegi doono", "Header preview"],
+  setPreviewEmpty: [
+    "Madaxani waa madhan — qor magaca xafiiska si uu u muuqdo.",
+    "The header is empty — type an office name to see it.",
+  ],
+  setOfflineTitle: ["Mode-ka Offline", "Offline mode"],
+  setOfflineOn: [
+    "Waa la shaqeeyaa. Databaasku, template-yadu, search-ku, drafts-ku iyo files-ku waxay ku jiraan computer-kaan oo keliya — internet la'aanba wax walba way shaqeynayaan.",
+    "It is running. The database, templates, search, drafts and files live on this computer only — everything works without internet.",
+  ],
+  setOfflineOff: [
+    "Waa la damay — nidaamku walaan ku shaqeynayaa qortiwaarka.",
+    "It is off — the system is working as usual.",
+  ],
+  setOfflineBtnOff: ["Dami", "Turn off"],
+  setOfflineBtnOn: ["Fur", "Turn on"],
+  setToastOffOn: [
+    "Hab offline ayaa shaqeynaya — wax walba waxay ku shaqaan computer-kaan.",
+    "Offline mode is on — everything stays on this computer.",
+  ],
+  setToastOffOff: ["Hab offline waa la damiyay.", "Offline mode turned off."],
+  setSaved: ["Habayntu waa la kaydiyay.", "Settings saved."],
+  setSave: ["Kaydi", "Save"],
+  setReset: ["Soo celi", "Reset"],
+  setManageTemplates: ["Maaree template-yada →", "Manage templates →"],
 };
 
 export interface LangContextValue {
