@@ -88,6 +88,24 @@ const DICT: Dict = {
     "Enter the reference printed on the document (e.g. DPN/K/001).",
   ],
   partiesCount: ["qof", "people"],
+
+  // Clients page (Macaamiisha)
+  clientTitle: ["Macaamiisha", "Clients"],
+  clientSub: [
+    "Saxiixayaasha iyo lababka ku jira dukumintiyada — qofka, xafladaha, diiwaanada saxiixka iyo dhammaanka.",
+    "Signers and parties from the office documents. Cards: people, groups, records, documents.",
+  ],
+  statPeople: ["Qof", "People"],
+  statGroups: ["Kooxo / Qoys", "Groups"],
+  statRoleRecords: ["Diiwaanada", "Records"],
+  clientSearchPlaceholder: ["Raadi magac, telefoon ama tixraac…", "Search name, phone or reference…"],
+  clientEmpty: ["Ma jiro macmiil.", "No clients."],
+  clientEmptyHint: [
+    "Macmiilku waa saxiixihii ku dhisay dukumintiyada xafiiska.",
+    "Clients are derived from the documents — create a document to record one.",
+  ],
+  noClientSearchMatch: ["Lama helin raadinka.", "Nothing found."],
+  groupBadge: ["Koox", "Group"],
 };
 
 export interface LangContextValue {
