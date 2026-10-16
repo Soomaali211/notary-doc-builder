@@ -252,7 +252,7 @@ function App() {
             path="/settings"
             element={<Navigate to="/habayn" replace />}
           />
-          <Route path="*" element={<NotFound /> } />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
     </BrowserRouter>
