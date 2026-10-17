@@ -252,6 +252,274 @@ const DICT: Dict = {
   bkBtnReplace: ["Ku beddel xogta dhammaan", "Replace everything"],
   bkCancel: ["Jooji", "Cancel"],
   bkAria: ["Backup iyo Restore", "Backup and restore"],
+
+  // Template Manager page (Templates)
+  tplTitle: ["Template Manager", "Template Manager"],
+  tplSub: [
+    "Word template-yadaada — adigaa wareejiya qaab-dhismeedka.",
+    "Your Word templates — you own the design.",
+  ],
+  tplDocType: ["Nooca Dukumeentiga", "Document type"],
+  tplUploadTitle: ["Soo geli Word Template (.docx)", "Upload a Word template (.docx)"],
+  tplUploadHintA: [
+    "Template-ka waa iska leh USER-KA: qaabka, font-ka, logo-ga, sharciga iyo saxiixada — dhammaan waxay ku jiraan faylkaaga. System-ku wuxuu kaliya akhriyaa placeholder-yada ",
+    "You own the template: the layout, font, logo, legal text and signatures all live in your file. The system only reads the ",
+  ],
+  tplUploadHintB: [
+    " oo xogta buuxinayaa.",
+    " placeholders and fills in the data.",
+  ],
+  tplChooseFile: ["Dooro .docx", "Choose .docx"],
+  tplDontBreak: ["haba seyn", "must not be broken"],
+  tplDl: ["Soo celi", "Download"],
+
+  // Compatibility report
+  tplReportOk: [
+    "Template-ku waafaqaa nidaamka — document-ka waa la buuxin karaa.",
+    "The template matches the system — the document can be generated.",
+  ],
+  tplReportBad: [
+    "Template-ku ma waafaqno nidaamka — qaladahan la saxo template-ka.",
+    "The template does not match the system — fix these errors in the template.",
+  ],
+  tplStructErrors: ["Qalado qaab-dhismeed ah:", "Structural problems:"],
+  tplUnknownWarnA: [
+    "⚠ Template-ku wuxuu leeyahay placeholder aan system-ku aqoon: ",
+    "⚠ The template carries placeholders the system does not know: ",
+  ],
+  tplUnknownWarnB: [
+    " — generation ma joojinayo, token-kii ayaa document-ka ka saaraysa.",
+    " — generation will not stop; the token is stripped from the document.",
+  ],
+  tplAliases: [
+    "Magacyo duub ah oo hadda la heli karo:",
+    "Old names that still resolve:",
+  ],
+  tplRecognized: ["La aqoonsan", "Recognized"],
+  tplAlias: ["Alias", "Alias"],
+  tplUnknown: ["Ma aqoon", "Unknown"],
+  tplUnused: ["Isticmaal ma san", "Unused"],
+  tplUnusedSummaryA: [
+    "Magacyo system-ku yaqaan laakiin template-ku isticmaali maaha (",
+    "Names the system knows that this template does not use (",
+  ],
+  tplUnusedHint: [
+    "Tan waa xoog gaar ah oo aad qaad karo: haddii aad u isticmaasho, template-ka ayaa la buuxinayaa. ",
+    "Free power you can claim: use them and the template fills them in. ",
+  ],
+
+  // Starter downloads
+  tplV1Title: ["Template-ka nidaamka v1 (miis xog leh)", "System template v1 (data tables)"],
+  tplV1HintA: [
+    "System-ku wuxuu abuuraa Word .docx template-ka La ",
+    "The system builds the ",
+  ],
+  tplV1HintB: [
+    " oo leh placeholder-yada canonical-ka. Ka dibna ADIGA ayaa Word-ka furaya, qaabka, font-ka, logo-ga, sharciga iyo meelaha saxiixada aad beddelaysaa — placeholder-yadana ",
+    " Word file with the canonical placeholders. You then open it in Word and change the layout, font, logo, legal text and signature spots — the placeholders ",
+  ],
+  tplV1Tail: [
+    "Marka aad Word-ka ku edit-gareeyo, ku kaydi magac cusub (tusaale ",
+    "After editing in Word, save it under a new name (e.g. ",
+  ],
+  tplV1TailB: [
+    ") oo soo geli Template Manager-ka — user-kayga waa la ilaaliyaa, lama beddelin.",
+    ") and upload it here — your copy is preserved, never replaced.",
+  ],
+  tplToastStarterOk: [
+    "Template-ka nidaamka waa la soo celiyay — furi Word-ka si aad u edisto.",
+    "The system template was downloaded — open Word to edit it.",
+  ],
+  tplToastV2Ok: [
+    "Template-ka v2 waa la soo celiyay — qodobado sharciyeed buuxa.",
+    "The v2 template was downloaded — full legal clauses.",
+  ],
+
+  // v2 card
+  tplV2Title: ["Template-ka v2 — Heshiis Kiro (qoraal sharciyeed)", "Template v2 — rental contract (legal text)"],
+  tplV2Badge: ["WAA LA TAAGEERAA", "SUPPORTED"],
+  tplV2HintA: [
+    "Waa ",
+    "It is ",
+  ],
+  tplV2HintB: [
+    "token-yada canonical-ka, oo la ilaaliyo.",
+    " canonical tokens, preserved as-is.",
+  ],
+  tplV2Tail: [
+    "Furi Word-ka, qaab-dhismeedka, font-ka, logo-ga, sharciga iyo meelaha saxiixada adigaa beddelaysaa — placeholder-yadana ",
+    "Open Word and change the layout, font, logo, legal text and signature spots — the placeholders ",
+  ],
+
+  // Hanti card
+  tplHantiTitle: ["Template-yada xafiiska — Kala Iibsi Hanti", "Office templates — property transfer"],
+  tplHantiBadge: ["QORAALKA XAFIISKA OO DHAN", "THE OFFICE'S OWN WORDING"],
+  tplHantiHint: [
+    "Kuwani waa template-yada xafiiska oo dhab ah — waxba lama abuurin, waxba lama beddelin. Soo deji faylka nooca aad doorbido, furi Word-ka, u samee edit gaar ah (placeholder-yada ",
+    "These are the office's real templates — nothing invented, nothing altered. Download the one you want, open Word, edit it (the ",
+  ],
+  tplHantiHintB: [
+    "), ka dibna kor ku soo geli Template Manager-ka si uu document-yada cusub laga abuuro.",
+    " placeholders ",
+  ],
+  tplHantiTail: [
+    "\"Hanti Kale\" ma laha template (waa go'aan furan — marka sawiradda scan-keeda la keeno, faylkeeda oo keliya ayaa halkan lagu daraa).",
+    "\"Other property\" has no template (an open decision — when its scan arrives, only its file will be added here).",
+  ],
+  tplHantiMid: [
+    " waa la soo celiyay — furi Word-ka si aad u edisto.",
+    " was downloaded — open Word to edit it.",
+  ],
+
+  // Cilaaj card
+  tplCilaajTitle: ["Template-ka xafiiska — Cadayn Cilaaj", "Office template — patient referral note"],
+  tplCilaajBadge: ["QORAALKA XAFIISKA (SCAN OO DHAN)", "THE OFFICE'S WORDING (FULL SCAN)"],
+  tplCilaajHint: [
+    "Waa dukumenti xafiiska — \"Cadayn Masuuliyad Qaadis Bukaan\" (Ref/Dpn/CC/…). Soo deji faylka, furi Word-ka, u samee edit gaar ah (placeholder-yada ",
+    "An office document — the referral note (Ref/Dpn/CC/…). Download the file, open Word, edit it (the ",
+  ],
+  tplCilaajHintB: [
+    "), ka dibna kor ku soo geli Template Manager-ka si document-yada cusub laga abuuro.",
+    " placeholders must survive) and upload it here so new documents use it.",
+  ],
+  tplCilaajTail: [
+    "Marka aad Word-ka ku edit-gareeyo, ku kaydi (ama magac cusub) oo soo geli kore — record cusub ayaa la abuuraa, tii hore luma dumin.",
+    "After editing in Word, save it and upload it above — a new record is created; the old one is not deleted.",
+  ],
+
+  // Upload + list + toasts
+  tplToastCilaajOk: [
+    "Template-ka Cadayn Cilaaj waa la soo celiyay — furi Word-ka si aad u edisto.",
+    "The referral-note template was downloaded — open Word to edit it.",
+  ],
+  tplToastStarterFail: [
+    "Template-ka lama soo celin karo — isku day mar kale.",
+    "The template could not be downloaded — try again.",
+  ],
+  tplToastOnlyDocx: [
+    "Kaliya faylasha Word (.docx) ayaa la oggol yahay.",
+    "Only Word (.docx) files are allowed.",
+  ],
+  tplUnknownStored: ["Placeholder aan la aqoon: {{", "Unknown placeholder: {{"],
+  tplToastUploadOk: [
+    "Template-ka waa la soo geliyay oo la kaydiyay (maxalli ah).",
+    "The template was uploaded and stored locally.",
+  ],
+  tplToastUploadFail: [
+    "Soo gelidda template-ka wuu fashilmay — isku day mar kale.",
+    "The upload failed — try again.",
+  ],
+  tplPlaceholdersA: ["Placeholder-yada la heli karo (", "Available placeholders ("],
+  tplRepeatBlocks: ["Repeat blocks: ", "Repeat blocks: "],
+  tplConditionals: ["Conditionals: ", "Conditionals: "],
+  tplListEmpty: [
+    "Weli template lama soo gelin. Soo geli .docx aad sameysay si aad u isticmaasho generation-ka.",
+    "No template uploaded yet. Upload a .docx you have made to use it for generation.",
+  ],
+  tplDefault: ["Default", "Default"],
+  tplSetDefaultOk: ["Template-ka default waa loo dhigay.", "Set as the default template."],
+  tplSetDefaultFail: ["Lama dhejin karo — isku day mar kale.", "Could not set it — try again."],
+  tplDelete: ["Tirtir", "Delete"],
+  tplDeleteOk: ["Template-ka waa la tirtiray.", "The template was deleted."],
+  tplDeleteFail: ["Lama tirtirin — isku day mar kale.", "Could not delete — try again."],
+  tplWarnCount: [" warning: ", " warning: "],
+  tplFooter: [
+    "Template-yada hore lama beddelo oo lama overwrite-gareyn — mar kasta oo aad soo gelisid, record cusub ayaa la abuuraa.",
+    "Earlier templates are never altered or overwritten — every upload creates a new record.",
+  ],
+  tplBackLink: ["← Dashboard", "← Dashboard"],
+
+  // Admin page
+  admSub: [
+    "Muuqaal guud oo xafiiska — dukumintiyada, ballannada, qoraallada guddiga iyo faallooyinka.",
+    "Workspace-wide overview — documents, bookings, board posts and comments.",
+  ],
+  admStatDocuments: ["Dukumintiyada", "Documents"],
+  admGenerated: ["la soo saaray", "generated"],
+  admDrafts: ["qabyo", "drafts"],
+  admStatAppointments: ["Ballannada", "Appointments"],
+  admUpcoming: ["weli imaneysa", "upcoming"],
+  admStatPosts: ["Qoraallada guddiga", "Board posts"],
+  admStatTypes: ["Nooc firfircoon", "Types live"],
+  admPlanned: ["la qorsheeyay", "planned"],
+  admValidation: ["Xaqiijinta template-ka", "Template validation"],
+  admValidationHint: [
+    "Hubi in template-ka Word uu sax yahay ka hor generation: placeholders syntax, mappings la heli karo, IF/ENDIF iyo BLOCK markers balanced. Xog tijaabo ah ayaa la isticmaalaa — wax lama kaydin.",
+    "Check the Word template before generation: placeholder syntax, resolvable mappings, balanced IF/ENDIF and BLOCK markers. Sample data is used — nothing is stored.",
+  ],
+  admPickPlaceholder: ["Dooro template…", "Choose a template…"],
+  admValidating: ["Hubinaya…", "Validating…"],
+  admValidateBtn: ["Hubi template-ka", "Validate template"],
+  admValidOk: ["Sax — diyaar", "OK — ready"],
+  admValidBad: ["Qalado jira", "Problems found"],
+  admReadFail: ["Template-ka lama akhriyi karo.", "The template could not be read."],
+  admAllDocs: ["Dhammaan dukumintiyada", "All documents"],
+  admLoading: ["La dejiyayo…", "Loading…"],
+  admNoDocs: [
+    "Weli dukumenti ma jirto.",
+    "No documents in the workspace yet.",
+  ],
+  admDraftRef: ["(draft)", "(draft)"],
+  admGeneratedBadge: ["La soo saaray", "Generated"],
+  admDraftBadge: ["Qab", "Draft"],
+  admDeleteFail: ["Tirtiriddu way fashilantay.", "Delete failed."],
+  admAllAppts: ["Dhammaan ballannada", "All appointments"],
+  admNoAppts: [
+    "Weli ballan ma lahayn.",
+    "No appointments booked yet.",
+  ],
+  admModeration: ["Ilalinka guddiga", "Board moderation"],
+  admNoPosts: [
+    "Weli qoraal ma jiro.",
+    "No posts to moderate.",
+  ],
+  admCommentsNote: [
+    "* Faallooyinka waxaa maareeya bogga dukumintiga oo la horay.",
+    "* Comments are moderated from each document's detail page.",
+  ],
+
+  // Document detail page
+  ddTitle: ["Dukumenti", "Document"],
+  ddNotFound: [
+    "Dukumeentigan lama helin. Wuxuu noqon karaa in la tirtiray, ama in kale ayaa lagu qaldamay.",
+    "That document isn't here. It may have been deleted, or the address doesn't match.",
+  ],
+  ddNoId: ["Dukumintigu lama helin bogga.", "No document id in the address."],
+  ddCreatedShort: ["La abuuray", "Created"],
+  ddUpdatedShort: ["Wax la beddelay", "Updated"],
+  ddCompleted: ["Waa la dhammaystiray", "Completed"],
+  ddExported: ["Waa la soo saaray", "Exported"],
+  ddTemplate: ["Template:", "Template:"],
+  ddResume: ["Dib u bilow", "Resume interview"],
+  ddRegenerate: ["Nuqul cusub oo draft ah", "Regenerate as draft"],
+  ddRegenerateOk: [
+    "Waa la nuquliyay — version cusub oo draft ah ayaa diyaar.",
+    "Copied — a new draft is ready.",
+  ],
+  ddRegenerateFail: ["Nuqulidda waa fashilantay.", "Copy failed."],
+  ddArchiveBtn: ["Kaydi kaydka", "Save to archive"],
+  ddArchiveOk: ["Dukumeentiga waa la kaydiyay kaydka.", "Saved to the archive."],
+  ddArchiveFail: ["Kaydinta waa fashilantay.", "Save failed."],
+  ddFileMissingA: ["Faylka", "The"],
+  ddFileMissingB: [
+    " ma jiro halkan. Soo saar document-ga mar kale oo halkan ayuu ku soo qaadan doonaa.",
+    " file isn't here. Generate the document again to put it here.",
+  ],
+  ddParties: ["Xafladaha", "Parties"],
+  ddPartiesEmpty: ["Weli lama diiwaangelin.", "Not recorded yet."],
+  ddSellers: ["Iibiyayaasha", "Sellers"],
+  ddBuyers: ["Iibsadayaasha", "Buyers"],
+  ddStoredAnswers: ["Jawaabaha la kaydiyay", "Stored answers"],
+  ddLocalFiles: ["Faylaha maxalliga ah", "Local files"],
+  ddLocalFilesHint: [
+    "Dukumeentiga, drafts-ka iyo faylaha la soo saaray waxay ku jiraan computer-gaan oo keliya — internet la'aan. Soo saar nuqul ",
+    "The document, drafts and generated files live on this computer only — no internet. Create a ",
+  ],
+  ddLocalFilesHintB: [
+    " oo Settings-ka, si xogtu had iyo jeer ugu jirato.",
+    " backup in Settings so the data is always safe.",
+  ],
+  ddBackArchive: ["Ku noqo kaydka", "Back to archive"],
 };
 
 export interface LangContextValue {

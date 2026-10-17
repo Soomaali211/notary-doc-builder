@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
-import { AppShell } from "@/components/notary/AppShell";
+import { AppShellWithLang } from "@/components/notary/AppShell";
+import { useLang } from "@/lib/lang";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,6 +31,7 @@ function DocumentDetailView({ docId }: { docId: string }) {
    */
   const { document, loading } = useLocalAgreement(docId);
   const navigate = useNavigate();
+  const { t } = useLang();
 
   /**
    * §32 — the parties are derived from the stored answers rather than kept
@@ -42,9 +44,7 @@ function DocumentDetailView({ docId }: { docId: string }) {
     if (!document) return;
     const file = await getGeneratedFile(document.id, kind);
     if (!file) {
-      toast.error(
-        `Faylka ${kind.toUpperCase()} ma jiro halkan. Soo saar document-ga mar kale oo halkan ayuu ku soo qaadan doonaa.`,
-      );
+      toast.error(`${t("ddFileMissingA")} ${kind.toUpperCase()}${t("ddFileMissingB")}`);
       return;
     }
     downloadBlob(file.blob, file.fileName);
@@ -52,23 +52,22 @@ function DocumentDetailView({ docId }: { docId: string }) {
 
   if (loading) {
     return (
-      <AppShell title="Document">
+      <AppShellWithLang title={t("ddTitle")}>
         <div className="space-y-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-64 w-full" />
         </div>
-      </AppShell>
+      </AppShellWithLang>
     );
   }
 
   if (!document) {
     return (
-      <AppShell title="Document">
+      <AppShellWithLang title={t("ddTitle")}>
         <p className="text-sm text-muted-foreground" data-empty="document">
-          Dukumeentigan lama helin. Wuxuu noqon karaa in la tirtiray, ama in kale ayaa
-          lagu qaldamay.
+          {t("ddNotFound")}
         </p>
-      </AppShell>
+      </AppShellWithLang>
     );
   }
 
@@ -100,11 +99,11 @@ function DocumentDetailView({ docId }: { docId: string }) {
         status: "draft",
         valuesJson: document.valuesJson,
       });
-      toast.success("Waa la nuquliyay — version cusub oo draft ah ayaa diyaar.");
+      toast.success(t("ddRegenerateOk"));
       navigate(`/documents/${copy.id}`);
     } catch (e) {
       console.error(e);
-      toast.error("Nuqulidda waa fashilantay.");
+      toast.error(t("ddRegenerateFail"));
     }
   };
 
@@ -120,15 +119,15 @@ function DocumentDetailView({ docId }: { docId: string }) {
         status: "archived",
         valuesJson: document.valuesJson,
       });
-      toast.success("Dukumeentiga waa la kaydiyay kaydka.");
+      toast.success(t("ddArchiveOk"));
     } catch (e) {
       console.error(e);
-      toast.error("Kaydinta waa fashilantay.");
+      toast.error(t("ddArchiveFail"));
     }
   };
 
   return (
-    <AppShell title={document.referenceNumber || "Document"} subtitle={document.subTypeLabel}>
+    <AppShellWithLang title={document.referenceNumber || t("ddTitle")} subtitle={document.subTypeLabel}>
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* Main column */}
         <div className="space-y-6">
@@ -141,11 +140,11 @@ function DocumentDetailView({ docId }: { docId: string }) {
                   {getSubTypeLabel(config, document.subType)}
                 </p>
                 <h2 className="highlight-sweep mt-1 inline-block text-2xl font-bold">
-                  {document.referenceNumber || "(reference pending)"}
+                  {document.referenceNumber || t("admDraftRef")}
                 </h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Created {formatSomaliDate(new Date(document.createdAt ?? 0).toISOString().slice(0, 10))} ·
-                  Updated {formatSomaliDate(new Date(document.updatedAt ?? 0).toISOString().slice(0, 10))}
+                  {t("ddCreatedShort")} {formatSomaliDate(new Date(document.createdAt ?? 0).toISOString().slice(0, 10))} ·
+                  {t("ddUpdatedShort")} {formatSomaliDate(new Date(document.updatedAt ?? 0).toISOString().slice(0, 10))}
                 </p>
                 {/* §69 — the audit trail: the four moments, each shown only
                     once it has actually happened. A moment that has not
@@ -153,10 +152,10 @@ function DocumentDetailView({ docId }: { docId: string }) {
                 <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
                   {(
                     [
-                      ["La abuuray", document.createdAt],
-                      ["Wax la beddelay", document.updatedAt],
-                      ["Waa la dhammaystiray", document.completedAt],
-                      ["Waa la soo saaray", document.exportedAt],
+                      [t("ddCreatedShort"), document.createdAt],
+                      [t("ddUpdatedShort"), document.updatedAt],
+                      [t("ddCompleted"), document.completedAt],
+                      [t("ddExported"), document.exportedAt],
                     ] as const
                   ).map(([label, at]) => (
                     <div key={label} className="flex gap-1">
@@ -182,7 +181,7 @@ function DocumentDetailView({ docId }: { docId: string }) {
                 </Badge>
                 {document.templateId && (
                   <p className="text-right text-[11px] text-muted-foreground">
-                    Template:{" "}
+                    {t("ddTemplate")}{" "}
                     <span className="font-medium text-foreground">
                       {document.templateName ?? templateInfo?.name ?? document.templateId}
                     </span>
@@ -208,17 +207,17 @@ function DocumentDetailView({ docId }: { docId: string }) {
                 )}
                 {document.status === "draft" && (
                   <Button size="sm" onClick={() => navigate(`/documents/${document.id}`)}>
-                    Resume interview
+                    {t("ddResume")}
                   </Button>
                 )}
                 {(document.status === "generated" || document.status === "archived") && (
                   <Button size="sm" variant="outline" onClick={regenerate}>
-                    <CopyPlus className="size-4" /> Regenerate as draft
+                    <CopyPlus className="size-4" /> {t("ddRegenerate")}
                   </Button>
                 )}
                 {document.status === "generated" && (
                   <Button size="sm" variant="ghost" onClick={archiveNow}>
-                    <Archive className="size-4" /> Save to archive
+                    <Archive className="size-4" /> {t("ddArchiveBtn")}
                   </Button>
                 )}
               </div>
@@ -228,16 +227,16 @@ function DocumentDetailView({ docId }: { docId: string }) {
                 list here can never disagree with the form the notary filled. */}
             <div className="mt-6 border-t border-dashed border-border pt-4">
               <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                <Users className="size-4 text-primary" /> Parties
+                <Users className="size-4 text-primary" /> {t("ddParties")}
               </h3>
               {partyNames.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Weli lama diiwaangelin.</p>
+                <p className="text-sm text-muted-foreground">{t("ddPartiesEmpty")}</p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {(
                     [
-                      ["Iibiyayaasha", sides.sellers],
-                      ["Iibsadayaasha", sides.buyers],
+                      [t("ddSellers"), sides.sellers],
+                      [t("ddBuyers"), sides.buyers],
                     ] as const
                   ).map(([label, names]) => (
                     <div
@@ -257,7 +256,7 @@ function DocumentDetailView({ docId }: { docId: string }) {
           {/* Stored values */}
           <div className="notebook-page paper-grain rounded-md p-6">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <FileText className="size-4 text-primary" /> Stored answers
+              <FileText className="size-4 text-primary" /> {t("ddStoredAnswers")}
             </h3>
             <ul className="divide-y divide-dashed divide-border/70">
               {Object.entries(values).flatMap(([sectionId, fields]) =>
@@ -283,13 +282,12 @@ function DocumentDetailView({ docId }: { docId: string }) {
         <div className="space-y-6">
           <section className="notebook-page paper-grain rounded-md p-5">
             <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-              <HardDrive className="size-4 text-primary" /> Faylaha maxalliga ah
+              <HardDrive className="size-4 text-primary" /> {t("ddLocalFiles")}
             </h3>
             <p className="text-xs leading-5 text-muted-foreground">
-              Dukumeentiga, drafts-ka iyo faylaha la soo saaray waxay ku jiraan
-              computer-gaan oo keliya — internet la’aan. Soo saar nuqul
-              <strong className="text-foreground"> .notary-backup.json</strong> oo
-              Settings-ka, si xogtu had iyo jeer ugu jirato.
+              {t("ddLocalFilesHint")}
+              <strong className="text-foreground"> .notary-backup.json</strong>
+              {t("ddLocalFilesHintB")}
             </p>
             <dl className="mt-3 space-y-1 text-[11px] text-muted-foreground">
               {(
@@ -311,21 +309,22 @@ function DocumentDetailView({ docId }: { docId: string }) {
             to="/archive"
             className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
           >
-            <ArrowLeft className="size-4" /> Back to archive
+            <ArrowLeft className="size-4" /> {t("ddBackArchive")}
           </Link>
         </div>
       </div>
-    </AppShell>
+    </AppShellWithLang>
   );
 }
 
 export default function DocumentDetailPage() {
   const { docId } = useParams<{ docId: string }>();
+  const { t } = useLang();
   if (!docId) {
     return (
-      <AppShell title="Document">
-        <p className="text-sm text-muted-foreground">No document id in the address.</p>
-      </AppShell>
+      <AppShellWithLang title={t("ddTitle")}>
+        <p className="text-sm text-muted-foreground">{t("ddNoId")}</p>
+      </AppShellWithLang>
     );
   }
   return <DocumentDetailView docId={docId} />;

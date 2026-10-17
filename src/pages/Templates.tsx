@@ -3,7 +3,8 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AppShell } from "@/components/notary/AppShell";
+import { AppShellWithLang } from "@/components/notary/AppShell";
+import { useLang } from "@/lib/lang";
 import { getConfig, documentConfigs } from "@/lib/notary/documents";
 import { knownPlaceholderNames } from "@/lib/notary/dataContext";
 import {
@@ -42,6 +43,7 @@ import {
 } from "@/lib/notary/hantiTemplate";
 
 export default function Templates() {
+  const { t } = useLang();
   const [docType, setDocType] = useState("heshiis_kiro");
   const config = getConfig(docType);
   /**
@@ -86,10 +88,10 @@ export default function Templates() {
       a.click();
       a.remove();
       URL.revokeObjectURL(a.href);
-      toast.success("Template-ka nidaamka waa la soo celiyay — furi Word-ka si aad u edisto.");
+      toast.success(t("tplToastStarterOk"));
     } catch (err) {
       console.error(err);
-      toast.error("Template-ka lama soo celin karo — isku day mar kale.");
+      toast.error(t("tplToastStarterFail"));
     } finally {
       setBuilding(false);
     }
@@ -108,10 +110,10 @@ export default function Templates() {
       a.click();
       a.remove();
       URL.revokeObjectURL(a.href);
-      toast.success("Template-ka v2 waa la soo celiyay — qodobado sharciyeed buuxa.");
+      toast.success(t("tplToastV2Ok"));
     } catch (err) {
       console.error(err);
-      toast.error("Template-ka v2 lama soo celin karo — isku day mar kale.");
+      toast.error(t("tplToastStarterFail"));
     } finally {
       setBuildingV2(false);
     }
@@ -138,11 +140,11 @@ export default function Templates() {
       a.remove();
       URL.revokeObjectURL(a.href);
       toast.success(
-        `Template-ka ${starter.label} waa la soo celiyay — furi Word-ka si aad u edisto.`,
+        `${starter.label}${t("tplHantiMid")}`,
       );
     } catch (err) {
       console.error(err);
-      toast.error("Template-ka lama soo celin karo — isku day mar kale.");
+      toast.error(t("tplToastStarterFail"));
     } finally {
       setBuildingHanti(null);
     }
@@ -183,11 +185,11 @@ export default function Templates() {
       a.remove();
       URL.revokeObjectURL(a.href);
       toast.success(
-        "Template-ka Cadayn Cilaaj waa la soo celiyay — furi Word-ka si aad u edisto.",
+        t("tplToastCilaajOk"),
       );
     } catch (err) {
       console.error(err);
-      toast.error("Template-ka lama soo celin karo — isku day mar kale.");
+      toast.error(t("tplToastStarterFail"));
     } finally {
       setBuildingCilaaj(false);
     }
@@ -196,7 +198,7 @@ export default function Templates() {
   const handleUpload = async (file: File) => {
     if (!config) return;
     if (!/\.docx$/i.test(file.name)) {
-      toast.error("Kaliya faylasha Word (.docx) ayaa la oggol yahay.");
+      toast.error(t("tplToastOnlyDocx"));
       return;
     }
     setBusy(true);
@@ -218,15 +220,15 @@ export default function Templates() {
         bytes,
         placeholders: report.tokens,
         warnings: [
-          ...report.unknown.map((u) => `Placeholder aan la aqoon: {{${u}}}`),
+          ...report.unknown.map((u) => `${t("tplUnknownStored")}${u}}}`),
           ...report.syntaxErrors,
         ],
       });
       await refreshTemplates();
-      toast.success("Template-ka waa la soo geliyay oo la kaydiyay (maxalli ah).");
+      toast.success(t("tplToastUploadOk"));
     } catch (err) {
       console.error(err);
-      toast.error("Soo gelidda template-ka wuu fashilmay — isku day mar kale.");
+      toast.error(t("tplToastUploadFail"));
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -234,12 +236,12 @@ export default function Templates() {
   };
 
   return (
-    <AppShell title="Template Manager" subtitle="Word template-yadaada — adigaa wareejiya qaab-dhismeedka.">
+    <AppShellWithLang title={t("tplTitle")} subtitle={t("tplSub")}>
       <div className="space-y-6">
         {/* Document type picker */}
         <div className="neu-raised p-4">
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Nooca Dukumeentiga
+            {t("tplDocType")}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {documentConfigs.map((c) => (
@@ -263,13 +265,11 @@ export default function Templates() {
         <div className="neu-raised p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-bold">Soo geli Word Template (.docx)</h2>
+              <h2 className="text-base font-bold">{t("tplUploadTitle")}</h2>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Template-ka waa iska leh USER-KA: qaabka, font-ka, logo-ga,
-                sharciga iyo saxiixada — dhammaan waxay ku jiraan faylkaaga.
-                System-ku wuxuu kaliya akhriyaa placeholder-yada{" "}
-                <code className="rounded bg-muted px-1">{"{{SIDAAN}}"}</code> oo
-                xogta buuxinayaa.
+                {t("tplUploadHintA")}{" "}
+                <code className="rounded bg-muted px-1">{"{{SIDAAN}}"}</code>
+                {t("tplUploadHintB")}
               </p>
             </div>
             <div>
@@ -294,7 +294,7 @@ export default function Templates() {
                 ) : (
                   <FileUp className="size-4" />
                 )}
-                Dooro .docx
+                {t("tplChooseFile")}
               </Button>
             </div>
           </div>
@@ -317,9 +317,7 @@ export default function Templates() {
                       ) : (
                         <AlertTriangle className="size-4" />
                       )}
-                      {r.canGenerate
-                        ? "Template-ku waafaqaa nidaamka — document-ka waa la buuxin karaa."
-                        : "Template-ku ma waafaqno nidaamka — qaladahan la saxo template-ka."}
+                      {r.canGenerate ? t("tplReportOk") : t("tplReportBad")}
                     </p>
 
                     {/* Structural problems — the only blocking ones */}
@@ -327,7 +325,7 @@ export default function Templates() {
                       r.invalidRepeaters.length > 0) && (
                       <div className="text-destructive">
                         <p className="flex items-center gap-1.5 font-medium">
-                          <AlertTriangle className="size-4" /> Qalado qaab-dhismeed ah:
+                          <AlertTriangle className="size-4" /> {t("tplStructErrors")}
                         </p>
                         <ul className="ml-6 list-disc">
                           {[...r.invalidConditionals, ...r.invalidRepeaters].map((s) => (
@@ -340,17 +338,16 @@ export default function Templates() {
                     {/* Unknown names — warning, stripped not fatal */}
                     {r.unknown.length > 0 && (
                       <p className="text-pen-orange">
-                        ⚠ Template-ku wuxuu leeyahay placeholder aan system-ku
-                        aqoon: <strong>{r.unknown.join(", ")}</strong> —
-                        generation ma joojinayo, token-kii ayaa document-ka ka
-                        saaraysa.
+                        {t("tplUnknownWarnA")}
+                        <strong>{r.unknown.join(", ")}</strong>
+                        {t("tplUnknownWarnB")}
                       </p>
                     )}
 
                     {/* Aliases — old names that still resolve */}
                     {r.aliasMappings.length > 0 && (
                       <p className="text-muted-foreground">
-                        Magacyo duub ah oo hadda la heli karo:{" "}
+                        {t("tplAliases")}{" "}
                         {r.aliasMappings
                           .map((m) => `${m.token} → ${m.canonical}`)
                           .join(", ")}
@@ -359,30 +356,28 @@ export default function Templates() {
 
                     <div className="flex flex-wrap gap-2 text-xs">
                       <span className="rounded-full bg-pen-green/10 px-2 py-0.5 font-semibold text-pen-green">
-                        La aqoonsan: {r.recognized.length}
+                        {t("tplRecognized")}: {r.recognized.length}
                       </span>
                       {r.aliasMappings.length > 0 && (
                         <span className="rounded-full bg-muted px-2 py-0.5 font-semibold">
-                          Alias: {r.aliasMappings.length}
+                          {t("tplAlias")}: {r.aliasMappings.length}
                         </span>
                       )}
                       <span className="rounded-full bg-muted px-2 py-0.5 font-semibold">
-                        Ma aqoon: {r.unknown.length}
+                        {t("tplUnknown")}: {r.unknown.length}
                       </span>
                       <span className="rounded-full bg-muted px-2 py-0.5 font-semibold">
-                        Isticmaal ma san: {r.unused.length}
+                        {t("tplUnused")}: {r.unused.length}
                       </span>
                     </div>
 
                     {r.unused.length > 0 && (
                       <details className="text-xs text-muted-foreground">
                         <summary className="cursor-pointer font-semibold">
-                          Magacyo system-ku yaqaan laakiin template-ku isticmaali
-                          maaha ({r.unused.length})
+                          {t("tplUnusedSummaryA")}{r.unused.length})
                         </summary>
                         <p className="mt-2 leading-relaxed">
-                          Tan waa xoog gaar ah oo aad qaad karo: haddii aad u
-                          isticmaasho, template-ka ayaa la buuxinayaa.{" "}
+                          {t("tplUnusedHint")}{" "}
                           {r.unused.map((u) => u.token).join(" · ")}
                         </p>
                       </details>
@@ -400,17 +395,18 @@ export default function Templates() {
         {config?.id === "heshiis_kiro" && (
         <div className="neu-raised border-primary/40 p-6">
           <h2 className="text-base font-bold">
-            Template-ka v2 — Heshiis Kiro (qoraal sharciyeed){" "}
+            {t("tplV2Title")}{" "}
             <span className="ml-1 rounded-full bg-pen-green/10 px-2 py-0.5 text-[10px] font-semibold text-pen-green">
-              WAA LA TAAGEERAA
+              {t("tplV2Badge")}
             </span>
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Waa <strong>heshiis nootaayo oo dhab ah</strong>: qoraal continuous,
-            qodobado sharciyeed (1., 2., 3. …), saxiixaho iyo maragyo — miis
-            xog ma jiro. Qoraalka joogtada ah waa qoraal sharci; xogga
-            isbedbedesha waxay ku dhex jirtaa <code className="rounded bg-muted px-1">{"{{PLACEHOLDER}}"}</code>{" "}
-            token-yada canonical-ka, oo la ilaaliyo.
+            {t("tplV2HintA")}
+            <strong>heshiis nootaayo oo dhab ah</strong>: qoraal continuous,
+            qodobado sharciyeed, saxiixaho iyo maragyo — miis xog ma jiro.
+            Qoraalka joogtada ah waa qoraal sharci; xogga isbedbedesha waxay ku
+            dhex jirtaa <code className="rounded bg-muted px-1">{"{{PLACEHOLDER}}"}</code>{" "}
+            {t("tplV2HintB")}
           </p>
           <Button
             type="button"
@@ -423,11 +419,10 @@ export default function Templates() {
             ) : (
               <Download className="size-4" />
             )}
-            Soo celi heshiis_kiro_template_v2.docx
+            {t("tplDl")} heshiis_kiro_template_v2.docx
           </Button>
           <p className="mt-2 text-xs text-muted-foreground">
-            Furi Word-ka, qaab-dhismeedka, font-ka, logo-ga, sharciga iyo meelaha
-            saxiixada adigaa beddelaysaa — placeholder-yadana <strong>haba seyn</strong>.
+            {t("tplV2Tail")}<strong>{t("tplDontBreak")}</strong>.
           </p>
         </div>
         )}
@@ -435,13 +430,11 @@ export default function Templates() {
         {/* Starter template builder — the user's Word template starts here */}
         {config?.id === "heshiis_kiro" && (
         <div className="neu-raised p-6">
-          <h2 className="text-base font-bold">Template-ka nidaamka v1 (miis xog leh)</h2>
+          <h2 className="text-base font-bold">{t("tplV1Title")}</h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            System-ku wuxuu abuuraa Word .docx template-ka La{" "}
+            {t("tplV1HintA")}{" "}
             <code className="rounded bg-muted px-1">{TEMPLATE_FILE_NAME}</code>{" "}
-            oo leh placeholder-yada canonical-ka. Ka dibna ADIGA ayaa Word-ka
-            furaya, qaabka, font-ka, logo-ga, sharciga iyo meelaha saxiixada
-            aad beddelaysaa — placeholder-yadana <strong>haba seyn</strong>.
+            {t("tplV1HintB")}<strong>{t("tplDontBreak")}</strong>.
           </p>
           <Button
             type="button"
@@ -451,13 +444,12 @@ export default function Templates() {
             onClick={() => void downloadStarter()}
           >
             {building ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-            Soo celi heshiis_kiro_template.docx
+            {t("tplDl")} heshiis_kiro_template.docx
           </Button>
           <p className="mt-2 text-xs text-muted-foreground">
-            Marka aad Word-ka ku edit-gareeyo, ku kaydi magac cusub (tusaale{" "}
-            <code className="bg-muted px-1">heshiis_kiro_template_final.docx</code>) oo
-            soo geli Template Manager-ka — user-kayga waa la ilaaliyaa, lama
-            beddelin.
+            {t("tplV1Tail")}{" "}
+            <code className="bg-muted px-1">heshiis_kiro_template_final.docx</code>
+            {t("tplV1TailB")}
           </p>
         </div>
         )}
@@ -469,18 +461,16 @@ export default function Templates() {
         {config?.id === "kala_iibsi_hanti" && (
         <div className="neu-raised border-primary/40 p-6">
           <h2 className="text-base font-bold">
-            Template-yada xafiiska — Kala Iibsi Hanti{" "}
+            {t("tplHantiTitle")}{" "}
             <span className="ml-1 rounded-full bg-pen-green/10 px-2 py-0.5 text-[10px] font-semibold text-pen-green">
-              QORAALKA XAFIISKA OO DHAN
+              {t("tplHantiBadge")}
             </span>
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Kuwani waa template-yada xafiiska oo dhab ah — waxba lama abuurin,
-            waxba lama beddelin. Soo deji faylka nooca aad doorbido, furi
-            Word-ka, u samee edit gaar ah (placeholder-yada{" "}
+            {t("tplHantiHint")}{" "}
             <code className="rounded bg-muted px-1">{"{{PLACEHOLDER}}"}</code>{" "}
-            <strong>haba seyn</strong>), ka dibna kor ku soo geli Template
-            Manager-ka si uu document-yada cusub laga abuuro.
+            <strong>{t("tplDontBreak")}</strong>
+            {t("tplHantiHintB")}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {HANTI_STARTER_TEMPLATES.map((starter) => (
@@ -497,13 +487,12 @@ export default function Templates() {
                 ) : (
                   <Download className="size-4" />
                 )}
-                Soo celi {starter.downloadName}
+                {t("tplDl")} {starter.downloadName}
               </Button>
             ))}
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            "Hanti Kale" ma laha template (waa go'aan furan — marka sawiradda
-            scan-keeda la keeno, faylkeeda oo keliya ayaa halkan lagu daraa).
+            {t("tplHantiTail")}
           </p>
         </div>
         )}
@@ -513,18 +502,16 @@ export default function Templates() {
         {config?.id === "cadayn_cilaaj" && (
         <div className="neu-raised border-primary/40 p-6">
           <h2 className="text-base font-bold">
-            Template-ka xafiiska — Cadayn Cilaaj{" "}
+            {t("tplCilaajTitle")}{" "}
             <span className="ml-1 rounded-full bg-pen-green/10 px-2 py-0.5 text-[10px] font-semibold text-pen-green">
-              QORAALKA XAFIISKA (SCAN OO DHAN)
+              {t("tplCilaajBadge")}
             </span>
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Waa dukumenti xafiiska — "Cadayn Masuuliyad Qaadis Bukaan"
-            (Ref/Dpn/CC/…). Soo deji faylka, furi Word-ka, u samee edit gaar ah
-            (placeholder-yada{" "}
+            {t("tplCilaajHint")}{" "}
             <code className="rounded bg-muted px-1">{"{{PLACEHOLDER}}"}</code>{" "}
-            <strong>haba seyn</strong>), ka dibna kor ku soo geli Template
-            Manager-ka si document-yada cusub laga abuuro.
+            <strong>{t("tplDontBreak")}</strong>
+            {t("tplCilaajHintB")}
           </p>
           <Button
             type="button"
@@ -538,11 +525,10 @@ export default function Templates() {
             ) : (
               <Download className="size-4" />
             )}
-            Soo celi {CILAAJ_STARTER.downloadName}
+            {t("tplDl")} {CILAAJ_STARTER.downloadName}
           </Button>
           <p className="mt-2 text-xs text-muted-foreground">
-            Marka aad Word-ka ku edit-gareeyo, ku kaydi ( ama magac cusub ) oo
-            soo geli kore — record cusub ayaa la abuuraa, tii hore luma dumin.
+            {t("tplCilaajTail")}
           </p>
         </div>
         )}
@@ -551,7 +537,7 @@ export default function Templates() {
         {config && (
           <details className="neu-raised p-4">
             <summary className="cursor-pointer text-sm font-semibold">
-              Placeholder-yada la heli karo ({knownNames.size})
+              {t("tplPlaceholdersA")}{knownNames.size})
             </summary>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {[...knownNames]
@@ -566,7 +552,7 @@ export default function Templates() {
                   </code>
                 ))}
             </div>            <p className="mt-3 text-xs text-muted-foreground">
-              Repeat blocks:{" "}
+              {t("tplRepeatBlocks")}{" "}
               {(config.repeatBlocks ?? []).map((b, i) => (
                 <span key={b.blockId}>
                   {i > 0 && ", "}
@@ -575,7 +561,7 @@ export default function Templates() {
                   </code>
                 </span>
               ))}
-              . Conditionals:{" "}
+              . {t("tplConditionals")}{" "}
               {Object.keys(config.conditionFlags ?? {})
                 .slice(0, 3)
                 .map((f, i) => (
@@ -594,35 +580,34 @@ export default function Templates() {
           {loadingTemplates && <Skeleton className="h-24 w-full" />}
           {!loadingTemplates && templates.length === 0 && (
             <p className="neu-inset p-4 text-sm text-muted-foreground">
-              Weli template lama soo gelin. Soo geli .docx aad sameysay si aad u
-              isticmaasho generation-ka.
+              {t("tplListEmpty")}
             </p>
           )}
-          {templates.map((t) => {
-            const unknown = JSON.parse(t.warningsJson ?? "[]") as string[];
+          {templates.map((tmpl) => {
+            const unknown = JSON.parse(tmpl.warningsJson ?? "[]") as string[];
             return (
-              <div key={t._id} className="neu-raised flex flex-wrap items-center gap-3 p-4">
+              <div key={tmpl._id} className="neu-raised flex flex-wrap items-center gap-3 p-4">
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-2 font-semibold">
-                    {t.name}
-                    {t.isDefault && (
+                    {tmpl.name}
+                    {tmpl.isDefault && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-pen-green/10 px-2 py-0.5 text-[11px] font-semibold text-pen-green">
-                        <Star className="size-3" /> Default
+                        <Star className="size-3" /> {t("tplDefault")}
                       </span>
                     )}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {t.fileName} · {(t.sizeBytes / 1024).toFixed(0)} KB
+                    {tmpl.fileName} · {(tmpl.sizeBytes / 1024).toFixed(0)} KB
                   </p>
                   {unknown.length > 0 && (
                     <p className="mt-1 text-xs text-pen-orange">
-                      ⚠ {unknown.length} warning: {unknown[0]}
+                      ⚠ {unknown.length}{t("tplWarnCount")}{unknown[0]}
                       {unknown.length > 1 ? " …" : ""}
                     </p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  {!t.isDefault && (
+                  {!tmpl.isDefault && (
                     <Button
                       type="button"
                       variant="outline"
@@ -630,16 +615,16 @@ export default function Templates() {
                       className="gap-1.5"
                       onClick={async () => {
                         try {
-                          await makeDefaultTemplateLocal(t._id);
+                          await makeDefaultTemplateLocal(tmpl._id);
                           await refreshTemplates();
-                          toast.success("Template-ka default waa loo dhigay.");
+                          toast.success(t("tplSetDefaultOk"));
                         } catch (err) {
                           console.error(err);
-                          toast.error("Lama dhejin karo — isku day mar kale.");
+                          toast.error(t("tplSetDefaultFail"));
                         }
                       }}
                     >
-                      <Star className="size-3.5" /> Default
+                      <Star className="size-3.5" /> {t("tplDefault")}
                     </Button>
                   )}
                   <Button
@@ -649,16 +634,16 @@ export default function Templates() {
                     className="gap-1.5 text-destructive hover:text-destructive"
                     onClick={async () => {
                       try {
-                        await retireTemplateLocal(t._id);
+                        await retireTemplateLocal(tmpl._id);
                         await refreshTemplates();
-                        toast.success("Template-ka waa la tirtiray.");
+                        toast.success(t("tplDeleteOk"));
                       } catch (err) {
                         console.error(err);
-                        toast.error("Lama tirtirin — isku day mar kale.");
+                        toast.error(t("tplDeleteFail"));
                       }
                     }}
                   >
-                    <Trash2 className="size-3.5" /> Tirtir
+                    <Trash2 className="size-3.5" /> {t("tplDelete")}
                   </Button>
                 </div>
               </div>
@@ -667,13 +652,12 @@ export default function Templates() {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Template-yada hore lama beddelo oo lama overwrite-gareyn — mar kasta
-          oo aad soo gelisid, record cusub ayaa la abuuraa.{" "}
+          {t("tplFooter")}{" "}
           <Link to="/documents" className="font-medium text-primary hover:underline">
-            ← Dashboard
+            {t("tplBackLink")}
           </Link>
         </p>
       </div>
-    </AppShell>
+    </AppShellWithLang>
   );
 }

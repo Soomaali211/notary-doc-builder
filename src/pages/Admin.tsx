@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
-import { AppShell } from "@/components/notary/AppShell";
+import { AppShellWithLang } from "@/components/notary/AppShell";
+import { useLang } from "@/lib/lang";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,6 +61,7 @@ const SAMPLE_VALUES: FormValues = {
  * across the workspace and allows cleanup actions.
  */
 export default function Admin() {
+  const { t } = useLang();
   const allDocs = useQuery(api.notaryDocuments.listAllDocuments);
   const allAppts = useQuery(api.notaryAppointments.listAll);
   const posts = useQuery(api.notaryPosts.list);
@@ -81,7 +83,7 @@ export default function Admin() {
     const spec = templates.find((t) => t.templateId === templateId);
     const cfg = spec ? getConfig(spec.documentType) : undefined;
     if (!spec || !cfg) {
-      toast.error("Fadlan dooro template sax ah.");
+      toast.error(t("admPickPlaceholder"));
       return;
     }
     setValidating(true);
@@ -90,7 +92,7 @@ export default function Admin() {
       const bytes = await loadTemplate(spec); // registry path → public fetch
       setValidation(await validateTemplate(spec.templateId, spec.filePath, bytes, ctx));
     } catch (e) {
-      toast.error((e as Error).message || "Template-ka lama akhriyi karo.");
+      toast.error((e as Error).message || t("admReadFail"));
       setValidation(null);
     } finally {
       setValidating(false);
@@ -98,50 +100,45 @@ export default function Admin() {
   };
 
   return (
-    <AppShell
-      title="Admin"
-      subtitle="Workspace-wide overview — documents, bookings, board posts and comments."
-    >
+    <AppShellWithLang title="Admin" subtitle={t("admSub")}>
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-4">
         <div className="notebook-page paper-grain rounded-md p-4">
-          <p className="notebook-annotation text-xs text-muted-foreground">Documents</p>
+          <p className="notebook-annotation text-xs text-muted-foreground">{t("admStatDocuments")}</p>
           <p className="mt-1 text-2xl font-bold">{(allDocs ?? []).length}</p>
-          <p className="text-xs text-muted-foreground">{generated.length} generated · {drafts.length} drafts</p>
+          <p className="text-xs text-muted-foreground">{generated.length} {t("admGenerated")} · {drafts.length} {t("admDrafts")}</p>
         </div>
         <div className="notebook-page paper-grain rounded-md p-4">
-          <p className="notebook-annotation text-xs text-muted-foreground">Appointments</p>
+          <p className="notebook-annotation text-xs text-muted-foreground">{t("admStatAppointments")}</p>
           <p className="mt-1 text-2xl font-bold">{(allAppts ?? []).length}</p>
           <p className="text-xs text-muted-foreground">
-            {(allAppts ?? []).filter((a) => a.status === "scheduled").length} upcoming
+            {(allAppts ?? []).filter((a) => a.status === "scheduled").length} {t("admUpcoming")}
           </p>
         </div>
         <div className="notebook-page paper-grain rounded-md p-4">
-          <p className="notebook-annotation text-xs text-muted-foreground">Board posts</p>
+          <p className="notebook-annotation text-xs text-muted-foreground">{t("admStatPosts")}</p>
           <p className="mt-1 text-2xl font-bold">{(posts ?? []).length}</p>
         </div>
         <div className="notebook-page paper-grain rounded-md p-4">
-          <p className="notebook-annotation text-xs text-muted-foreground">Types live</p>
+          <p className="notebook-annotation text-xs text-muted-foreground">{t("admStatTypes")}</p>
           <p className="mt-1 text-2xl font-bold">1</p>
-          <p className="text-xs text-muted-foreground">5 planned</p>
+          <p className="text-xs text-muted-foreground">5 {t("admPlanned")}</p>
         </div>
       </div>
 
       {/* Template validation (Phase 3I) */}
       <section className="mt-8">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-          <ShieldCheck className="size-4 text-primary" /> Template validation
+          <ShieldCheck className="size-4 text-primary" /> {t("admValidation")}
         </h2>
         <div className="notebook-page paper-grain space-y-4 rounded-md p-4">
           <p className="text-xs text-muted-foreground">
-            Hubi in template-ka Word uu sax yahay ka hor generation: placeholders syntax,
-            mappings la heli karo, IF/ENDIF iyo BLOCK markers balanced. Xog tijaabo ah ayaa
-            la isticmaalaa — wax lama kaydin.
+            {t("admValidationHint")}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <Select value={templateId} onValueChange={(v) => { setTemplateId(v); setValidation(null); }}>
               <SelectTrigger className="w-full bg-card/80 sm:w-72">
-                <SelectValue placeholder="Dooro template…" />
+                <SelectValue placeholder={t("admPickPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
                 {templates.map((t) => (
@@ -152,7 +149,7 @@ export default function Admin() {
               </SelectContent>
             </Select>
             <Button onClick={runValidation} disabled={validating || !templateId}>
-              {validating ? "Hubinaya…" : "Hubi template-ka"}
+              {validating ? t("admValidating") : t("admValidateBtn")}
             </Button>
           </div>
 
@@ -160,7 +157,7 @@ export default function Admin() {
             <div className="space-y-2 border-t border-dashed border-border pt-3">
               <div className="flex items-center gap-2">
                 <Badge variant={validation.valid ? "default" : "destructive"}>
-                  {validation.valid ? "Sax — diyaar" : "Qalado jira"}
+                  {validation.valid ? t("admValidOk") : t("admValidBad")}
                 </Badge>
                 <span className="font-mono text-[11px] text-muted-foreground">{validation.templatePath}</span>
               </div>
@@ -188,24 +185,24 @@ export default function Admin() {
 
       {/* All documents */}
       <section className="mt-8">
-        <h2 className="mb-3 text-sm font-semibold">All documents</h2>
+        <h2 className="mb-3 text-sm font-semibold">{t("admAllDocs")}</h2>
         <div className="notebook-page paper-grain rounded-md p-2">
-          {!allDocs && <p className="p-4 text-sm text-muted-foreground">Loading…</p>}
+          {!allDocs && <p className="p-4 text-sm text-muted-foreground">{t("admLoading")}</p>}
           {allDocs && allDocs.length === 0 && (
-            <p className="p-4 text-sm text-muted-foreground">No documents in the workspace yet.</p>
+            <p className="p-4 text-sm text-muted-foreground">{t("admNoDocs")}</p>
           )}
           <ul className="divide-y divide-dashed divide-border/70">
             {(allDocs ?? []).map((d) => (
               <li key={d._id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
                 <span className="text-sm">
-                  <span className="font-semibold">{d.referenceNumber || "(draft)"}</span>
+                  <span className="font-semibold">{d.referenceNumber || t("admDraftRef")}</span>
                   <span className="ml-2 text-muted-foreground">
                     {getConfig(d.documentType)?.title ?? d.documentTypeTitle} · {d.subTypeLabel}
                   </span>
                 </span>
                 <span className="flex items-center gap-2">
                   <Badge variant={d.status === "generated" ? "default" : "secondary"} className="text-[10px]">
-                    {d.status === "generated" ? "Generated" : "Draft"}
+                    {d.status === "generated" ? t("admGeneratedBadge") : t("admDraftBadge")}
                   </Badge>
                   {d.status === "draft" && (
                     <Button
@@ -214,7 +211,7 @@ export default function Admin() {
                       className="h-7 px-2 text-xs text-destructive hover:text-destructive"
                       onClick={() => {
                         adminDeleteDraft({ documentId: d._id }).catch(() =>
-                          toast.error("Tirtiriddu way fashilantay."),
+                          toast.error(t("admDeleteFail")),
                         );
                       }}
                     >
@@ -230,10 +227,10 @@ export default function Admin() {
 
       {/* All appointments */}
       <section className="mt-8">
-        <h2 className="mb-3 text-sm font-semibold">All appointments</h2>
+        <h2 className="mb-3 text-sm font-semibold">{t("admAllAppts")}</h2>
         <div className="notebook-page paper-grain rounded-md p-2">
           {allAppts && allAppts.length === 0 && (
-            <p className="p-4 text-sm text-muted-foreground">No appointments booked yet.</p>
+            <p className="p-4 text-sm text-muted-foreground">{t("admNoAppts")}</p>
           )}
           <ul className="divide-y divide-dashed divide-border/70">
             {(allAppts ?? []).slice(0, 30).map((a) => (
@@ -271,10 +268,10 @@ export default function Admin() {
 
       {/* Moderation */}
       <section className="mt-8">
-        <h2 className="mb-3 text-sm font-semibold">Board moderation</h2>
+        <h2 className="mb-3 text-sm font-semibold">{t("admModeration")}</h2>
         <div className="notebook-page paper-grain rounded-md p-2">
           {posts && posts.length === 0 && (
-            <p className="p-4 text-sm text-muted-foreground">No posts to moderate.</p>
+            <p className="p-4 text-sm text-muted-foreground">{t("admNoPosts")}</p>
           )}
           <ul className="divide-y divide-dashed divide-border/70">
             {(posts ?? []).slice(0, 20).map((p) => (
@@ -296,9 +293,9 @@ export default function Admin() {
           </ul>
         </div>
         <p className="notebook-annotation mt-3 text-xs text-muted-foreground">
-          * Comments are moderated from each document's detail page.
+          {t("admCommentsNote")}
         </p>
       </section>
-    </AppShell>
+    </AppShellWithLang>
   );
 }

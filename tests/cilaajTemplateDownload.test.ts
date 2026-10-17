@@ -23,8 +23,14 @@ describe("CADAYN CILAAJ — template download/re-upload loop", () => {
   });
 
   test("the download card keeps the edit-in-Word / re-upload contract copy", () => {
-    expect(src).toContain("soo geli Template");
-    expect(src).toContain("haba seyn");
+    // The copy lives in the dictionary now (lang.tsx); the page renders it
+    // through t() so it follows the SO/EN toggle.
+    const lang = readFileSync("src/lib/lang.tsx", "utf8");
+    expect(lang).toContain("soo geli Template");
+    expect(lang).toContain("haba seyn");
+    expect(src).toContain('t("tplCilaajHint")');
+    expect(src).toContain('t("tplCilaajHintB")');
+    expect(src).toContain('t("tplDontBreak")');
   });
 
   test("the upload path accepts any docType — Cilaaj included (generic)", () => {

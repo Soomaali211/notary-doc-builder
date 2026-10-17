@@ -335,14 +335,21 @@ describe("§69 — audit trail", () => {
   });
 
   test("the detail page shows the four moments, and '—' when not yet reached", () => {
+    // The labels live in the dictionary now (lang.tsx); the page renders
+    // them through t(), so they follow the SO/EN toggle while keeping the
+    // same four Somali labels.
     const page = read("pages/DocumentDetail.tsx");
+    for (const key of ["ddCreatedShort", "ddUpdatedShort", "ddCompleted", "ddExported"]) {
+      expect(page).toContain(`t("${key}")`);
+    }
+    const lang = read("../src/lib/lang.tsx");
     for (const moment of [
       "La abuuray",
       "wax la beddelay",
       "Waa la dhammaystiray",
       "Waa la soo saaray",
     ]) {
-      expect(page.toLowerCase()).toContain(moment.toLowerCase());
+      expect(lang.toLowerCase()).toContain(moment.toLowerCase());
     }
     expect(page).toContain('"—"');
   });
