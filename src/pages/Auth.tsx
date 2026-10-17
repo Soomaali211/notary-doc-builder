@@ -16,6 +16,7 @@ import {
 
 import { useAuth } from "@/hooks/use-auth";
 import { isOffline } from "@/lib/notary/offlineMode";
+import { useLang } from "@/lib/lang";
 import logo from "@/assets/logo.svg";
 import { ArrowRight, Loader2, Mail, UserX } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
@@ -37,6 +38,7 @@ function resolveRedirectAfterAuth(
 
 function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
+  const { t } = useLang();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirect = resolveRedirectAfterAuth(
@@ -67,7 +69,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setError(
         error instanceof Error
           ? error.message
-          : "Failed to send verification code. Please try again.",
+          : t("auCodeSendFail"),
       );
       setIsLoading(false);
     }
@@ -87,7 +89,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     } catch (error) {
       console.error("OTP verification error:", error);
 
-      setError("The verification code you entered is incorrect.");
+      setError(t("auCodeInvalid"));
       setIsLoading(false);
 
       setOtp("");
@@ -105,7 +107,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     } catch (error) {
       console.error("Guest login error:", error);
       console.error("Error details:", JSON.stringify(error, null, 2));
-      setError(`Failed to sign in as guest: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setError(`${t("auGuestFailA")}${error instanceof Error ? error.message : t("auGuestFailB")}`);
       setIsLoading(false);
     }
   };
@@ -131,9 +133,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       onClick={() => navigate("/")}
                     />
                   </div>
-                <CardTitle className="text-xl">Sign in to Notary Doc Builder</CardTitle>
+                <CardTitle className="text-xl">{t("auTitle")}</CardTitle>
                 <CardDescription>
-                  Office staff sign in with their work email — we'll send a one-time code.
+                  {t("auDesc")}
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleEmailSubmit}>
@@ -175,7 +177,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </div>
                       <div className="relative flex justify-center text-xs uppercase">
                         <span className="bg-background px-2 text-muted-foreground">
-                          Or
+                          {t("auOr")}
                         </span>
                       </div>
                     </div>
@@ -188,7 +190,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       disabled={isLoading}
                     >
                       <UserX className="mr-2 h-4 w-4" />
-                      Continue as guest
+                      {t("auGuest")}
                     </Button>
                   </div>
                 </CardContent>
@@ -197,9 +199,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           ) : (
             <>
               <CardHeader className="text-center mt-4">
-                <CardTitle>Check your email</CardTitle>
+                <CardTitle>{t("auCheckTitle")}</CardTitle>
                 <CardDescription>
-                  We've sent a code to {step.email}
+                  {t("auCheckDescA")}{step.email}
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleOtpSubmit}>
@@ -236,13 +238,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     </p>
                   )}
                   <p className="text-sm text-muted-foreground text-center mt-4">
-                    Didn't receive a code?{" "}
+                    {t("auTryAgainQ")}{" "}
                     <Button
                       variant="link"
                       className="p-0 h-auto"
                       onClick={() => setStep("signIn")}
                     >
-                      Try again
+                      {t("auTryAgain")}
                     </Button>
                   </p>
                 </CardContent>
@@ -255,11 +257,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Verifying...
+                        {t("auVerifying")}
                       </>
                     ) : (
                       <>
-                        Verify code
+                        {t("auVerifyCode")}
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </>
                     )}
@@ -271,7 +273,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     disabled={isLoading}
                     className="w-full"
                   >
-                    Use different email
+                    {t("auUseDifferent")}
                   </Button>
                 </CardFooter>
               </form>
@@ -279,7 +281,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           )}
 
           <div className="py-4 px-6 text-xs text-center text-muted-foreground bg-muted border-t rounded-b-lg">
-            Secured by{" "}
+            {t("auSecuredBy")}{" "}
             <a
               href="https://freebuff.com"
               target="_blank"

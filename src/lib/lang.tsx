@@ -520,6 +520,138 @@ const DICT: Dict = {
     " backup in Settings so the data is always safe.",
   ],
   ddBackArchive: ["Ku noqo kaydka", "Back to archive"],
+
+  // Landing page
+  ldOpenWorkspace: ["Fur xafiiska", "Open workspace"],
+  ldLogin: ["Gala", "Log in"],
+  ldGetStarted: ["Bilow", "Get started"],
+  ldBuiltFor: ["waa loo sameeyay kooxda xafiiska", "built for our office team"],
+  ldHeroA: ["Heshiisyada kiro, ", "Rental contracts, "],
+  ldHeroHighlight: ["la isku dhisay", "assembled"],
+  ldHeroB: [" — lama qorin mar.", " — not retyped."],
+  ldHeroParagraph: [
+    "Notary Doc Builder heshiiska kiro ee xafiiska wuxuu ka dhigay su'aallo la tartiibay. Su'aalaha hal jeer ka jawaab, dukumi la dhammaystiray ayaa template-kaaga Word ka soo baxa — la kaydiyay, oo kooxdu raadinta ku fureyso.",
+    "Notary Doc Builder turns the office's rental contract into a guided interview. Answer the questions once and a finished DOCX comes out of your own Word template, archived and searchable for the whole team.",
+  ],
+  ldHeroCta: ["Fur xafiiska", "Open the workspace"],
+  ldHeroCtaLogin: ["Gala diiwaankaaga", "Log in to your account"],
+  ldInternalNote: [
+    "* Qalab shaqada gudaha — akoonadu waxay gaar u yihiin shaqaalaha xafiiska.",
+    "* Internal tool — accounts are for office staff only.",
+  ],
+  ldStepLabel: ["Heshiis Kiro — tallaabada 2 ee 10", "Heshiis Kiro — step 2 of 10"],
+  ldMockLessor: ["Kireeyaha", "Kireeyaha (the lessor)"],
+  ldMockFullname: ["Magaca buuxa", "Full name"],
+  ldMockPhone: ["Telefoon", "Phone"],
+  ldMockId: ["Nambarka aqonsi", "ID number"],
+  ldMockBack: ["← Gadaal", "← Back"],
+  ldMockNext: ["Xigay →", "Next →"],
+  ldMockAdd: [
+    "+ Kireeye kale ku dar · + marag ku dar",
+    "+ Add another lessor · + Add a witness",
+  ],
+  ldMockFilled: ["placeholder kastaa waa la buuxiyay ✓", "every placeholder filled ✓"],
+  ldStepChoose: ["Dooro", "Choose"],
+  ldStepChooseNote: [
+    "Heshiis Kiro → Guri Xaas, Qol Meherad, ama Jiingad",
+    "Heshiis Kiro → Guri Xaas, Qol Meherad, or Jiingad",
+  ],
+  ldStepFill: ["Buuxi", "Fill"],
+  ldStepFillNote: [
+    "Su'aallo la tartiibay — 10 tallaabo; xafladuna beddelmayaan",
+    "A guided 10-step interview with dynamic parties",
+  ],
+  ldStepVerify: ["Hubi", "Verify"],
+  ldStepVerifyNote: [
+    "Bogga la fiirinayo — hubinta ku qoran",
+    "Review page with validation in Somali",
+  ],
+  ldStepBuild: ["Dhis", "Build"],
+  ldStepBuildNote: [
+    "DOCX la ka dhisay template-kaaga Word",
+    "DOCX assembled from your own Word template",
+  ],
+  ldFeaturesTitleA: ["Wax kasta oo xafiisku u baahan yahay, ", "Everything the office needs, "],
+  ldFeaturesTitleB: ["buug wargeys hal ah", "in one notebook"],
+  ldFeaturesSub: [
+    "Heshiisyada, ballannada, kaydka iyo ogeysiisyada kooxdu waxay ku dhex jiraan hal meel. Mashiinka ku shaqaynaya qab-koodada — noocyada heshiisyada lamadaha hore ku bilaabmay.",
+    "Contracts, scheduling, the archive, and the team's notices live in one place. The engine behind it is configuration-driven, so new contract types slot in without rewriting the app.",
+  ],
+  ldF1Title: ["Su'aallo la tartiibay", "Guided interviews"],
+  ldF1Text: [
+    "Toban qayb oo la tartiibay — horay/gadaal loo socday, bar la muuqda iyo su'aalaha markay muhiim yihiin uun muuqda.",
+    "Ten ordered sections, Next/Back navigation, a live progress bar, and conditional questions that only appear when they matter.",
+  ],
+  ldF2Title: ["Xafladaha ku dhexsoo-biiri", "Dynamic parties"],
+  ldF2Text: [
+    "Kireeyayaal, kiraystayaal iyo maragyo sida heshiisku u baahan yahay ku dar oo ka jar — waxba lama qorrin.",
+    "Add as many lessors, lessees, and witnesses as the contract needs — nothing is hard-coded, add or remove rows freely.",
+  ],
+  ldF3Title: ["Template-kaaga Word", "Your Word template"],
+  ldF3Text: [
+    "Wuxuu kaliya buuxiyaa placeholder-yada template-ka xafiiska — naqshadda dukumintigu waa sida aad sameysay.",
+    "The builder only fills the placeholders in your office's template. The document design stays exactly as you made it.",
+  ],
+  ldF4Title: ["Kaydka iyo raadinka", "Archive and search"],
+  ldF4Text: [
+    "Heshiiskasta la abuuray la kaydiyay; xafladiisa iyo tixraaciisa la yaqaan — diyaar in la furayo, faallo lagu dhabo, ama la dib soo geliyo.",
+    "Every generated contract is stored with its parties and reference number, ready to open, comment on, or download again.",
+  ],
+  ldF5Title: ["Ballanta saxiixka", "Signing schedule"],
+  ldF5Text: [
+    "Ku dar ballanqaad saxiixka ku dhax dukumintiga — si kooxdu ogaato goorta iyo meesha saxiixu dhacayo.",
+    "Book signing appointments against a document so the whole team knows when and where each contract gets signed.",
+  ],
+  ldF6Title: ["Guddiga kooxda iyo faallooyinka", "Team board and comments"],
+  ldF6Text: [
+    "Ogeysiisyada xafiiska ku qor bogga laga wada wardo; faallooyinkuna heshiiska kasta ku hoos jiraan.",
+    "Post office notices on the shared board and keep the discussion on each contract in its own comment thread.",
+  ],
+  ldCtaTitle: [
+    "U diyaar ma tahay inaad dhisato heshiiskaaga koowaad?",
+    "Ready to build your first contract?",
+  ],
+  ldCtaSub: [
+    "Gala, xulo Heshiis Kiro, su'aalaha ku dhammaystir — dukumintii dhammaystiran ayaa daqiiqado dhow la soo dejiyaa oo la kaydiyaa.",
+    "Log in, pick Heshiis Kiro, work through the interview, and the finished DOCX is ready to download and archive in minutes.",
+  ],
+  ldFooter: [
+    "Notary Doc Builder · heshiisyada laga dhisayo — aalad gudaha xafiiska",
+    "Notary Doc Builder · internal contract assembly for the notary office",
+  ],
+
+  // Auth page
+  auTitle: ["Gala Notary Doc Builder", "Sign in to Notary Doc Builder"],
+  auDesc: [
+    "Shaqaystayaasha xfiiska waxay galaan iimaylka shaqada — koodh hal-jeer ah ayaa la dirinaya.",
+    "Office staff sign in with their work email — we'll send a one-time code.",
+  ],
+  auOr: ["Ama", "Or"],
+  auGuest: ["Ku gal sidii dacaw", "Continue as guest"],
+  auCodeSendFail: [
+    "Koodhka lama dirin — mar kale isku day.",
+    "Failed to send verification code. Please try again.",
+  ],
+  auCodeInvalid: [
+    "Koodhka aad gelisay ma saxna.",
+    "The verification code you entered is incorrect.",
+  ],
+  auGuestFailA: [
+    "Galitaanka dacawka fashilmay: ",
+    "Failed to sign in as guest: ",
+  ],
+  auGuestFailB: ["qalad aan la aqoon", "Unknown error"],
+  auCheckTitle: ["Eeg iimaylka", "Check your email"],
+  auCheckDescA: [
+    "Koodh ayaan ku diray ",
+    "We've sent a code to ",
+  ],
+  auTryAgainQ: ["Koodh kuma aragn? ", "Didn't receive a code? "],
+  auTryAgain: ["Mar kale iskuday", "Try again"],
+  auVerifying: ["Hubinayo…", "Verifying..."],
+  auVerifyCode: ["Xaqiiji koodhka", "Verify code"],
+  auUseDifferent: ["Iimayl kale isticmaal", "Use different email"],
+  auSecuredBy: ["Nabadoon", "Secured by "],
 };
 
 export interface LangContextValue {

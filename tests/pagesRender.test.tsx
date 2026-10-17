@@ -12,12 +12,14 @@
 import * as React from "react";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes } from "react-router";
 import Documents from "../src/pages/Documents";
 import Clients from "../src/pages/Clients";
 import Payments from "../src/pages/Payments";
 import Reports from "../src/pages/Reports";
 import Settings from "../src/pages/Settings";
+import Templates from "../src/pages/Templates";
+import DocumentDetailPage from "../src/pages/DocumentDetail";
 import { LanguageProvider } from "../src/lib/lang";
 import {
   ENTITY_NAMES,
@@ -103,5 +105,35 @@ describe("the five tabs render", () => {
     }
     expect(html).toContain("SO");
     expect(html).toContain("EN");
+  });
+
+  test("Template Manager — title, doc-type picker and upload card", () => {
+    const html = render(React.createElement(Templates), "/templates");
+    expect(html).toContain("Template Manager");
+    expect(html).toContain("Nooca Dukumeentiga");
+    expect(html).toContain("Soo geli Word Template (.docx)");
+  });
+
+  test("Document detail — the honest not-found state for an unknown id", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(
+        LanguageProvider,
+        null,
+        React.createElement(
+          MemoryRouter,
+          { initialEntries: ["/archive/unknown-id"] },
+          React.createElement(
+            Routes,
+            null,
+            React.createElement(Route, {
+              path: "/archive/:docId",
+              element: React.createElement(DocumentDetailPage),
+            }),
+          ),
+        ),
+      ),
+    );
+    expect(html).toContain("Dukumeentigan lama helin.");
+    expect(html).toContain('data-empty="document"');
   });
 });
