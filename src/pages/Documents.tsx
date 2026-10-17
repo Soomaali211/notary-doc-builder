@@ -33,18 +33,21 @@ function statusGroup(status: string): StatusGroup {
   return "verified";
 }
 
+/** The badge and the filter chip share the same three keys — nothing else. */
+function statusKey(group: StatusGroup): string {
+  return group === "draft" ? "statusDraft" : group === "completed" ? "statusPending" : "statusVerified";
+}
+
 const GROUPS: (StatusGroup | "all")[] = ["all", "draft", "completed", "verified"];
 
 function StatusBadge({ group }: { group: StatusGroup }) {
   const { t } = useLang();
-  const key =
-    group === "draft" ? "statusDraft" : group === "completed" ? "statusPending" : "statusVerified";
   return (
     <Badge
       variant={group === "verified" ? "default" : group === "completed" ? "secondary" : "outline"}
       className="text-[11px]"
     >
-      {t(key)}
+      {t(statusKey(group))}
     </Badge>
   );
 }
@@ -156,7 +159,7 @@ export default function Documents() {
                   : "border-border text-muted-foreground hover:text-foreground",
               )}
             >
-              {g === "all" ? t("filterAll") : t(`status${g.charAt(0).toUpperCase()}${g.slice(1)}`)}
+              {g === "all" ? t("filterAll") : t(statusKey(g))}
             </button>
           ))}
         </div>

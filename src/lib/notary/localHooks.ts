@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getAllLocal,
+  peekAllLocal,
   subscribeLocal,
   type EntityName,
   type StoredRecord,
@@ -31,8 +32,10 @@ export function useLocalTable<T extends StoredRecord>(
   entity: EntityName,
   tables: EntityName[] = [entity],
 ): { rows: T[]; loading: boolean; reload: () => void } {
-  const [rows, setRows] = useState<T[]>([]);
-  const [loading, setLoading] = useState(true);
+  // The last read is kept warm between pages, so a route change renders the
+  // machine's own data immediately instead of a loading state.
+  const [rows, setRows] = useState<T[] | undefined>(() => peekAllLocal<T>(entity));
+  const loading = rows === undefined;
   const mounted = useRef(true);
 
   const reload = useCallback(() => {
@@ -41,13 +44,11 @@ export function useLocalTable<T extends StoredRecord>(
       .then((result) => {
         if (cancelled || !mounted.current) return;
         setRows(result);
-        setLoading(false);
       })
       .catch((err) => {
         if (cancelled || !mounted.current) return;
         console.error(`[localStore] ${entity} could not be read:`, err);
         setRows([]);
-        setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -70,7 +71,7 @@ export function useLocalTable<T extends StoredRecord>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entity, reload]);
 
-  return { rows, loading, reload };
+  return { rows: rows ?? [], loading, reload };
 }
 
 /**
@@ -82,8 +83,15 @@ export function useLocalAgreements(): {
   loading: boolean;
   reload: () => void;
 } {
-  const [documents, setDocuments] = useState<LocalAgreement[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Same warm start as the tables: the last read of both halves is kept, so
+  // a later page opens on the list, not on a spinner.
+  const [documents, setDocuments] = useState<LocalAgreement[] | undefined>(() => {
+    const done = peekAllLocal<LocalAgreement>("agreements");
+    const drafts = peekAllLocal<LocalAgreement>("drafts");
+    if (done === undefined || drafts === undefined) return undefined;
+    return [...drafts, ...done].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+  });
+  const loading = documents === undefined;
   const mounted = useRef(true);
 
   const reload = useCallback(() => {
@@ -92,13 +100,11 @@ export function useLocalAgreements(): {
       .then((rows) => {
         if (cancelled || !mounted.current) return;
         setDocuments(rows);
-        setLoading(false);
       })
       .catch((err) => {
         if (cancelled || !mounted.current) return;
         console.error("[localStore] documents could not be read:", err);
         setDocuments([]);
-        setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -118,7 +124,7 @@ export function useLocalAgreements(): {
     };
   }, [reload]);
 
-  return { documents, loading, reload };
+  return { documents: documents ?? [], loading, reload };
 }
 
 /** One agreement by id, kept current while the user edits it. */

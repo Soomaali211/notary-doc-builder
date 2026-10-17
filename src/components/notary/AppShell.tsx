@@ -46,7 +46,7 @@ function LangToggle() {
               : "text-muted-foreground hover:text-foreground",
           )}
         >
-          {option}
+          {option.toUpperCase()}
         </button>
       ))}
     </div>

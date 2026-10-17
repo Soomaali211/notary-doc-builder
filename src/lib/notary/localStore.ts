@@ -305,6 +305,7 @@ export function localStore(): Promise<LocalStoreDriver> {
 /** Replace the live store (tests). Pass `null` to go back to the real one. */
 export function setLocalStoreOverride(next: LocalStoreDriver | null): void {
   override = next;
+  lastRead.clear();
 }
 
 /** Test helper: a fresh, empty local database. */
@@ -312,6 +313,35 @@ export function useMemoryLocalStore(): LocalStoreDriver {
   const driver = createMemoryDriver();
   override = driver;
   return driver;
+}
+
+/* ------------------------------------------------------------------ */
+/* Last-read snapshot                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The most recent successful read of every table. A page mounted later — a
+ * route change, a second visit, a server-side render — can start from this
+ * instead of “loading”, the way the browser keeps the database warm between
+ * visits. Every read refreshes it and every write refreshes the table it
+ * touched; a store override clears it so a test never inherits a snapshot.
+ */
+const lastRead = new Map<EntityName, StoredRecord[]>();
+
+/** The last successful read of a table, synchronously — or nothing yet. */
+export function peekAllLocal<T extends StoredRecord>(
+  entity: EntityName,
+): T[] | undefined {
+  const cached = lastRead.get(entity);
+  return cached === undefined ? undefined : ([...cached] as T[]);
+}
+
+/** Fire-and-forget refresh of one table's snapshot (after a write). */
+function refreshSnapshot(entity: EntityName): void {
+  void localStore()
+    .then((driver) => driver.getAll(entity))
+    .then((rows) => lastRead.set(entity, rows))
+    .catch(() => {});
 }
 
 /* ------------------------------------------------------------------ */
@@ -339,6 +369,7 @@ export async function putLocal(
   const driver = await localStore();
   const saved = await driver.put(entity, record);
   notifyLocal(entity);
+  refreshSnapshot(entity);
   return saved;
 }
 
@@ -346,13 +377,16 @@ export async function removeLocal(entity: EntityName, id: string): Promise<void>
   const driver = await localStore();
   await driver.remove(entity, id);
   notifyLocal(entity);
+  refreshSnapshot(entity);
 }
 
 export async function getAllLocal<T extends StoredRecord>(
   entity: EntityName,
 ): Promise<T[]> {
   const driver = await localStore();
-  return (await driver.getAll(entity)) as T[];
+  const rows = (await driver.getAll(entity)) as T[];
+  lastRead.set(entity, rows.slice());
+  return rows;
 }
 
 export async function getLocal<T extends StoredRecord>(

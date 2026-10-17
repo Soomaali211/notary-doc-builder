@@ -30,6 +30,7 @@ const Settings = lazy(() => import("./pages/Settings.tsx"));
 import Clients from "./pages/Clients.tsx";
 import Payments from "./pages/Payments.tsx";
 import Reports from "./pages/Reports.tsx";
+import { LanguageProvider } from "./lib/lang";
 
 /** Redirect that carries the query string along (?q=…, ?status=…). */
 function Redirect({ to }: { to: string }) {
@@ -145,8 +146,9 @@ function RouteSyncer() {
 /** Every route. Rendered either inside or outside the cloud provider. */
 function App() {
   return (
-    <BrowserRouter>
-      <RouteSyncer />
+    <LanguageProvider>
+      <BrowserRouter>
+        <RouteSyncer />
       <Suspense fallback={<RouteLoading />}>
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -255,7 +257,8 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
-    </BrowserRouter>
+      </BrowserRouter>
+    </LanguageProvider>
   );
 }
 
