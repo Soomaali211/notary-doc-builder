@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
-import { AppShell } from "@/components/notary/AppShell";
+import { AppShellWithLang } from "@/components/notary/AppShell";
+import { useLang } from "@/lib/lang";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ import { CalendarClock, CheckCircle2, Trash2, XCircle } from "lucide-react";
 
 /** Book a signing appointment for a document or a team meeting. */
 export default function Schedule() {
+  const { t } = useLang();
   const appointments = useQuery(api.notaryAppointments.listMine);
   const documents = useQuery(api.notaryDocuments.listMyDocuments);
   const create = useMutation(api.notaryAppointments.create);
@@ -28,7 +30,7 @@ export default function Schedule() {
 
   const submit = async () => {
     if (!title.trim() || !date || !time) {
-      toast.error("Fadlan buuxi cinwaanka, taariikhda, iyo waqtiga.");
+      toast.error(t("scMissing"));
       return;
     }
     setSubmitting(true);
@@ -41,7 +43,7 @@ export default function Schedule() {
         notes: notes || undefined,
         documentId: documentId ? (documentId as never) : undefined,
       });
-      toast.success("Ballanta waa la horgejiyay!");
+      toast.success(t("scToastOk"));
       setTitle("");
       setDate("");
       setTime("");
@@ -49,35 +51,32 @@ export default function Schedule() {
       setDocumentId("");
       setNotes("");
     } catch {
-      toast.error("Ballanta lama abuurin — fadlan isku day mar kale.");
+      toast.error(t("scToastFail"));
     } finally {
       setSubmitting(false);
     }
   };
 
   const statusBadge = (status: string) => {
-    if (status === "completed") return <Badge className="hl-green text-[10px]">Completed</Badge>;
-    if (status === "cancelled") return <Badge variant="secondary" className="text-[10px]">Cancelled</Badge>;
-    return <Badge className="hl-blue text-[10px]">Scheduled</Badge>;
+    if (status === "completed") return <Badge className="hl-green text-[10px]">{t("scDone")}</Badge>;
+    if (status === "cancelled") return <Badge variant="secondary" className="text-[10px]">{t("scCancelled")}</Badge>;
+    return <Badge className="hl-blue text-[10px]">{t("scScheduled")}</Badge>;
   };
 
   return (
-    <AppShell
-      title="Schedule"
-      subtitle="Book signing appointments for your documents — or any other office meeting."
-    >
+    <AppShellWithLang title={t("scTitle")} subtitle={t("scSub")}>
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* Upcoming list */}
         <section className="notebook-page paper-grain rounded-md p-5">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <CalendarClock className="size-4 text-primary" /> Your appointments
+            <CalendarClock className="size-4 text-primary" /> {t("scYourAppts")}
           </h2>
           {!appointments && (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <p className="text-sm text-muted-foreground">{t("scLoading")}</p>
           )}
           {appointments && appointments.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              No appointments yet. Book your first signing on the right.
+              {t("scEmpty")}
             </p>
           )}
           <ul className="divide-y divide-dashed divide-border/70">
@@ -106,7 +105,7 @@ export default function Schedule() {
                           className="h-7 gap-1 px-2 text-xs"
                           onClick={() => setStatus({ id: a._id, status: "completed" })}
                         >
-                          <CheckCircle2 className="size-3.5 text-pen-green" /> Done
+                          <CheckCircle2 className="size-3.5 text-pen-green" /> {t("scDone")}
                         </Button>
                         <Button
                           variant="ghost"
@@ -114,7 +113,7 @@ export default function Schedule() {
                           className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive"
                           onClick={() => setStatus({ id: a._id, status: "cancelled" })}
                         >
-                          <XCircle className="size-3.5" /> Cancel
+                          <XCircle className="size-3.5" /> {t("scCancel")}
                         </Button>
                       </>
                     )}
@@ -135,20 +134,20 @@ export default function Schedule() {
 
         {/* Booking form */}
         <section className="notebook-page paper-grain rounded-md p-5">
-          <h2 className="mb-3 text-sm font-semibold">Book an appointment</h2>
+          <h2 className="mb-3 text-sm font-semibold">{t("scBook")}</h2>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-[13px]">Title *</Label>
+              <Label className="text-[13px]">{t("scFieldTitle")}</Label>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Signing — Heshiis Kiro DPN-K-004"
+                placeholder={t("scTitlePlaceholder")}
                 className="bg-card/80"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-[13px]">Date *</Label>
+                <Label className="text-[13px]">{t("scFieldDate")}</Label>
                 <Input
                   type="date"
                   value={date}
@@ -157,7 +156,7 @@ export default function Schedule() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[13px]">Time *</Label>
+                <Label className="text-[13px]">{t("scFieldTime")}</Label>
                 <Input
                   type="time"
                   value={time}
@@ -167,45 +166,45 @@ export default function Schedule() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px]">Location</Label>
+              <Label className="text-[13px]">{t("scFieldLocation")}</Label>
               <Input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="Office, Hodan branch…"
+                placeholder={t("scLocationPlaceholder")}
                 className="bg-card/80"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px]">Linked document</Label>
+              <Label className="text-[13px]">{t("scFieldDocument")}</Label>
               <select
                 value={documentId}
                 onChange={(e) => setDocumentId(e.target.value)}
                 className="h-9 w-full rounded-md border border-input bg-card/80 px-3 text-sm"
               >
-                <option value="">— None —</option>
+                <option value="">{t("scNoDoc")}</option>
                 {(documents ?? []).map((d) => (
                   <option key={d._id} value={d._id}>
-                    {d.referenceNumber || "Draft"} · {d.subTypeLabel}
+                    {d.referenceNumber || t("scDraftOption")} · {d.subTypeLabel}
                   </option>
                 ))}
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px]">Notes</Label>
+              <Label className="text-[13px]">{t("scFieldNotes")}</Label>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                placeholder="Who attends, what to bring…"
+                placeholder={t("scNotesPlaceholder")}
                 className="bg-card/80"
               />
             </div>
             <Button onClick={submit} disabled={submitting} className="w-full">
-              {submitting ? "Booking…" : "Book appointment"}
+              {submitting ? t("scBooking") : t("scBookBtn")}
             </Button>
           </div>
         </section>
       </div>
-    </AppShell>
+    </AppShellWithLang>
   );
 }

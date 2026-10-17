@@ -651,7 +651,129 @@ const DICT: Dict = {
   auVerifying: ["Hubinayo…", "Verifying..."],
   auVerifyCode: ["Xaqiiji koodhka", "Verify code"],
   auUseDifferent: ["Iimayl kale isticmaal", "Use different email"],
-  auSecuredBy: ["Nabadoon", "Secured by "],
+  auSecuredBy: ["Ka amaan", "Secured by "],
+
+  // 404 page
+  nfTitle: ["404", "404"],
+  nfBody: ["Bogga lama helin.", "Page Not Found"],
+
+  // New Document picker (NewDocument.tsx)
+  ndTitle: ["Dukumenti Cusub", "New Document"],
+  ndSub: [
+    "Dooro nooca heshiiska, kadibna nooca hoose — su'aalaha waxay la socdaan doorashadaada.",
+    "Pick the contract type, then the sub-type — the questions follow your choice.",
+  ],
+  ndStep1: ["1 · Nooca Heshiiska", "1 · Contract type"],
+  ndReady: ["Diyaar", "Ready"],
+  ndStartNow: ["Bilow Hadda", "Start now"],
+  ndPlanned: ["La qorsheeyay", "Planned"],
+  ndPlannedNote: [
+    "Weli lama dhisin — eeg catalog-ka si aad u aragto waxa imanaya.",
+    "Not built yet — see the catalog for what is coming.",
+  ],
+  ndStep2Rental: ["2 · Nooca Kirada", "2 · Rental type"],
+  ndStep2Property: ["2 · Nooca Hantida", "2 · Property type"],
+  ndInterviewHint: [
+    "Markaad bilowdo waxaa lagu hagayaa tallaabada kasta — tirada xubnaha, xogta, joogitaanka iyo wakiillada.",
+    "You are walked through every step — the parties, details, attendance and representatives.",
+  ],
+  ndPreparing: ["Diyaarinaya…", "Preparing…"],
+  ndStartInterview: ["Bilow Su'aalaha", "Start the interview"],
+  ndCreateFail: [
+    "Lama abuuri karin draft — fadlan isku day mar kale.",
+    "Could not create a draft — please try again.",
+  ],
+
+  // Catalog page
+  caTitle: ["Catalog Dukumintiyada", "Document Catalog"],
+  caSub: [
+    "Nooc kasta oo heshiis ah oo xafiisku taageero — kuwa diyaarsan hore, kuwa qorsheysan hoose.",
+    "Every contract type the office supports — ready types first, planned ones below.",
+  ],
+  caSearchPlaceholder: ["Raadi catalog-ka…", "Search the catalog…"],
+  caReady: ["Diyaar u isticmaal", "Ready to use"],
+  caNoReady: [
+    "Raadinku waxba ma helin kuwa diyaarsan.",
+    "No ready types match your search.",
+  ],
+  caComingSoon: ["Waa imanaya", "Coming soon"],
+  caNoPlanned: [
+    "Raadinku waxba ma helin kuwa qorsheysan.",
+    "No planned types match your search.",
+  ],
+  caEngineNote: [
+    "* Mashiinku waa qaab-dhismeed: furitaanka nooc qorsheysan waa beddel xog, ma aha beddel kood — sidaas ayaa catalog-ku amaan ugu koro.",
+    "* The engine is configuration-driven: enabling a planned type is a data change, not a code change — which is why the catalog can grow safely.",
+  ],
+
+  // Schedule page (Ballannada)
+  scTitle: ["Ballannada", "Schedule"],
+  scSub: [
+    "Ballan saxiix ku samee dukumintiyadaada — ama kulambda kale oo xafiiska.",
+    "Book signing appointments for your documents — or any other office meeting.",
+  ],
+  scYourAppts: ["Ballantaada", "Your appointments"],
+  scLoading: ["La dejiyayo…", "Loading…"],
+  scEmpty: [
+    "Weli ballan ma jiro. Ballanta saxiixka ugu horreynta dhinaca midig ku qor.",
+    "No appointments yet. Book your first signing on the right.",
+  ],
+  scDone: ["Dhamaystiran", "Done"],
+  scCancel: ["Jooji", "Cancel"],
+  scScheduled: ["La ballanqaaday", "Scheduled"],
+  scCancelled: ["La joojiyay", "Cancelled"],
+  scBook: ["Ballan samee", "Book an appointment"],
+  scFieldTitle: ["Cinwaan *", "Title *"],
+  scFieldDate: ["Taariikh *", "Date *"],
+  scFieldTime: ["Waqtiga *", "Time *"],
+  scFieldLocation: ["Goobta", "Location"],
+  scFieldDocument: ["Dukumi la xidhay", "Linked document"],
+  scNoDoc: ["— Waxba —", "— None —"],
+  scDraftOption: ["Draft", "Draft"],
+  scFieldNotes: ["Faalooyin", "Notes"],
+  scTitlePlaceholder: ["Saxiix — Heshiis Kiro DPN-K-004", "Signing — Heshiis Kiro DPN-K-004"],
+  scLocationPlaceholder: ["Xafiiska, laanta Hodan…", "Office, Hodan branch…"],
+  scNotesPlaceholder: ["Kuma yimid, maxay la soo qaadan…", "Who attends, what to bring…"],
+  scBooking: ["La ballanqaadayaa…", "Booking…"],
+  scBookBtn: ["Ballan ku qor", "Book appointment"],
+  scMissing: [
+    "Fadlan buuxi cinwaanka, taariikhda, iyo waqtiga.",
+    "Please fill the title, the date, and the time.",
+  ],
+  scToastOk: ["Ballanta waa la horgejiyay!", "The appointment is booked!"],
+  scToastFail: [
+    "Ballanta lama abuurin — fadlan isku day mar kale.",
+    "The appointment was not created — please try again.",
+  ],
+
+  // Team Board page (Guddiga Kooxda)
+  tbTitle: ["Guddiga Kooxda", "Team Board"],
+  tbSub: [
+    "Ogeysiisyo iyo warar gaaban oo xafiiska oo dhan — xiran sida qoraallo dhagxaanta ah.",
+    "Notices and short updates for the whole office — pinned like notes on the corkboard.",
+  ],
+  tbLoading: ["La dejiyayo…", "Loading…"],
+  tbEmpty: ["Weli qoraal ma jiro.", "No posts yet"],
+  tbEmptyHint: [
+    "Iska qor qoraalka ugu horreynta ee guddiga.",
+    "Be the first to pin a note to the board.",
+  ],
+  tbPin: ["Qoraal cusub dheji", "Pin a new note"],
+  tbFieldTitle: ["Cinwaan *", "Title *"],
+  tbFieldMessage: ["Fariin *", "Message *"],
+  tbTitlePlaceholder: ["Template cusub, macmiil imanaya…", "Template updated, client visiting…"],
+  tbMessagePlaceholder: ["Qor ogeysiiska kooxda…", "Write the notice for the team…"],
+  tbPosting: ["La daabacayaa…", "Posting…"],
+  tbPost: ["Guddiga ku qor", "Post to board"],
+  tbMissing: [
+    "Fadlan buuxi cinwaanka iyo fariinta.",
+    "Please fill the title and the message.",
+  ],
+  tbToastOk: ["Post-ka waa la daabacay!", "The post is published!"],
+  tbToastFail: [
+    "Post-ka lama daabacin — fadlan isku day mar kale.",
+    "The post was not published — please try again.",
+  ],
 };
 
 export interface LangContextValue {

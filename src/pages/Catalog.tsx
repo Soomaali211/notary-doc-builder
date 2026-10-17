@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { AppShell } from "@/components/notary/AppShell";
+import { AppShellWithLang } from "@/components/notary/AppShell";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { documentConfigs, upcomingDocumentTypes } from "@/lib/notary/documents";
+import { useLang } from "@/lib/lang";
 import { Search } from "lucide-react";
 
 /**
@@ -14,6 +15,7 @@ import { Search } from "lucide-react";
 export default function Catalog() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
+  const { t } = useLang();
 
   const query = q.trim().toLowerCase();
 
@@ -37,9 +39,9 @@ export default function Catalog() {
   }, [query]);
 
   return (
-    <AppShell
-      title="Document Catalog"
-      subtitle="Every contract type the office supports — ready types first, planned ones below."
+    <AppShellWithLang
+      title={t("caTitle")}
+      subtitle={t("caSub")}
     >
       <div className="notebook-page paper-grain rounded-md p-4">
         <div className="relative">
@@ -47,7 +49,7 @@ export default function Catalog() {
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search the catalog…"
+            placeholder={t("caSearchPlaceholder")}
             className="bg-card/80 pl-8"
           />
         </div>
@@ -56,10 +58,10 @@ export default function Catalog() {
       {/* Ready types */}
       <section className="mt-6">
         <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          Ready to use
+          {t("caReady")}
         </h2>
         {live.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No ready types match your search.</p>
+          <p className="text-sm text-muted-foreground">{t("caNoReady")}</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {live.map((c, i) => (
@@ -73,7 +75,7 @@ export default function Catalog() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold">{c.title}</p>
-                  <Badge className="hl-green text-[10px]">Ready</Badge>
+                  <Badge className="hl-green text-[10px]">{t("ndReady")}</Badge>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">{c.description}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
@@ -92,10 +94,10 @@ export default function Catalog() {
       {/* Planned types */}
       <section className="mt-10">
         <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          Coming soon
+          {t("caComingSoon")}
         </h2>
         {upcoming.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No planned types match your search.</p>
+          <p className="text-sm text-muted-foreground">{t("caNoPlanned")}</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {upcoming.map((c) => (
@@ -105,7 +107,7 @@ export default function Catalog() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold">{c.title}</p>
-                  <Badge variant="secondary" className="text-[10px]">Planned</Badge>
+                  <Badge variant="secondary" className="text-[10px]">{t("ndPlanned")}</Badge>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">{c.description}</p>
               </div>
@@ -115,9 +117,8 @@ export default function Catalog() {
       </section>
 
       <p className="notebook-annotation mt-8 text-xs text-muted-foreground">
-        * The engine is configuration-driven: enabling a planned type is a data
-        change, not a code change — which is why the catalog can grow safely.
+        {t("caEngineNote")}
       </p>
-    </AppShell>
+    </AppShellWithLang>
   );
 }

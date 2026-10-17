@@ -20,6 +20,8 @@ import Reports from "../src/pages/Reports";
 import Settings from "../src/pages/Settings";
 import Templates from "../src/pages/Templates";
 import DocumentDetailPage from "../src/pages/DocumentDetail";
+import Admin from "../src/pages/Admin";
+import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { LanguageProvider } from "../src/lib/lang";
 import {
   ENTITY_NAMES,
@@ -49,6 +51,30 @@ function render(
       LanguageProvider,
       null,
       React.createElement(MemoryRouter, { initialEntries: [entry] }, element),
+    ),
+  );
+}
+
+
+/**
+ * A client pointed at an address nothing listens on (the harness used by
+ * hantiFlowRender): the SSR render never opens a connection, so the convex
+ * queries simply stay pending — the loading path the browser shows first.
+ */
+const convex = new ConvexReactClient("http://127.0.0.1:1");
+
+/** Like `render`, but with the Convex provider for pages that query it. */
+function renderWithConvex(
+  element: React.ReactElement,
+  entry: string = "/documents",
+): string {
+  return renderToStaticMarkup(
+    React.createElement(
+      LanguageProvider,
+      null,
+      React.createElement(MemoryRouter, { initialEntries: [entry] },
+        React.createElement(ConvexProvider, { client: convex }, element),
+      ),
     ),
   );
 }
@@ -135,5 +161,16 @@ describe("the five tabs render", () => {
     );
     expect(html).toContain("Dukumeentigan lama helin.");
     expect(html).toContain('data-empty="document"');
+  });
+
+  test("Admin — shell, stats and the template-validation card over SSR", () => {
+    // Queries stay pending (no connection): the stats show 0 and the lists
+    // show the honest loading text — no crash is what this guards.
+    const html = renderWithConvex(React.createElement(Admin), "/admin");
+    expect(html).toContain("Admin");
+    expect(html).toContain("Dukumintiyada");
+    expect(html).toContain("Ballannada");
+    expect(html).toContain("Xaqiijinta template-ka");
+    expect(html).toContain("Hubi template-ka");
   });
 });
