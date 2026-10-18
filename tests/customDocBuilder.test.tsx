@@ -18,21 +18,26 @@ import Builder from "../src/pages/Builder";
 import NewDocument from "../src/pages/NewDocument";
 import { LanguageProvider } from "../src/lib/lang";
 import {
+  applyBuiltinEdits,
   builderFormFromConfig,
   buildCustomConfig,
+  deleteCustomDocType,
   deserializeCustomConfig,
   emptyBuilderForm,
   fieldToken,
   normalizeBuilderForm,
+  restoreBuiltin,
+  saveBuiltinOverlay,
   saveCustomDocType,
-  deleteCustomDocType,
   slugifyLabel,
   tokenList,
   useCustomDocumentConfigs,
   validateBuilderForm,
   BUILDER_FIELD_TYPES,
   type BuilderForm,
+  type BuiltinEdits,
 } from "../src/lib/notary/customDocuments";
+import { allDocumentConfigs } from "../src/lib/notary/documents";
 import {
   getConfig,
   registerRuntimeConfigs,
@@ -328,6 +333,69 @@ describe("the section's repeat list is a REAL party group", () => {
     const messages = validateBuilderForm(broken, ["cadayn_marag"], "cadayn_marag").join(" ");
     expect(messages).toContain("Magacaynta liiska");
     expect(messages).toContain("Ugu yaraan hal field ah liiska");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* BUILTIN OVERLAYS — editing the shipped forms                         */
+/* ------------------------------------------------------------------ */
+
+describe("the shipped forms are editable at the copy level", () => {
+  test("edits move ONLY the display copy; structure is untouched", () => {
+    const kiro = documentConfigs.find((c) => c.id === "heshiis_kiro")!;
+    const edits: BuiltinEdits = {
+      title: "Heshiis Kiro (Kale)",
+      description: "Qoraalkii hore — magacyada nuug wuu fududayay.",
+      sectionTitles: { [kiro.sections[0].id]: "Dejinta Cusub" },
+      fieldLabels: {},
+      fieldOptional: {},
+    };
+    const edited = applyBuiltinEdits(kiro, edits);
+    expect(edited.title).toBe("Heshiis Kiro (Kale)");
+    expect(edited.sections[0].title).toBe("Dejinta Cusub");
+    // The id, the parties, the clauses and the template mappings survive.
+    expect(edited.id).toBe(kiro.id);
+    expect(edited.sections).toHaveLength(kiro.sections.length);
+    expect(edited.parties).toBeUndefined();
+    expect(edited.placeholders).toEqual(kiro.placeholders);
+    expect(edited.clauses).toEqual(kiro.clauses);
+  });
+});
+
+describe("a saved overlay shadows its built-in everywhere", () => {
+  afterAll(async () => {
+    await restoreBuiltin("heshiis_kiro");
+    registerRuntimeConfigs([]);
+  });
+
+  test("getConfig reads the overlay; ONE card per kind in the lists", async () => {
+    const kiro = documentConfigs.find((c) => c.id === "heshiis_kiro")!;
+    await saveBuiltinOverlay(
+      { title: "Heshiis Kiro (Dhismaha)", description: "", sectionTitles: {}, fieldLabels: {}, fieldOptional: {} },
+      "heshiis_kiro",
+    );
+    const rows = await getAllLocal(CUSTOM_DOC_TYPE_ENTITY);
+    const overlay = rows.find((r) => (r as { kind: string }).kind === "builtinOverlay");
+    expect(overlay).toBeDefined();
+    const edited = deserializeCustomConfig(overlay as never)!;
+    expect(edited.title).toBe("Heshiis Kiro (Dhismaha)");
+    // Both registry readers prefer the overlay and never show two cards.
+    registerRuntimeConfigs([edited]);
+    expect(getConfig("heshiis_kiro")!.title).toBe("Heshiis Kiro (Dhismaha)");
+    const listed = allDocumentConfigs().filter((c) => c.id === "heshiis_kiro");
+    expect(listed).toHaveLength(1);
+    expect(listed[0].title).toBe("Heshiis Kiro (Dhismaha)");
+    // The interview still renders the typed flow: the shipped clauses and
+    // visibility survived the edit, so validation still returns real rows.
+    expect(
+      typeof validateDocument(edited, deserializeDraft(edited, "{}")),
+    ).toBe("object");
+  });
+
+  test("restoring the original again makes the shipped copy the reader's", async () => {
+    await restoreBuiltin("heshiis_kiro");
+    registerRuntimeConfigs([]);
+    expect(getConfig("heshiis_kiro")!.title).toBe("Heshiis Kiro");
   });
 });
 

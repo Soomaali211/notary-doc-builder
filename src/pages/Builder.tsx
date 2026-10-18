@@ -38,17 +38,22 @@ import {
 import { documentConfigs } from "@/lib/notary/documents";
 import {
   BUILDER_FIELD_TYPES,
+  applyBuiltinEdits,
   builderFormFromConfig,
   deleteCustomDocType,
   deserializeCustomConfig,
   emptyBuilderForm,
+  restoreBuiltin,
+  saveBuiltinOverlay,
   saveCustomDocType,
   tokenList,
   useCustomDocumentConfigs,
   validateBuilderForm,
+  type BuiltinEdits,
   type BuilderField as BF,
   type BuilderForm,
 } from "@/lib/notary/customDocuments";
+import type { DocumentConfig } from "@/lib/notary/types";
 
 const labelForType = (t: (key: string) => string, type: string) =>
   t(`bfType_${type}`);
@@ -61,6 +66,9 @@ export default function Builder() {
   const custom = useCustomDocumentConfigs();
 
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  /** Editing a SHIPPED type: the untouched base config stays in state; the
+   *  editor only alters its display copy. Never null in builtin mode. */
+  const [editingBuiltin, setEditingBuiltin] = useState<DocumentConfig | null>(null);
   const [form, setForm] = useState<BuilderForm | null>(null);
   const [openTokens, setOpenTokens] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -68,6 +76,7 @@ export default function Builder() {
   const startNew = () => {
     setForm(emptyBuilderForm());
     setEditingRowId(null);
+    setEditingBuiltin(null);
   };
   const startEdit = (rowId: string) => {
     const row = custom.rows.find((r) => r.id === rowId);
@@ -75,10 +84,27 @@ export default function Builder() {
     if (!config) return;
     setForm(builderFormFromConfig(config));
     setEditingRowId(rowId);
+    setEditingBuiltin(null);
+  };
+  const startEditBuiltin = (config: DocumentConfig) => {
+    setForm(builderFormFromConfig(config));
+    setEditingRowId(null);
+    setEditingBuiltin(config);
+  };
+  const resetBuiltin = async (configId: string) => {
+    if (!globalThis.confirm(t("bfBuiltinResetConfirm"))) return;
+    try {
+      await restoreBuiltin(configId);
+      toast.success(t("bfToastReset"));
+    } catch (err) {
+      console.error("[builder] reset failed:", err);
+      toast.error(t("bfToastFail"));
+    }
   };
   const back = () => {
     setForm(null);
     setEditingRowId(null);
+    setEditingBuiltin(null);
   };
 
   /* Mutators over the editor state — plain helpers, one per concern. */
@@ -293,6 +319,36 @@ export default function Builder() {
 
   const save = async () => {
     if (!form) return;
+    if (editingBuiltin) {
+      // BUILTIN EDIT — display copy only. The untouched base keeps every
+      // clause, party and template mapping; only labels/titles/requiredness
+      // move. No structural validation: the structure cannot change here.
+      const edits: BuiltinEdits = {
+        title: form.title,
+        description: form.description,
+        sectionTitles: Object.fromEntries(
+          form.sections.map((s, i) => [editingBuiltin.sections[i]?.id ?? "", s.title]),
+        ),
+        fieldLabels: Object.fromEntries(
+          form.sections.flatMap((s) => s.fields.map((f) => [f.id, f.label])),
+        ),
+        fieldOptional: Object.fromEntries(
+          form.sections.flatMap((s) => s.fields.map((f) => [f.id, !f.required])),
+        ),
+      };
+      setSaving(true);
+      try {
+        await saveBuiltinOverlay(edits, editingBuiltin.id);
+        toast.success(t("bfToastSaved"));
+        back();
+      } catch (err) {
+        console.error("[builder] overlay save failed:", err);
+        toast.error(t("bfToastFail"));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     const existingIds = [
       ...documentConfigs.map((c) => c.id),
       ...custom.configs.map((c) => c.id),
@@ -424,6 +480,89 @@ export default function Builder() {
             );
           })}
         </div>
+
+        {/* The SHIPPED types — each remains editable at the copy level: a
+            label, a title, an optional judgment. The structure stays put, so
+            every shipped template keeps its meaning. */}
+        <section className="mt-8">
+          <h2 className="mb-1 text-sm font-bold">{t("bfBuiltinTitle")}</h2>
+          <p className="mb-3 text-xs text-muted-foreground">{t("bfBuiltinHint")}</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {documentConfigs.map((base) => {
+              const overlay = custom.rows.find(
+                (r) => r.kind === "builtinOverlay" && r.id === base.id,
+              );
+              const effective = (overlay ? deserializeCustomConfig(overlay) : undefined) ?? base;
+              const sections = effective.sections.filter((s) => s.id !== "heshiiska");
+              const fieldCount = sections.reduce((n, s) => n + s.fields.length, 0);
+              return (
+                <div key={base.id} className="neu-raised p-5">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold">{effective.title}</p>
+                    <Badge
+                      className={overlay ? "hl-blue text-[10px]" : "hl-green text-[10px]"}
+                    >
+                      {overlay ? t("bfBuiltinEdited") : t("bfSavedBadge")}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {effective.description}
+                  </p>
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    {tf(t, "bfMeta", {
+                      sections: String(sections.length),
+                      fields: String(fieldCount),
+                      subTypes: String(effective.subTypes.length),
+                    })}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => startEditBuiltin(effective)}
+                    >
+                      <PenLine className="size-3.5" /> {t("bfEditBuiltin")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => setOpenTokens(openTokens === base.id ? null : base.id)}
+                    >
+                      <Braces className="size-3.5" /> {t("bfTokensBtn")}
+                    </Button>
+                    {overlay && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="gap-1.5 text-destructive hover:text-destructive"
+                        onClick={() => void resetBuiltin(base.id)}
+                      >
+                        <Trash2 className="size-3.5" /> {t("bfResetBuiltin")}
+                      </Button>
+                    )}
+                  </div>
+                  {openTokens === base.id && (
+                    <div className="neu-inset mt-3 max-h-64 overflow-y-auto p-3">
+                      <p className="text-[11px] font-semibold text-muted-foreground">
+                        {t("bfTokenHint")}
+                      </p>
+                      <ul className="mt-1.5 space-y-1">
+                        {tokenList(effective).map((entry) => (
+                          <li key={entry.token} className="text-[11px]">
+                            <code className="font-semibold">{`{{${entry.token}}}`}</code>
+                            <span className="ml-2 text-muted-foreground">{entry.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
       </AppShellWithLang>
     );
   }
@@ -432,9 +571,11 @@ export default function Builder() {
   /* EDITOR — one type, its subgroups and their fields                 */
   /* ---------------------------------------------------------------- */
   const slugPreview = form.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  /** Editing a shipped type: display copy only — structure cannot change. */
+  const builtinMode = editingBuiltin !== null;
 
   return (
-    <AppShellWithLang title={editingRowId ? t("bfEditing") : t("bfNewTitle")}>
+    <AppShellWithLang title={builtinMode ? t("bfBuiltinEditing") : editingRowId ? t("bfEditing") : t("bfNewTitle")}>
       <div className="space-y-6">
         {/* Identity */}
         <div className="neu-raised space-y-3 p-5">
@@ -446,8 +587,11 @@ export default function Builder() {
               placeholder={t("bfTitlePlaceholder")}
               className="bg-card/80"
             />
-            {slugPreview && (
+            {slugPreview && !builtinMode && (
               <p className="text-[11px] text-muted-foreground">{t("bfSlugPrefix")} <code>{slugPreview}</code></p>
+            )}
+            {builtinMode && (
+              <p className="text-[11px] text-muted-foreground">{t("bfBuiltinModeHint")}</p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -460,6 +604,8 @@ export default function Builder() {
               className="bg-card/80"
             />
           </div>
+          {!builtinMode && (
+          <>
           <div className="space-y-1.5">
             <Label className="text-[13px]">{t("bfFieldPrefix")}</Label>
             <Input
@@ -521,6 +667,8 @@ export default function Builder() {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
 
         {/* Sections (subgroups) */}
@@ -540,7 +688,7 @@ export default function Builder() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={si === 0}
+                  disabled={builtinMode || si === 0}
                   onClick={() => moveSection(si, -1)}
                   aria-label={t("bfMoveUp")}
                 >
@@ -550,12 +698,13 @@ export default function Builder() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={si === form.sections.length - 1}
+                  disabled={builtinMode || si === form.sections.length - 1}
                   onClick={() => moveSection(si, 1)}
                   aria-label={t("bfMoveDown")}
                 >
                   <ArrowDown className="size-4" />
                 </Button>
+                {!builtinMode && (
                 <Button
                   type="button"
                   variant="ghost"
@@ -566,6 +715,7 @@ export default function Builder() {
                 >
                   <Trash2 className="size-4" />
                 </Button>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -585,6 +735,7 @@ export default function Builder() {
                         </p>
                       )}
                     </div>
+                    {!builtinMode ? (
                     <div className="space-y-1">
                       <Label className="text-[11px]">{t("bfFieldType")}</Label>
                       <select
@@ -605,6 +756,12 @@ export default function Builder() {
                         ))}
                       </select>
                     </div>
+                    ) : (
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">{t("bfFieldType")}</Label>
+                      <p className="text-xs text-muted-foreground">{labelForType(t, field.type)}</p>
+                    </div>
+                    )}
                     {field.type === "select" && (
                       <div className="min-w-64 flex-1 space-y-1">
                         <Label className="text-[11px]">{t("bfFieldOptions")}</Label>
@@ -629,6 +786,7 @@ export default function Builder() {
                       />
                       {t("bfFieldRequired")}
                     </Label>
+                    {!builtinMode && (
                     <Button
                       type="button"
                       variant="ghost"
@@ -639,8 +797,10 @@ export default function Builder() {
                     >
                       <Trash2 className="size-4" />
                     </Button>
+                    )}
                   </div>
                 ))}
+                {!builtinMode && (
                 <Button
                   type="button"
                   size="sm"
@@ -650,10 +810,11 @@ export default function Builder() {
                 >
                   <Plus className="size-3.5" /> {t("bfAddField")}
                 </Button>
+                )}
               </div>
 
               {/* Repeat list — the office's own iibiyayaal/maragyada group. */}
-              <div className="space-y-2 border-t border-dashed border-border pt-3">
+              <div className="space-y-2 border-t border-dashed border-border pt-3" hidden={builtinMode}>
                 <Label className="flex items-center gap-2 text-[12px]">
                   <input
                     type="checkbox"

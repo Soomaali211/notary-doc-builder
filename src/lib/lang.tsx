@@ -1025,6 +1025,21 @@ const DICT: Dict = {
     "Template-ka Word-ka waxaa ku jira liisku: {{#MAGASCALIISKA}} … {{/MAGASCALIISKA}} — token-ka saf ku jira halkaan ka fikraa lahaayaa.",
     "In the Word template repeat the block (see the Token list); each row's token prints that row's value.",
   ],
+  bfBuiltinTitle: ["Foomamkii hore", "The shipped forms"],
+  bfBuiltinHint: [
+    "Waxaa beddeli kartaa qoraalka muuqda (magacyada, sharaxaadaha, waajibanka) — qaab-dhismeedka iyo template-yada la ilk gudbi waayay waxay weli shaqaynaayaan.",
+    "Edit their visible copy (labels, titles, requiredness) — the structure and shipped templates keep working.",
+  ],
+  bfEditBuiltin: ["Beddel asal-ka", "Edit the shipped form"],
+  bfBuiltinEdited: ["La beddelay", "Edited"],
+  bfResetBuiltin: ["Asal-ka ku laba", "Restore the original"],
+  bfBuiltinEditing: ["Wax ka beddel foom diyaar ah", "Edit a shipped form"],
+  bfBuiltinModeHint: [
+    "Habka beddelka foorm kii asal-a: kaliya magacyada — sunu ciqaabtaan si toos ah waa mamnuuc (template-yadu weli ayaa wax yar ku shaqaynaysa).",
+    "Editing a shipped form: labels only — structural changes are refused so the shipped templates keep working.",
+  ],
+  bfBuiltinResetConfirm: ["asal-kiisi la noqdo (wax la beddelay lama helay) — sii wad?", "will be restored to original (your edits lost) — continue?"],
+  bfToastReset: ["Foom-ku waxaa ku noqday asal-kiisi.", "The form was restored to its original."],
 };
 
 export interface LangContextValue {

@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DocumentConfig, FieldType, SelectOption } from "./types";
-import { registerRuntimeConfigs } from "./documents";
+import { documentConfigs, registerRuntimeConfigs } from "./documents";
 import {
   getAllLocal,
   peekAllLocal,
@@ -36,7 +36,9 @@ export const CUSTOM_DOC_TYPE_ENTITY: EntityName = "customDocTypes";
 
 /** One stored custom document type: its config, serialized. */
 export interface CustomDocTypeRecord extends StoredRecord {
-  kind: "customDocType";
+  /** "customDocType" = built by the office; "builtinOverlay" = an EDIT of a
+   *  shipped type (same id as the built-in it shadows). */
+  kind: "customDocType" | "builtinOverlay";
   title: string;
   description: string;
   /** The full DocumentConfig of this type, JSON. */
@@ -528,6 +530,83 @@ export async function saveCustomDocType(
 /** Delete a custom type. Its drafts keep their stored subTypeLabel — data. */
 export async function deleteCustomDocType(rowId: string): Promise<void> {
   await removeLocal(CUSTOM_DOC_TYPE_ENTITY, rowId);
+}
+
+/* ------------------------------------------------------------------ */
+/* BUILT-IN OVERLAYS — editing the shipped forms                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * An EDIT of a shipped type (Heshiis Kiro, Kala Iibsi Hanti, Cadayn
+ * Cilaaj) is stored as an overlay: the FULL config — every clause, party,
+ * placeholder and template mapping intact — with only the editable copy
+ * changed, under the SAME id. `getConfig` resolves the overlay first, so
+ * the interview, the registry and every list read the edited form; the
+ * picker shows ONE card per id (never a duplicate).
+ *
+ * Only DISPLAY copy is editable: labels, titles, descriptions, and the
+ * required/optional judgment. Structural edits are refused — a removed
+ * field or section would silently orphan template tokens the shipped
+ * Word files already print.
+ */
+export interface BuiltinEdits {
+  title?: string;
+  description?: string;
+  sectionTitles: Record<string, string>;
+  fieldLabels: Record<string, string>;
+  fieldOptional: Record<string, boolean>;
+}
+
+/** FOLD the builder form into the built-in's untouched structure. */
+export function applyBuiltinEdits(base: DocumentConfig, edits: BuiltinEdits): DocumentConfig {
+  const sections = base.sections.map((section) => ({
+    ...section,
+    title: edits.sectionTitles[section.id]?.trim() || section.title,
+    fields: section.fields.map((field) => {
+      const label = edits.fieldLabels[field.id]?.trim();
+      const optional = edits.fieldOptional[field.id];
+      return {
+        ...field,
+        ...(label ? { label } : {}),
+        ...(optional === undefined ? {} : optional ? { optional: true } : {}),
+      };
+    }),
+  }));
+  return {
+    ...base,
+    title: edits.title?.trim() || base.title,
+    description: edits.description?.trim() || base.description,
+    sections,
+  };
+}
+
+/** Save (or replace) the overlay of one built-in type. */
+export async function saveBuiltinOverlay(edits: BuiltinEdits, builtinId: string): Promise<void> {
+  const base = documentConfigs.find((c) => c.id === builtinId);
+  if (!base) throw new Error(`Unknown built-in: ${builtinId}`);
+  const config = applyBuiltinEdits(base, edits);
+  const now = Date.now();
+  const row: CustomDocTypeRecord = {
+    id: builtinId,
+    agreementId: "",
+    kind: "builtinOverlay",
+    title: config.title,
+    description: config.description,
+    configJson: JSON.stringify(config),
+    createdAt: now,
+    updatedAt: now,
+  };
+  await putLocal(CUSTOM_DOC_TYPE_ENTITY, row);
+}
+
+/** Is a built-in id one of the shipped types? */
+export function isBuiltinType(id: string): boolean {
+  return documentConfigs.some((c) => c.id === id);
+}
+
+/** Restore a built-in to its shipped copy: delete its overlay row. */
+export async function restoreBuiltin(builtinId: string): Promise<void> {
+  await removeLocal(CUSTOM_DOC_TYPE_ENTITY, builtinId);
 }
 
 /* ------------------------------------------------------------------ */

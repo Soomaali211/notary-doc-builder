@@ -30,11 +30,17 @@ export function registerRuntimeConfigs(list: DocumentConfig[]): void {
 }
 
 export function allDocumentConfigs(): DocumentConfig[] {
-  return [...documentConfigs, ...runtimeConfigs];
+  // An EDITED built-in (runtime overlay, same id) ships exactly one card:
+  // the runtime copy wins, the shipped copy silently steps aside.
+  const runtimeIds = new Set(runtimeConfigs.map((c) => c.id));
+  return [...runtimeConfigs, ...documentConfigs.filter((c) => !runtimeIds.has(c.id))];
 }
 
 export function getConfig(id: string): DocumentConfig | undefined {
-  return allDocumentConfigs().find((c) => c.id === id);
+  return (
+    runtimeConfigs.find((c) => c.id === id) ??
+    documentConfigs.find((c) => c.id === id)
+  );
 }
 
 export function getSubTypeLabel(
