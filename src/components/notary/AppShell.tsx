@@ -1,11 +1,13 @@
 /**
- * SHELL — 5 tabs, one language toggle, nothing else.
+ * SHELL — 6 tabs, one language toggle, nothing else.
  *
- *   Dukumentiyada | Macaamiisha | Lacagaha | Warbixinada | Habayn
+ *   Dukumentiyada | Macaamiisha | Lacagaha | Warbixinada | Dhismaha | Habayn
  *
- * Desktop: the five tabs sit in the top bar. Phone: the same five tabs are
- * a fixed bottom bar. Each page renders its own header (title, one line,
- * one primary action); the shell is only chrome.
+ * "Dhismaha" is the form builder: the place a type is BORN, so it sits
+ * beside the tabs that read the types. Desktop: the tabs sit in the top
+ * bar. Phone: the same tabs are a fixed bottom bar. Each page renders its
+ * own header (title, one line, one primary action); the shell is only
+ * chrome.
  */
 import { Link, useLocation } from "react-router";
 import { cn } from "@/lib/utils";
@@ -13,6 +15,7 @@ import { LanguageProvider, useLang, type Lang } from "@/lib/lang";
 import {
   BarChart3,
   FileText,
+  Layers,
   PenLine,
   Settings,
   Users,
@@ -24,6 +27,7 @@ const TABS = [
   { to: "/clients", labelKey: "tabClients", icon: Users },
   { to: "/payments", labelKey: "tabPayments", icon: Wallet },
   { to: "/reports", labelKey: "tabReports", icon: BarChart3 },
+  { to: "/builder", labelKey: "bfNavTab", icon: Layers },
   { to: "/habayn", labelKey: "tabSettings", icon: Settings },
 ] as const;
 
@@ -122,9 +126,9 @@ export function AppShell({
         {children}
       </main>
 
-      {/* Phone: fixed bottom nav, same five tabs */}
+      {/* Phone: fixed bottom nav, the same tabs */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background sm:hidden">
-        <ul className="mx-auto grid max-w-5xl grid-cols-5">
+        <ul className="mx-auto grid max-w-5xl grid-cols-6">
           {TABS.map((tab) => (
             <li key={tab.to}>
               <Link
