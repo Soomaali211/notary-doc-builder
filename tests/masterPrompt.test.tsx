@@ -247,22 +247,38 @@ describe("§3/§4 — Front page, navigation and the unsaved-changes gate", () =
 
   test("the interview offers Home, Back, Next, Save Draft and Exit", () => {
     const page = read("pages/NewDocumentInterview.tsx");
+    // The wording lives in the dictionary (SO/EN); the page pins the KEYS it
+    // renders, so a copy change can never silently break the contract.
     // Home
-    expect(page).toContain("← Home (Dashboard)");
+    expect(page).toContain('t("ndHome")');
     // Exit
     expect(page).toContain("data-interview-exit=");
     // Save Draft
-    expect(page).toContain("Save Draft");
+    expect(page).toContain('t("ndSaveDraft")');
     // Back / Next
-    expect(page).toContain("Dib");
-    expect(page).toContain("Sii wad");
+    expect(page).toContain('t("ndBack")');
+    expect(page).toContain('t("ndNext")');
+    // The keys really exist and keep the office's named wording.
+    const lang = read("lib/lang.tsx");
+    for (const [key, so] of [
+      ["ndHome", "← Home (Dashboard)"],
+      ["ndSaveDraft", "Save Draft"],
+      ["ndBack", "Dib"],
+      ["ndNext", "Sii wad"],
+    ] as const) {
+      expect(lang).toContain(`${key}: ["${so}",`);
+    }
   });
 
   test("the unsaved-changes dialog offers exactly the three named choices", () => {
     const page = read("pages/NewDocumentInterview.tsx");
-    expect(page).toContain("Save Draft");
-    expect(page).toContain("Sii wad oo ha kaydin");
-    expect(page).toContain("Cancel");
+    expect(page).toContain('t("ndSaveDraft")');
+    expect(page).toContain('t("ndDiscardContinue")');
+    expect(page).toContain('t("ndCancel")');
+    // The dialog's Somali wording stays exactly as the office named it.
+    const lang = read("lib/lang.tsx");
+    expect(lang).toContain('ndDiscardContinue: ["Sii wad oo ha kaydin"');
+    expect(lang).toContain('ndCancel: ["Cancel",');
   });
 
   test("leaving is gated on REAL unsaved changes, not a boolean", () => {

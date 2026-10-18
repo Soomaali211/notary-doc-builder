@@ -774,6 +774,175 @@ const DICT: Dict = {
     "Post-ka lama daabacin — fadlan isku day mar kale.",
     "The post was not published — please try again.",
   ],
+
+  // New Document Interview — the guided form (steps, review pane toasts).
+  // {…} placeholders are filled by `tf` — never translated data.
+  ndPartyDataDesc: ["Buuxi xogta {label} — xubin kasta gooni ah.", "Fill in the {label}'s details — one entry each."],
+  ndPartyCountDesc: ["Wixii {label} — tirada ayaa marka hore la dooraa.", "For the {label} — the count comes first."],
+  ndPartyStatusDesc: [
+    "Ma Joogaa Heshiiska? Haa = xogta qofka jooga; Maya = wakiil ayaa matalaya (magac + telefoon).",
+    "Present at signing? Yes = fill in the details of the person who attends; No = a representative stands in for them (name + phone).",
+  ],
+  ndCountKireeye: ["Kireeyayaasha", "Landlords"],
+  ndCountKirayste: ["Kiraystayaasha", "Tenants"],
+  ndCountOf: ["Tirada {label}", "Number of {label}"],
+  ndCountChosen: ["Tirada {label} ee aad dooranayso:", "The number of {label} you are choosing:"],
+  ndHrTitle: ["Waxa Hantida ku Jira", "What the property holds"],
+  ndHrSub: [
+    "Tirada dadka, sawirrada iyo saxeexyadu waa tiro madax-bannaan — lama xiriirin tirada iibiyayaasha.",
+    "The people, photos and signature lines are all independent counts — never coupled to the number of sellers.",
+  ],
+  ndHrMore: ["… iyo {n} kale", "… and {n} more"],
+  ndHrMissing: ["Waxa MAQAN (waajibka ah):", "What is MISSING (required):"],
+  ndHrReady: [
+    "Dhammaan xogta waajibka ah waa buuxiyay — diyaar ma ah in la abuuro.",
+    "Every required answer is filled — ready to generate.",
+  ],
+  ndEdit: ["Wax ka beddel", "Edit"],
+  ndEditBack: ["Wax ka beddel — waxaa dib ugu laabacay tallaabada hore.", "Edit — you have been taken back to the earlier step."],
+  ndHome: ["← Home (Dashboard)", "← Home (Dashboard)"],
+  ndSaveDraft: ["Save Draft", "Save Draft"],
+  ndExit: ["Exit", "Exit"],
+  ndSavedBadge: ["La kaydiyay ✓", "Saved ✓"],
+  ndUnsavedBadge: ["Weli lama kaydin", "Not saved yet"],
+  ndStepOf: ["Tallaabada {a}/{b}", "Step {a}/{b}"],
+  ndStepNumber: ["Tallaabada {n}", "Step {n}"],
+  ndStepName: ["Tallaabada {n}: {name}", "Step {n}: {name}"],
+  ndReview: ["Dib u Eegis", "Review"],
+  ndReviewGenerate: ["Dib u Eegis & Abuur", "Review & Generate"],
+  ndContents: ["Tusmada", "Contents"],
+  ndContentsAria: ["Tusmada tallaabada", "Step contents"],
+  ndSkippedAlert: ["Waxaa jira fields la skip-gareeyay", "Some fields were skipped"],
+  ndBack: ["Dib", "Back"],
+  ndNext: ["Sii wad", "Continue"],
+  ndRevHint: [
+    "Hubi xogta oo dhan — guji \"Wax ka beddel\" si aad ugu noqoto qayb kasta.",
+    "Check every answer — press \"Edit\" to return to any part.",
+  ],
+  ndRevEmpty: ["Weli wax xog ah lama buuxin.", "Nothing has been filled in yet."],
+  ndRevNote: [
+    "Markaad gujiso \"Abuur Dukumeenti\" waxaa la abuurayaa DOCX ka template-kaaga Word-ka, ka dibna waa la kaydinayaa kaydka.",
+    "When you press \"Create Document\" the DOCX is built from your own Word template, and then saved to the archive.",
+  ],
+  ndRevMissingTitle: ["Qaar ka mid ah xogta muhiimka ah weli lama buuxin.", "Some required details are still not filled in."],
+  ndRevMissNote: [
+    "Optional / skipped fields ma xannibaan generation-ka — kaliya xogta waajibka ah ayaa joojisa.",
+    "Optional / skipped fields never block generation — only the required details do.",
+  ],
+  ndTemplateTitle: ["Dooro Word Template", "Choose the Word Template"],
+  ndTemplateLink: ["+ Soo geli / Maaree template-yada", "+ Upload / manage templates"],
+  ndTemplateSub: [
+    "Template-ka waa iska leh USER-KA — system-ku wuxuu kaliya buuxinayaa placeholder-yada, isaga oo ilaalinaya qaab-dhismeedkaaga.",
+    "The template belongs to YOU — the system only fills the placeholders, keeping your design intact.",
+  ],
+  ndTemplateEmpty: [
+    "Weli template user ah lama soo gelin — tusaalaha registry-ga ayaa la isticmaalayaa.",
+    "No user template has been uploaded — the registry sample is in use.",
+  ],
+  ndTemplateHow: ["Ma qaab isu la yeelo?", "Cannot design one yourself?"],
+  ndTemplateLinkText: ["Soo celi heshiis_kiro_template.docx", "Re-download heshiis_kiro_template.docx"],
+  ndTemplateTail: [
+    "ka Template Manager, ku qaab-dhismeed Word, kadibna soo geli.",
+    "from the Template Manager, design it in Word, then upload it.",
+  ],
+  ndRegistrySample: ["Tusaalaha nidaamka (registry)", "The system sample (registry)"],
+  ndDefaultBadge: ["Default", "Default"],
+  ndPreviewBtn: ["Preview", "Preview"],
+  ndPreviewDialogTitle: ["Preview — Dukumeentiga la abuuray", "Preview — the generated document"],
+  ndPreviewDialogSub: [
+    "Isla template-ka Word-kaaga WADADAAGA, isla xogta, isla qaab-dhismeedka — sida uu Live Review-ka ahaa midigga kuugu muuqdo.",
+    "The very same Word template you SHARED, the same data, the same design — exactly as the Live Review showed you on the right.",
+  ],
+  ndLiveReviewAria: ["Live Document Review", "Live Document Review"],
+  ndGenErrorTitle: ["Document-ka lama samayn karin.", "The document could not be created."],
+  ndGenErrorHint: [
+    "Xogtaada way kaydsan tahay — sax qalada haddii jiro oo isku day mar kale.",
+    "Your data is kept safe — fix any error and try again.",
+  ],
+  ndTryAgain: ["Try Again", "Try Again"],
+  ndClose: ["Xir", "Close"],
+  ndDraftSaveFail: ["Draft-ku ma kaydin karo — isku day mar kale.", "The draft could not be saved — please try again."],
+  ndDraftSavedToast: [
+    "Draft-ka waa la kaydiyay. Waqti kasta waad sii wadan kartaa.",
+    "The draft is saved. You can resume at any time.",
+  ],
+  ndNotReady: ["Dokumeentigu ma diyaar yahir.", "The document is not ready."],
+  ndTemplateLoading: [
+    "Template-kaaga weli waa la soo rarayaa — isku day mar kale.",
+    "Your template is still loading — please try again.",
+  ],
+  ndPrintFail: [
+    "Daabacaadda ma shaqayn karo. Isticmaal \"PDF dhaqaaq ah\" — wuxuu file si toos ah u sameeyaa.",
+    "Printing cannot run. Use \"Live PDF\" — it creates the file directly.",
+  ],
+  ndPdfOk: ["PDF dhaqaaq ah waa la soo saaray", "Live PDF has been created"],
+  ndPdfOkToast: ["PDF dhaqaaq ah waa la soo saaray!", "Live PDF has been created!"],
+  ndPdfFail: [
+    "PDF-ku lama sameeyn karin — xogtaada way kaydsan tahay. Isku day mar kale.",
+    "The PDF could not be created — your data is kept safe. Please try again.",
+  ],
+  ndConfirmBlocked: [
+    "Xog muhiim ah oo dhab ahaan looga baahan yahay weli ma qabsoomaa.",
+    "Details that are truly required are not yet complete.",
+  ],
+  ndConfirmOk: [
+    "Dukumeentiga waa la xaqiijiyay. Hadda waad soo saari kartaa.",
+    "The document is approved. You can now create it.",
+  ],
+  ndAttendanceAsk: ["Ma Joogaa Heshiiska?", "Present at signing?"],
+  ndWakiilLink: ["Wakiilka matalaya", "The representative standing in"],
+  ndStepIncompleteToast: [
+    "Waxaa jira xog aan dhammaystirnayn. Fadlan sax meelaha lagu calaamadeeyay.",
+    "There are unfinished details. Please fix the marked fields.",
+  ],
+  ndGenErrorsToast: ["Weli waxaa jira qalado — fadlan sax.", "Errors remain — please fix them."],
+  ndNeedReference: ["Fadlan geli nambarka tixraaca (Reference Number).", "Please enter the reference number."],
+  ndDocxOkToastMsg: ["Dukumeentiga DOCX waa la sameeyay", "The DOCX document has been created"],
+  ndDocxOkToast: ["Dukumeentiga waa la sameeyay oo la kaydiyay!", "The document has been created and saved!"],
+  ndGenFail: ["Abuuritaanku wuu fashilmay.", "Generation failed."],
+  ndGenFailToast: [
+    "Document-ka lama samayn karin — xogtaada way kaydsan tahay. Isku day mar kale.",
+    "The document could not be created — your data is kept safe. Please try again.",
+  ],
+  ndPreviewFail: ["Preview-gu wuu fashilmay — isku day mar kale.", "The preview failed — please try again."],
+  ndAlreadyGen: ["Dukumeentigan horey loo sameeyay", "This document has already been created"],
+  ndAlreadyGenSub: ["Waxaa lagu kaydiyay kaydka heshiisyada.", "It is stored in the agreement archive."],
+  ndOpenArchive: ["Fur Kaydka", "Open the archive"],
+  ndBlockedReasonFmt: [
+    "Xog muhiim ah weli lama buuxin — eeg liiska xogta maqan ({n}).",
+    "Required details are still missing — see the missing-details list ({n}).",
+  ],
+  ndUnsavedTitle: ["Weli waxaa jira xog aan la kaydin", "There is data that is not saved yet"],
+  ndUnsavedDesc: [
+    "Waxaad dooranayso sidee loo maareeyo xogta maqan hadda.",
+    "You decide what happens to the unsaved data now.",
+  ],
+  ndDiscardContinue: ["Sii wad oo ha kaydin", "Continue without saving"],
+  ndCancel: ["Cancel", "Cancel"],
+  ndHiddenWorkflow: ["waxaa laga saarayaa workflow-ga", "is being removed from the workflow"],
+  ndHiddenDurationDesc: [
+    "Waxaad Kiro Xidhan u beddelayso Kiro Furan. Taariikhda Dhammaadka hadda heshiiska kuma khusayso. Ma rabtaa inaad ka saarto xogta Taariikhda Dhammaadka draft-ka?",
+    "You changed a closed rental into an open one. The end date no longer applies to the agreement. Do you want to clear the end date from the draft?",
+  ],
+  ndHiddenDataDesc: [
+    "Ma rabtaa inaad xogtii {label} ka saarto draft-ka? Haddii aad hayso, xogtu way kaydsan tahay laakiin tallaabadu lama muuqin doono.",
+    "Do you want to clear the {label}'s data from the draft? If you keep it, the data stays saved but the step stays hidden.",
+  ],
+  ndHiddenClear: ["Ka saar", "Clear"],
+  ndHiddenKeep: ["Hay xogta draft-ka", "Keep the draft data"],
+  ndHiddenDeebaaji: ["Deebaajiga", "The deposit"],
+  ndHiddenDamiin: ["Damiinka", "The guarantor"],
+  ndHiddenEndDate: ["Taariikhda Dhammaadka", "The end date"],
+  ndGuidedTitle: ["Qaar ka mid ah xogta weli lama buuxin", "Some details are still not filled"],
+  ndGuidedRequired: ["waa waajib", "is required"],
+  ndGuidedSkipped: ["Skipped", "Skipped"],
+  ndGuidedOptional: ["Madhan (Optional)", "Empty (Optional)"],
+  ndGuidedNeedFill: [
+    "Fadlan buuxi xogta waajibka ah ka hor intaadan sii wadin.",
+    "Please fill the required details before continuing.",
+  ],
+  ndGoBackFill: ["Dib ugu noqo oo buuxi", "Go back and fill it in"],
+  ndSkipContinue: ["Skip oo sii wad", "Skip and continue"],
 };
 
 export interface LangContextValue {
@@ -786,7 +955,9 @@ export interface LangContextValue {
 const LangContext = createContext<LangContextValue>({
   lang: DEFAULT_LANG,
   setLang: () => undefined,
-  t: (key) => String(key),
+  // Outside a provider (tests, degraded mounts) the system stays in its
+  // default language instead of printing raw keys.
+  t: (key) => DICT[key]?.[0] ?? String(key),
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
@@ -816,4 +987,22 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
 export function useLang(): LangContextValue {
   return useContext(LangContext);
+}
+
+/**
+ * Fill the `{placeholder}` tokens of a dictionary entry with data. Names,
+ * counts and labels are DATA — they are inserted, never translated; only
+ * the surrounding copy is.
+ */
+export function tf(
+  t: (key: string) => string,
+  key: string,
+  vars: Record<string, string | number>,
+): string {
+  let out = t(key);
+  for (const [name, value] of Object.entries(vars)) {
+    // `replaceAll` needs lib es2021; the compiler target here is older.
+    out = out.split(`{${name}}`).join(String(value));
+  }
+  return out;
 }

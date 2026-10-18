@@ -87,6 +87,7 @@ import { makeGetter } from "@/lib/notary/conditions";
 import { getPartyRows, getRepresentatives, personChoices, stripSkipMarkers } from "@/lib/notary/formValues";
 import { isFieldRequired } from "@/lib/notary/validation";
 import { FIELD_SKIPPED } from "@/lib/notary/types";
+import { tf, useLang } from "@/lib/lang";
 import { buildHantiReview, type HantiReview } from "@/lib/notary/hantiReview";
 import { LiveDocumentReview } from "@/components/notary/LiveDocumentReview";
 import type {
@@ -162,17 +163,17 @@ interface InterviewStep {
  * No fixed step list is ever rendered (#14/#16).
  */
 
-/** Somali description shown under a step title. */
-function stepDescription(step: InterviewStep): string {
+/** Description shown under a step title (data labels are never translated). */
+function stepDescription(t: (k: string) => string, step: InterviewStep): string {
   switch (step.detail.kind) {
     case "section":
       return step.detail.section.description ?? "";
     case "party-data":
-      return `Buuxi xogta ${step.detail.partyDef.label.toLowerCase()} — xubin kasta gooni ah.`;
+      return tf(t, "ndPartyDataDesc", { label: step.detail.partyDef.label.toLowerCase() });
     case "party-count":
-      return `Wixii ${step.detail.partyDef.label.toLowerCase()} — tirada ayaa marka hore la dooraa.`;
+      return tf(t, "ndPartyCountDesc", { label: step.detail.partyDef.label.toLowerCase() });
     case "party-status":
-      return "Ma Joogaa Heshiiska? Haa = xogta qofka jooga; Maya = wakiil ayaa matalaya (magac + telefoon).";
+      return t("ndPartyStatusDesc");
   }
 }
 
@@ -198,6 +199,7 @@ export function HantiReviewSummary({
   review: HantiReview;
   onEditSection?: (sectionId: string) => void;
 }) {
+  const { t } = useLang();
   // A block key maps back to the section it came from, so "Wax ka beddel"
   // lands the notary where the answers were typed.
   const sectionFor: Record<string, string> = {
@@ -218,10 +220,9 @@ export function HantiReviewSummary({
 
   return (
     <div className="neu-raised mb-6 p-4">
-      <h3 className="text-sm font-bold">Waxa Hantida ku Jira</h3>
+      <h3 className="text-sm font-bold">{t("ndHrTitle")}</h3>
       <p className="mt-1 text-xs text-muted-foreground">
-        Tirada dadka, sawirrada iyo saxeexyadu waa tiro madax-bannaan — lama
-        xiriirin tirada iibiyayaasha.
+        {t("ndHrSub")}
       </p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -247,7 +248,7 @@ export function HantiReviewSummary({
                 ))}
                 {block.lines.length > 6 && (
                   <li className="text-[11px] text-muted-foreground">
-                    … iyo {block.lines.length - 6} kale
+                    {tf(t, "ndHrMore", { n: block.lines.length - 6 })}
                   </li>
                 )}
               </ul>
@@ -258,7 +259,7 @@ export function HantiReviewSummary({
                 onClick={() => onEditSection(sectionFor[block.key])}
                 className="mt-2 text-[11px] font-medium text-primary underline-offset-2 hover:underline"
               >
-                Wax ka beddel
+                {t("ndEdit")}
               </button>
             )}
           </div>
@@ -270,7 +271,7 @@ export function HantiReviewSummary({
       {review.missing.length > 0 && (
         <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
           <h4 className="text-xs font-bold text-destructive">
-            Waxa MAQAN (waajibka ah):
+            {t("ndHrMissing")}
           </h4>
           <ul className="mt-1 space-y-0.5">
             {review.missing.map((m, i) => (
@@ -283,7 +284,7 @@ export function HantiReviewSummary({
       )}
       {review.ready && (
         <p className="mt-3 text-xs font-medium text-primary">
-          Dhammaan xogta waajibka ah waa buuxiyay — diyaar ma ah in la abuuro.
+          {t("ndHrReady")}
         </p>
       )}
     </div>
@@ -335,6 +336,7 @@ export function SectionStep({
   /** Only set for Step 1: guarded setter for setup-driven answers. */
   onSetupValues?: (next: FormValues) => void;
 }) {
+  const { t } = useLang();
   const section = step.section;
   const flowTitle = step.stepTitle;
   // Step 1 (Dejinta Heshiiska): setup controls drive the whole workflow.
@@ -410,8 +412,8 @@ export function SectionStep({
                  field.id === "kirayste_mode" ? tenantDef : undefined);
               const chosenCountLabel =
                 mode?.countLabel ??
-                (field.id === "kireeye_mode" ? "Kireeyayaasha" :
-                 field.id === "kirayste_mode" ? "Kiraystayaasha" : undefined);
+                (field.id === "kireeye_mode" ? t("ndCountKireeye") :
+                 field.id === "kirayste_mode" ? t("ndCountKirayste") : undefined);
               return (
                 <SetupField
                   key={field.id}
@@ -519,6 +521,7 @@ export default function NewDocumentInterview() {
    */
   const { document } = useLocalAgreement(docId);
   const { documents: allLocalDocuments } = useLocalAgreements();
+  const { t } = useLang();
 
   const [values, setValues] = useState<FormValues | null>(null);
   const [step, setStep] = useState(0);
@@ -695,10 +698,10 @@ export default function NewDocumentInterview() {
           // Autosave failing must never lose what the notary typed, and it
           // must never show a raw technical message.
           console.error("[localStore] draft save failed:", err);
-          toast.error("Draft-ku ma kaydin karo — isku day mar kale.");
+          toast.error(t("ndDraftSaveFail"));
         });
     },
-    [config, document],
+    [config, document, t],
   );
 
   // Autosave (debounced) — skips unchanged payloads to avoid loops.
@@ -870,10 +873,10 @@ export default function NewDocumentInterview() {
     // Which sections would the NEW answers hide?
     const hiding: { key: "deebaaji" | "damiinka"; sectionId: string; label: string }[] = [];
     if (getAnswer(next, "heshiiska", "deebaaji_haa") === "no") {
-      hiding.push({ key: "deebaaji", sectionId: "deebaaji", label: "Deebaajiga" });
+      hiding.push({ key: "deebaaji", sectionId: "deebaaji", label: t("ndHiddenDeebaaji") });
     }
     if (getAnswer(next, "heshiiska", "damiin_haa") === "no") {
-      hiding.push({ key: "damiinka", sectionId: "damiinka", label: "Damiinka" });
+      hiding.push({ key: "damiinka", sectionId: "damiinka", label: t("ndHiddenDamiin") });
     }
     // Any answer change that hides a populated section → confirm first.
     const anyPopulated = hiding.find((h) => {
@@ -898,7 +901,7 @@ export default function NewDocumentInterview() {
     ) {
       setHiddenDataChoice({
         sectionId: "heshiiska:muddada",
-        label: "Taariikhda Dhammaadka",
+        label: t("ndHiddenEndDate"),
         next,
       });
       return;
@@ -994,7 +997,8 @@ export default function NewDocumentInterview() {
   const missingRequired = useMemo(() => {
     if (!values || !config) return [];
     const out: { label: string; stepName: string; stepIndex: number; reason: string }[] = [];
-    const stepName = (idx: number) => (idx >= 0 ? `Tallaabada ${idx + 1}: ${steps[idx]?.short ?? ""}` : "");
+    const stepName = (idx: number) =>
+      idx >= 0 ? tf(t, "ndStepName", { n: idx + 1, name: steps[idx]?.short ?? "" }) : "";
     for (const [sectionId, errs] of Object.entries(validation)) {
       const section = config.sections.find((s) => s.id === sectionId);
       const idx = stepTargetForSection(sectionId);
@@ -1009,7 +1013,7 @@ export default function NewDocumentInterview() {
           for (const e of pe.errors) {
             const fieldLabel =
               e.fieldId === "attendance"
-                ? "Ma Joogaa Heshiiska?"
+                ? t("ndAttendanceAsk")
                 : (partyDef?.fields.find((f) => f.id === e.fieldId)?.label ??
                     partyDef?.representativeFields?.find((f) => f.id === e.fieldId)?.label ??
                     e.fieldId);
@@ -1027,7 +1031,7 @@ export default function NewDocumentInterview() {
       }
     }
     return out;
-  }, [config, steps, stepTargetForSection, validation, values]);
+  }, [config, steps, stepTargetForSection, validation, values, t]);
 
   const completedSteps = useMemo(
     () =>
@@ -1066,7 +1070,7 @@ export default function NewDocumentInterview() {
     lastSavedJsonRef.current = serializeDraft(values);
     setTimeout(() => {
       setSaving(false);
-      toast.success("Draft-ka waa la kaydiyay. Waqti kasta waad sii wadan kartaa.");
+      toast.success(t("ndDraftSavedToast"));
     }, 400);
   };
 
@@ -1080,7 +1084,7 @@ export default function NewDocumentInterview() {
    * on this — the PDF is not a second document, it is the SAME model.
    */
   const resolveForOutput = async () => {
-    if (!config || !values || !document) throw new Error("Dokumeentigu ma diyaar yahir.");
+    if (!config || !values || !document) throw new Error(t("ndNotReady"));
     const subType = subTypeAnswer(config, values) || document.subType;
     const referenceNumber =
       (referenceAnswer(config, values) || document.referenceNumber || "").trim();
@@ -1118,9 +1122,7 @@ export default function NewDocumentInterview() {
   const handlePrintPdf = () => {
     const ok = printDocument();
     if (!ok) {
-      toast.error(
-        "Daabacaadda ma shaqayn karo. Isticmaal \"PDF dhaqaaq ah\" — wuxuu file si toos ah u sameeyaa.",
-      );
+      toast.error(t("ndPrintFail"));
     }
   };
 
@@ -1155,20 +1157,20 @@ export default function NewDocumentInterview() {
       });
       for (const warning of out.warnings) console.warn("[pdf]", warning);
       if (out.warnings.length > 0) {
-        toast.message("PDF dhaqaaq ah waa la soo saaray", {
+        toast.message(t("ndPdfOk"), {
           description: out.warnings.join(" "),
         });
       } else {
-        toast.success("PDF dhaqaaq ah waa la soo saaray!");
+        toast.success(t("ndPdfOkToast"));
       }
     } catch (err) {
       console.error(err);
       const msg = err instanceof Error ? err.message : "";
       setGenerationError(
-        msg || "PDF-ku lama sameeyn karin — xogtaada way kaydsan tahay. Isku day mar kale.",
+        msg || t("ndPdfFail"),
       );
       toast.error(
-        msg || "PDF-ku lama sameeyn karin — xogtaada way kaydsan tahay. Isku day mar kale.",
+        msg || t("ndPdfFail"),
       );
     } finally {
       setGenerating(false);
@@ -1178,11 +1180,11 @@ export default function NewDocumentInterview() {
   /** §29 — the notary states the document is approved. */
   const handleConfirm = () => {
     if (missingRequired.length > 0) {
-      toast.error("Xog muhiim ah oo dhab ahaan looga baahan yahay weli ma qabsoomaa.");
+      toast.error(t("ndConfirmBlocked"));
       return;
     }
     setConfirmed(true);
-    toast.success("Dukumeentiga waa la xaqiijiyay. Hadda waad soo saari kartaa.");
+    toast.success(t("ndConfirmOk"));
   };
 
   /**
@@ -1199,7 +1201,7 @@ export default function NewDocumentInterview() {
     } else {
       setStep(Math.max(0, steps.length - 1));
     }
-    toast.message("Wax ka beddel — waxaa dib ugu laabacay tallaabada hore.");
+    toast.message(t("ndEditBack"));
   };
 
   /** Validation check for the CURRENT step only (inline, per-step). */
@@ -1295,7 +1297,7 @@ export default function NewDocumentInterview() {
         const status = row.attendance?.status;
         const base = `${partyDef.singular} ${rowIndex + 1}`;
         if (!status) {
-          fields.push({ label: `${base}: Ma Joogaa Heshiiska?`, status: "required-missing" });
+          fields.push({ label: `${base}: ${t("ndAttendanceAsk")}`, status: "required-missing" });
         }
         for (const field of partyDef.fields) {
           if (field.showOnlyWhenRowStatus && field.showOnlyWhenRowStatus !== status) continue;
@@ -1313,7 +1315,7 @@ export default function NewDocumentInterview() {
         if (status === "wakiil") {
           const rep = reps.find((r) => r.id === row.attendance?.representativeId);
           if (!rep) {
-            fields.push({ label: `${base}: Wakiilka matalaya`, status: "required-missing" });
+            fields.push({ label: `${base}: ${t("ndWakiilLink")}`, status: "required-missing" });
           } else {
             for (const field of partyDef.representativeFields ?? []) {
               if (field.optional) continue;
@@ -1349,7 +1351,7 @@ export default function NewDocumentInterview() {
     const nonBlocking = config?.id === "kala_iibsi_hanti";
     if (!nonBlocking && currentStepHasErrors()) {
       setStepErrors(true);
-      toast.error("Waxaa jira xog aan dhammaystirnayn. Fadlan sax meelaha lagu calaamadeeyay.");
+      toast.error(t("ndStepIncompleteToast"));
       return;
     }
     // Review edit flow: the user jumped here from "Wax ka beddel" — once
@@ -1434,7 +1436,7 @@ export default function NewDocumentInterview() {
         });
         if (idx >= 0) setStep(idx);
         setStepErrors(true);
-        toast.error("Weli waxaa jira qalado — fadlan sax.");
+        toast.error(t("ndGenErrorsToast"));
         setGenerating(false);
         return;
       }
@@ -1449,7 +1451,7 @@ export default function NewDocumentInterview() {
       if (!referenceNumber) {
         setStep(0);
         setStepErrors(true);
-        toast.error("Fadlan geli nambarka tixraaca (Reference Number).");
+        toast.error(t("ndNeedReference"));
         setGenerating(false);
         return;
       }
@@ -1465,7 +1467,7 @@ export default function NewDocumentInterview() {
       let userSpec;
       if (selectedTemplate) {
         if (templatePending) {
-          throw new Error("Template-kaaga weli waa la soo rarayaa — isku day mar kale.");
+          throw new Error(t("ndTemplateLoading"));
         }
         userBytes = localTemplateBytes ?? undefined;
         userSpec = selectedTemplateSpec;
@@ -1520,11 +1522,11 @@ export default function NewDocumentInterview() {
       await putGeneratedFile(document.id, out.result.blob, out.result.fileName);
 
       if (out.warnings.length > 0) {
-        toast.message("Dukumeentiga DOCX waa la sameeyay", {
+        toast.message(t("ndDocxOkToastMsg"), {
           description: out.warnings.join(" "),
         });
       } else {
-        toast.success("Dukumeentiga waa la sameeyay oo la kaydiyay!");
+        toast.success(t("ndDocxOkToast"));
       }
       setConfirmed(true);
       navigate(`/archive/${document.id}`);
@@ -1536,12 +1538,12 @@ export default function NewDocumentInterview() {
       setGenerationError(
         msg.startsWith("Template Error") || msg.startsWith("Output Error")
           ? msg
-          : msg || "Abuuritaanku wuu fashilmay.",
+          : msg || t("ndGenFail"),
       );
       toast.error(
         msg.startsWith("Template Error") || msg.startsWith("Output Error")
           ? msg
-          : "Document-ka lama samayn karin — xogtaada way kaydsan tahay. Isku day mar kale.",
+          : t("ndGenFailToast"),
       );
     } finally {
       setGenerating(false);
@@ -1565,7 +1567,7 @@ export default function NewDocumentInterview() {
       let userSpec;
       if (selectedTemplate) {
         if (!templateUrl) {
-          throw new Error("Template-kaaga weli waa la soo rarayaa — isku day mar kale.");
+          throw new Error(t("ndTemplateLoading"));
         }
         userBytes = localTemplateBytes ?? undefined;
         userSpec = selectedTemplateSpec;
@@ -1594,7 +1596,7 @@ export default function NewDocumentInterview() {
     } catch (err) {
       console.error(err);
       const msg = err instanceof Error ? err.message : "";
-      toast.error(msg || "Preview-gu wuu fashilmay — isku day mar kale.");
+      toast.error(msg || t("ndPreviewFail"));
     } finally {
       setPreviewLoading(false);
     }
@@ -1619,12 +1621,12 @@ export default function NewDocumentInterview() {
       <main className="notebook-bg min-h-screen p-6">
         <div className="neu-raised mx-auto max-w-xl p-8 text-center">
           <Check className="mx-auto size-8 text-pen-green" />
-          <h1 className="mt-3 text-xl font-semibold">Dukumeentigan horey loo sameeyay</h1>
+          <h1 className="mt-3 text-xl font-semibold">{t("ndAlreadyGen")}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Waxaa lagu kaydiyay kaydka heshiisyada.
+            {t("ndAlreadyGenSub")}
           </p>
           <Button className="mt-5" onClick={() => navigate(`/archive/${document._id}`)}>
-            Fur Kaydka
+            {t("ndOpenArchive")}
           </Button>
         </div>
       </main>
@@ -1756,14 +1758,14 @@ export default function NewDocumentInterview() {
       <div className="neu-inset p-4">
         <Label className="flex items-center gap-2 text-sm font-semibold">
           <Users className="size-4 text-primary" />
-          Tirada {partyDef.label}
+          {tf(t, "ndCountOf", { label: partyDef.label })}
         </Label>
         {partyDef.description && (
           <p className="text-xs text-muted-foreground">{partyDef.description}</p>
         )}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <span className="text-sm text-muted-foreground">
-            Tirada {partyDef.label} ee aad dooranayso:
+            {tf(t, "ndCountChosen", { label: partyDef.label })}
           </span>
           <NumberSelector
             // Starts at the list's own minimum. An OPTIONAL list (the
@@ -1854,7 +1856,7 @@ export default function NewDocumentInterview() {
           onClick={() => requestLeave(HOME_ROUTE)}
           className="mb-3 flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
         >
-          ← Home (Dashboard)
+          {t("ndHome")}
         </button>
 
         {/* Header */}
@@ -1864,12 +1866,12 @@ export default function NewDocumentInterview() {
               {config.title} · {getSubTypeLabel(config, subTypeAnswer(config, values) || document.subType)}
             </p>
             <h1 className="text-2xl font-bold tracking-tight">
-              {isReview ? "Dib u Eegis & Abuur" : (currentStep?.short ?? "")}
+              {isReview ? t("ndReviewGenerate") : (currentStep?.short ?? "")}
             </h1>
           </div>
           <div className="flex items-center gap-3">
             <span className="notebook-annotation hidden text-xs text-muted-foreground sm:inline">
-              {lastSavedJsonRef.current ? "La kaydiyay ✓" : "Weli lama kaydin"}
+              {lastSavedJsonRef.current ? t("ndSavedBadge") : t("ndUnsavedBadge")}
             </span>
             <Button
               type="button"
@@ -1880,7 +1882,7 @@ export default function NewDocumentInterview() {
               disabled={generating}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-              Save Draft
+              {t("ndSaveDraft")}
             </Button>
             {/* §4 Exit — leaves the interview WITHOUT losing the data: the
                 draft stays exactly as it is and can be resumed later. */}
@@ -1894,11 +1896,11 @@ export default function NewDocumentInterview() {
               disabled={generating}
             >
               <LogOut className="size-4" />
-              Exit
+              {t("ndExit")}
             </Button>
             <div className="text-right">
               <span className="highlight-sweep text-sm font-semibold">
-                Tallaabada {Math.min(step + 1, totalSteps)}/{totalSteps}
+                {tf(t, "ndStepOf", { a: Math.min(step + 1, totalSteps), b: totalSteps })}
               </span>
               <Progress value={progressPct} className="mt-1 h-1.5 w-40" />
             </div>
@@ -1911,7 +1913,7 @@ export default function NewDocumentInterview() {
             steps={steps.map((s) => s.short)}
             current={Math.min(step, steps.length - 1)}
             review={isReview}
-            reviewLabel="Dib u Eegis"
+            reviewLabel={t("ndReview")}
             completed={new Set(
               steps.map((s) => s.key).filter((k) => completedSteps.has(k)),
             )}
@@ -1924,10 +1926,10 @@ export default function NewDocumentInterview() {
             document type — it needs no per-type code and no Generate click. */}
         <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_minmax(380px,42%)]">
           {/* Stepper sidebar — neumorphic, numbered */}
-          <nav className="hidden lg:block" aria-label="Tusmada tallaabada">
+          <nav className="hidden lg:block" aria-label={t("ndContentsAria")}>
             <div className="neu-raised sticky top-4 p-3">
               <p className="mb-2 flex items-center gap-1.5 px-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                <ClipboardList className="size-3.5" /> Tusmada
+                <ClipboardList className="size-3.5" /> {t("ndContents")}
               </p>
               <ol className="space-y-1">
                 {steps.map((s, i) => {
@@ -1963,9 +1965,9 @@ export default function NewDocumentInterview() {
                             but never blocking (req #11). */}
                         {done && hasStepSkips(s) && (
                           <span
-                            title="Waxaa jira fields la skip-gareeyay"
+                            title={t("ndSkippedAlert")}
                             className="ml-auto text-pen-orange"
-                            aria-label="Waxaa jira fields la skip-gareeyay"
+                            aria-label={t("ndSkippedAlert")}
                           >
                             ⚠
                           </span>
@@ -1995,7 +1997,7 @@ export default function NewDocumentInterview() {
                     >
                       <PenLine className="size-3" />
                     </span>
-                    Dib u Eegis
+                    {t("ndReview")}
                   </button>
                 </li>
               </ol>
@@ -2011,14 +2013,14 @@ export default function NewDocumentInterview() {
               <>
                 <header className="mb-5">
                   <p className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-                    Tallaabada {String(Math.min(step + 1, totalSteps)).padStart(2, "0")}
+                    {tf(t, "ndStepNumber", { n: String(Math.min(step + 1, totalSteps)).padStart(2, "0") })}
                   </p>
                   <h2 className="highlight-sweep mt-1 inline-block text-lg font-bold">
                     {currentStep.short}
                   </h2>
-                  {stepDescription(currentStep) && (
+                  {stepDescription(t, currentStep) && (
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {stepDescription(currentStep)}
+                      {stepDescription(t, currentStep)}
                     </p>
                   )}
                 </header>
@@ -2106,9 +2108,9 @@ export default function NewDocumentInterview() {
             {isReview && (
               <>
                 <header className="mb-5">
-                  <h2 className="highlight-sweep inline-block text-lg font-bold">Dib u Eegis</h2>
+                  <h2 className="highlight-sweep inline-block text-lg font-bold">{t("ndReview")}</h2>
                   <p className="notebook-annotation mt-1 text-sm text-muted-foreground">
-                    Hubi xogta oo dhan — guji "Wax ka beddel" si aad ugu noqoto qayb kasta.
+                    {t("ndRevHint")}
                   </p>
                 </header>
                 {/* KALA IIBSI HANTI — the notary reads a sale by PEOPLE, not
@@ -2133,7 +2135,7 @@ export default function NewDocumentInterview() {
                   />
                 )}
                 {reviewBlocks.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Weli wax xog ah lama buuxin.</p>
+                  <p className="text-sm text-muted-foreground">{t("ndRevEmpty")}</p>
                 )}
                 <div className="space-y-4">
                   {reviewBlocks.map((block) => {
@@ -2156,7 +2158,7 @@ export default function NewDocumentInterview() {
                                 setStepErrors(false);
                               }}
                             >
-                              Wax ka beddel
+                              {t("ndEdit")}
                             </Button>
                           )}
                         </div>
@@ -2173,8 +2175,7 @@ export default function NewDocumentInterview() {
                   })}
                 </div>
                 <p className="notebook-annotation mt-3 text-xs text-muted-foreground">
-                  Markaad gujiso "Abuur Dukumeenti" waxaa la abuurayaa DOCX ka template-kaaga
-                  Word-ka, ka dibna waa la kaydinayaa kaydka.
+                  {t("ndRevNote")}
                 </p>
 
                 {/* VALIDATION — missing REQUIRED data (field + step + reason).
@@ -2183,7 +2184,7 @@ export default function NewDocumentInterview() {
                   <div className="neu-raised mt-6 border-l-4 border-destructive p-4">
                     <p className="flex items-center gap-2 text-sm font-bold text-destructive">
                       <AlertTriangle className="size-4" />
-                      Qaar ka mid ah xogta muhiimka ah weli lama buuxin.
+                      {t("ndRevMissingTitle")}
                     </p>
                     <ul className="mt-3 space-y-2">
                       {missingRequired.map((m, i) => (
@@ -2210,14 +2211,14 @@ export default function NewDocumentInterview() {
                                 setStepErrors(false);
                               }}
                             >
-                              Wax ka beddel
+                              {t("ndEdit")}
                             </Button>
                           )}
                         </li>
                       ))}
                     </ul>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Optional / skipped fields ma xannibaan generation-ka — kaliya xogta waajibka ah ayaa joojisa.
+                      {t("ndRevMissNote")}
                     </p>
                   </div>
                 )}
@@ -2225,39 +2226,37 @@ export default function NewDocumentInterview() {
                 {/* SELECT WORD TEMPLATE — the user's own design wins. */}
                 <div className="neu-raised mt-6 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-sm font-bold">Dooro Word Template</h3>
+                    <h3 className="text-sm font-bold">{t("ndTemplateTitle")}</h3>
                     <a
                       href="/templates"
                       className="text-xs font-medium text-primary hover:underline"
                     >
-                      + Soo geli / Maaree template-yada
+                      {t("ndTemplateLink")}
                     </a>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Template-ka waa iska leh USER-KA — system-ku wuxuu kaliya buuxinayaa
-                    placeholder-yada, isaga oo ilaalinaya qaab-dhismeedkaaga.
+                    {t("ndTemplateSub")}
                   </p>
                   <div className="mt-3 space-y-2">
                     {(myTemplates ?? []).length === 0 && (
                       <div className="neu-inset p-3 text-xs text-muted-foreground">
                         <p>
-                          Weli template user ah lama soo gelin — tusaalaha registry-ga ayaa la
-                          isticmaalayaa.
+                          {t("ndTemplateEmpty")}
                         </p>
                         <p className="mt-1.5">
-                          Ma qaab isu la yeelo?{" "}
+                          {t("ndTemplateHow")}{" "}
                           <a href="/templates" className="font-medium text-primary hover:underline">
-                            Soo celi heshiis_kiro_template.docx
+                            {t("ndTemplateLinkText")}
                           </a>{" "}
-                          ka Template Manager, ku qaab-dhismeed Word, kadibna soo geli.
+                          {t("ndTemplateTail")}
                         </p>
                       </div>
                     )}
-                    {(myTemplates ?? []).map((t) => (
+                    {(myTemplates ?? []).map((tpl) => (
                       <label
-                        key={t._id}
+                        key={tpl._id}
                         className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all ${
-                          selectedTemplateId === t._id
+                          selectedTemplateId === tpl._id
                             ? "neu-inset font-semibold text-primary"
                             : "hover:bg-muted/40"
                         }`}
@@ -2266,13 +2265,13 @@ export default function NewDocumentInterview() {
                           type="radio"
                           name="word-template"
                           className="accent-primary"
-                          checked={selectedTemplateId === t._id}
-                          onChange={() => setPickedTemplateId(t._id)}
+                          checked={selectedTemplateId === tpl._id}
+                          onChange={() => setPickedTemplateId(tpl._id)}
                         />
-                        <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                        {t.isDefault && (
+                        <span className="min-w-0 flex-1 truncate">{tpl.name}</span>
+                        {tpl.isDefault && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-pen-green/10 px-2 py-0.5 text-[10px] font-semibold text-pen-green">
-                            <Star className="size-3" /> Default
+                            <Star className="size-3" /> {t("ndDefaultBadge")}
                           </span>
                         )}
                       </label>
@@ -2297,7 +2296,7 @@ export default function NewDocumentInterview() {
                         }
                         onChange={() => setPickedTemplateId(REGISTRY_SAMPLE)}
                       />
-                      <span>Tusaalaha nidaamka (registry)</span>
+                      <span>{t("ndRegistrySample")}</span>
                     </label>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -2313,7 +2312,7 @@ export default function NewDocumentInterview() {
                       ) : (
                         <Eye className="size-4" />
                       )}
-                      Preview
+                      {t("ndPreviewBtn")}
                     </Button>
                   </div>
                 </div>
@@ -2322,13 +2321,13 @@ export default function NewDocumentInterview() {
                 {generationError && (
                   <div className="neu-raised mt-6 border-l-4 border-destructive p-4">
                     <p className="text-sm font-bold text-destructive">
-                      Document-ka lama samayn karin.
+                      {t("ndGenErrorTitle")}
                     </p>
                     <p className="mt-1 break-words text-xs text-muted-foreground">
                       {generationError}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Xogtaada way kaydsan tahay — sax qalada haddii jiro oo isku day mar kale.
+                      {t("ndGenErrorHint")}
                     </p>
                     <div className="mt-3 flex gap-2">
                       <Button
@@ -2343,7 +2342,7 @@ export default function NewDocumentInterview() {
                         ) : (
                           <FileDown className="size-4" />
                         )}
-                        Try Again
+                        {t("ndTryAgain")}
                       </Button>
                       <Button
                         type="button"
@@ -2351,7 +2350,7 @@ export default function NewDocumentInterview() {
                         variant="outline"
                         onClick={() => setGenerationError(null)}
                       >
-                        Xir
+                        {t("ndClose")}
                       </Button>
                     </div>
                   </div>
@@ -2379,9 +2378,7 @@ export default function NewDocumentInterview() {
                 confirmed={confirmed}
                 blockedReason={
                   missingRequired.length > 0
-                    ? `Xog muhiim ah weli lama buuxin — eeg liiska xogta maqan (${
-                        missingRequired.length
-                      }).`
+                    ? tf(t, "ndBlockedReasonFmt", { n: missingRequired.length })
                     : undefined
                 }
               />
@@ -2395,13 +2392,13 @@ export default function NewDocumentInterview() {
                   className="gap-2"
                   data-action="back"
                 >
-                  <ArrowLeft className="size-4" /> Dib
+                  <ArrowLeft className="size-4" /> {t("ndBack")}
                 </Button>
                 <span className="notebook-annotation text-xs text-muted-foreground tabular-nums">
                   {step + 1}/{totalSteps}
                 </span>
                 <Button type="button" onClick={tryContinue} className="glow-primary-sm gap-2" data-action="next">
-                  Sii wad <ArrowRight className="size-4" />
+                  {t("ndNext")} <ArrowRight className="size-4" />
                 </Button>
               </div>
             )}
@@ -2412,7 +2409,7 @@ export default function NewDocumentInterview() {
               keystroke, so the notary never has to generate to see it. */}
           <aside
             className="lg:col-span-2 xl:sticky xl:top-4 xl:col-span-1"
-            aria-label="Live Document Review"
+            aria-label={t("ndLiveReviewAria")}
           >
             <LiveDocumentReview
               key={`${config.id}:${selectedTemplateId}`}
@@ -2440,23 +2437,23 @@ export default function NewDocumentInterview() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Weli waxaa jira xog aan la kaydin</AlertDialogTitle>
+            <AlertDialogTitle>{t("ndUnsavedTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Waxaad dooranayso sidee loo maareeyo xogta maqan hadda.
+              {t("ndUnsavedDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
             <AlertDialogAction onClick={() => resolveLeave("save")}>
-              Save Draft
+              {t("ndSaveDraft")}
             </AlertDialogAction>
             <AlertDialogAction
               className="bg-destructive text-white hover:bg-destructive/90"
               onClick={() => resolveLeave("discard")}
             >
-              Sii wad oo ha kaydin
+              {t("ndDiscardContinue")}
             </AlertDialogAction>
             <AlertDialogCancel onClick={() => resolveLeave("cancel")}>
-              Cancel
+              {t("ndCancel")}
             </AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2470,20 +2467,13 @@ export default function NewDocumentInterview() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {hiddenDataChoice?.label} waxaa laga saarayaa workflow-ga
+              {hiddenDataChoice?.label} {t("ndHiddenWorkflow")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {hiddenDataChoice?.sectionId === "heshiiska:muddada" ? (
-                <>
-                  Waxaad Kiro Xidhan u beddelayso Kiro Furan. Taariikhda Dhammaadka hadda
-                  heshiiska kuma khusayso. Ma rabtaa inaad ka saarto xogta Taariikhda
-                  Dhammaadka draft-ka?
-                </>
+                t("ndHiddenDurationDesc")
               ) : (
-                <>
-                  Ma rabtaa inaad xogtii {hiddenDataChoice?.label} ka saarto draft-ka? Haddii
-                  aad hayso, xogtu way kaydsan tahay laakiin tallaabadu lama muuqin doono.
-                </>
+                tf(t, "ndHiddenDataDesc", { label: hiddenDataChoice?.label ?? "" })
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -2492,13 +2482,13 @@ export default function NewDocumentInterview() {
               className="bg-destructive text-white hover:bg-destructive/90"
               onClick={() => applyHiddenDataChoice("clear")}
             >
-              Ka saar
+              {t("ndHiddenClear")}
             </AlertDialogAction>
             <AlertDialogAction onClick={() => applyHiddenDataChoice("keep")}>
-              Hay xogta draft-ka
+              {t("ndHiddenKeep")}
             </AlertDialogAction>
             <AlertDialogCancel onClick={() => applyHiddenDataChoice("cancel")}>
-              Cancel
+              {t("ndCancel")}
             </AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2509,10 +2499,9 @@ export default function NewDocumentInterview() {
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Preview — Dukumeentiga la abuuray</DialogTitle>
+            <DialogTitle>{t("ndPreviewDialogTitle")}</DialogTitle>
             <DialogDescription>
-              Isla template-ka Word-kaaga WADADAAGA, isla xogta, isla qaab-dhismeedka —
-              sida uu Live Review-ka ahaa midigga kuugu muuqdo.
+              {t("ndPreviewDialogSub")}
             </DialogDescription>
           </DialogHeader>
           <LiveDocumentReview
@@ -2545,36 +2534,36 @@ export default function NewDocumentInterview() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="size-4 text-pen-orange" />
-              Qaar ka mid ah xogta weli lama buuxin
+              {t("ndGuidedTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-1.5">
                 {guidedChoice?.fields.map((f) => (
                   <p key={f.label} className="text-[13px] leading-5">
                     {f.status === "required-missing" ? (
-                      <span className="font-medium text-destructive">• {f.label} — waa waajib</span>
+                      <span className="font-medium text-destructive">• {f.label} — {t("ndGuidedRequired")}</span>
                     ) : f.status === "skipped" ? (
-                      <span className="text-muted-foreground">— {f.label} — Skipped</span>
+                      <span className="text-muted-foreground">— {f.label} — {t("ndGuidedSkipped")}</span>
                     ) : (
-                      <span className="text-muted-foreground">⚠ {f.label} — Madhan (Optional)</span>
+                      <span className="text-muted-foreground">⚠ {f.label} — {t("ndGuidedOptional")}</span>
                     )}
                   </p>
                 ))}
                 {guidedChoice?.fields.some((f) => f.status === "required-missing") && (
                   <p className="pt-1 text-[13px] font-medium text-foreground">
-                    Fadlan buuxi xogta waajibka ah ka hor intaadan sii wadin.
+                    {t("ndGuidedNeedFill")}
                   </p>
                 )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
-            <AlertDialogCancel>Dib ugu noqo oo buuxi</AlertDialogCancel>
+            <AlertDialogCancel>{t("ndGoBackFill")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={guidedChoice?.fields.some((f) => f.status === "required-missing")}
               onClick={() => applyGuidedChoice("skip")}
             >
-              Skip oo sii wad
+              {t("ndSkipContinue")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
