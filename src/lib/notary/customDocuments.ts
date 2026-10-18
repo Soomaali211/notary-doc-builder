@@ -64,6 +64,18 @@ export interface BuilderField {
 export interface BuilderSection {
   title: string;
   fields: BuilderField[];
+  /**
+   * Optional repeatable LIST in this section (iibiyayaal / maragyada style):
+   * the office names the list, sets how many rows are required, and the
+   * rows' fields. Rendered inline in the section step; the Word template
+   * repeats the block once per filled row.
+   */
+  list?: {
+    label: string;
+    /** Required rows; more may be added freely. */
+    min: number;
+    fields: BuilderField[];
+  };
 }
 
 /** The whole builder form for one document type. */
@@ -176,6 +188,8 @@ export function buildCustomConfig(
   const usedFieldIds = new Set<string>(RESERVED_IDS);
   const usedSectionIds = new Set<string>(RESERVED_IDS);
 
+  const repeatBlocks: DocumentConfig["repeatBlocks"] = [];
+
   const userSections = form.sections
     .map((s, si) => {
       const sectionTitle = s.title.trim() || `Qayb ${si + 1}`;
@@ -201,13 +215,57 @@ export function buildCustomConfig(
             ...(options.length > 0 ? { options } : {}),
           };
         });
+
+      // The section's own repeatable list — a REAL party group, so rows,
+      // required fields and min/max work exactly as they do for the
+      // built-ins, and the Word template repeats its block per row.
+      const list = s.list ?? undefined;
+      let parties: DocumentConfig["sections"][number]["parties"];
+      if (list && list.label.trim() && list.fields.some((f) => f.label.trim())) {
+        const label = list.label.trim();
+        const partyId = unique(slugifyLabel(label) || `liiska_${si + 1}`, usedSectionIds);
+        const rowFields = list.fields
+          .filter((f) => f.label.trim() !== "")
+          .map((field) => {
+            const id = unique(slugifyLabel(field.id) || slugifyLabel(field.label) || "field", usedFieldIds);
+            const options = field.options
+              .map((l) => l.trim())
+              .filter(Boolean)
+              .map((l) => ({ value: slugifyLabel(l) || l.toLowerCase(), label: l }));
+            return {
+              id,
+              type: field.type,
+              label: field.label.trim(),
+              ...(field.required ? {} : { optional: true }),
+              ...(options.length > 0 ? { options } : {}),
+            };
+          });
+        parties = [
+          {
+            id: partyId,
+            label,
+            singular: label,
+            min: Math.max(1, Math.floor(list.min) || 1),
+            fields: rowFields,
+          },
+        ];
+        repeatBlocks.push({
+          blockId: partyId.toUpperCase(),
+          partyId,
+          aliases: Object.fromEntries(
+            rowFields.map((f) => [fieldToken(f.id), f.id]),
+          ),
+        });
+      }
+
       return {
         id: unique(slugifyLabel(sectionTitle) || `qayb_${si + 1}`, usedSectionIds),
         title: sectionTitle,
         fields,
+        ...(parties ? { parties } : {}),
       };
     })
-    .filter((s) => s.fields.length > 0);
+    .filter((s) => s.fields.length > 0 || (s.parties ?? []).length > 0);
 
   const setupFields = [
     {
@@ -267,6 +325,7 @@ export function buildCustomConfig(
     referenceDateKey: "heshiiska.taariikhda_heshiiska",
     sections: sectionsOut,
     placeholders,
+    ...(repeatBlocks.length > 0 ? { repeatBlocks } : {}),
     clauses: [],
     requiresWitness: false,
   };
@@ -299,6 +358,17 @@ export function normalizeBuilderForm(form: BuilderForm): BuilderForm {
         label: f.label.trim(),
         options: f.options.map((label) => label.trim()).filter(Boolean),
       })),
+      list: s.list
+        ? {
+            label: s.list.label.trim(),
+            min: Math.max(1, Math.floor(s.list.min) || 1),
+            fields: s.list.fields.map((f) => ({
+              ...f,
+              label: f.label.trim(),
+              options: f.options.map((label) => label.trim()).filter(Boolean),
+            })),
+          }
+        : undefined,
     })),
   };
 }
@@ -329,6 +399,15 @@ export function validateBuilderForm(
   );
   if (meaningful.length === 0) {
     errors.push("Hal Qayb oo ugu yaraan ayaa waajib ah.");
+  }
+  for (const s of form.sections) {
+    if (!s.list) continue;
+    if (!s.list.label.trim()) {
+      errors.push("Magacaynta liiska waa waajib.");
+    }
+    if (s.list.fields.filter((f) => f.label.trim()).length < 1) {
+      errors.push("Ugu yaraan hal field ah liiska — ku dar magac.");
+    }
   }
   if (form.sections.length !== meaningful.length) {
     // Empty sections silently disappear; tell the office once.
@@ -370,6 +449,23 @@ export function builderFormFromConfig(config: DocumentConfig): BuilderForm {
         required: !f.optional,
         options: f.options?.map((o) => o.label) ?? [],
       })),
+      // The section's party list round-trips so the office can edit the
+      // rows later — the same editor, same tokens, same names.
+      ...((s.parties ?? []).length > 0
+        ? {
+            list: {
+              label: s.parties![0].label,
+              min: s.parties![0].min,
+              fields: s.parties![0].fields.map((f) => ({
+                id: f.id,
+                label: f.label,
+                type: f.type,
+                required: !f.optional,
+                options: f.options?.map((o) => o.label) ?? [],
+              })),
+            },
+          }
+        : {}),
     })),
   };
 }
@@ -379,10 +475,20 @@ export function builderFormFromConfig(config: DocumentConfig): BuilderForm {
  * ({{TOKEN}}) and what the template manager finds in the uploaded file.
  */
 export function tokenList(config: DocumentConfig): { token: string; label: string }[] {
-  return config.placeholders.map((p) => ({
+  const tokens = config.placeholders.map((p) => ({
     token: p.placeholder.toUpperCase(),
     label: p.mapping.key,
   }));
+  // Repeat lists: the template wraps a block and each ROW token resolves to
+  // that row's field inside it — same names the built-ins print.
+  for (const block of config.repeatBlocks ?? []) {
+    tokens.push({ token: `#${block.blockId}`, label: `liiska: ${block.partyId} — bilow saf` });
+    for (const [token, fieldId] of Object.entries(block.aliases ?? {})) {
+      tokens.push({ token, label: `${block.partyId}.${fieldId} (saf)` });
+    }
+    tokens.push({ token: `/${block.blockId}`, label: `liiska: ${block.partyId} — dhammaad saf` });
+  }
+  return tokens;
 }
 
 /* ------------------------------------------------------------------ */

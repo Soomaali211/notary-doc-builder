@@ -18,7 +18,13 @@ import {
 } from "../src/lib/notary/customDocuments";
 import { generateDocument } from "../src/lib/notary/pipeline";
 import { selectTemplate } from "../src/lib/notary/registry";
-import { deserializeDraft, setAnswer } from "../src/lib/notary/engine";
+import {
+  addRepeatableItem,
+  deserializeDraft,
+  setAnswer,
+  setRepeatableAnswer,
+} from "../src/lib/notary/engine";
+import { validateDocument } from "../src/lib/notary/validation";
 import type { FormValues, TemplateSpec } from "../src/lib/notary/types";
 
 const FORM: BuilderForm = normalizeBuilderForm({
@@ -126,6 +132,85 @@ describe("a builder type generates a REAL document", () => {
     // Currency format: the engine prints money as the office reads money.
     expect(text).toContain("1,200 USD");
     expect(text).toContain("DPN-DN-001");
+    expect(text).not.toContain("{{");
+  });
+
+  test("a repeat block prints EVERY row exactly the way the built-ins do", async () => {
+    // A second type whose Xisbiga section carries a repeatable list of
+    // maragyada — the shape the office asks for iibiyayaal / witnesses.
+    const listConfig = buildCustomConfig(
+      normalizeBuilderForm({
+        title: "Cadayn Marag",
+        description: "",
+        referencePrefix: "DPN-MR",
+        acceptSubTypes: false,
+        subTypes: [],
+        sections: [
+          {
+            title: "Dhaxal",
+            fields: [],
+            list: {
+              label: "Maragyada",
+              min: 1,
+              fields: [
+                { id: "", label: "Magaca Maraga", type: "text", required: true, options: [] },
+              ],
+            },
+          },
+        ],
+      }),
+      "cadayn_marag",
+    );
+
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({ text: "MARAGYADA: {{#MARAGYADA}}{{NUMBER}}. {{MAGACA_MARAGA}} {{/MARAGYADA}}" }),
+              ],
+            }),
+          ],
+        },
+      ],
+    });
+    const bytes = await (await Packer.toBlob(doc)).arrayBuffer();
+
+    const party = listConfig.sections.find((s) => s.id === "dhaxal")!.parties![0];
+    let values = deserializeDraft(listConfig, "{}");
+    values = setAnswer(values, "heshiiska", "reference", "DPN-MR-002");
+    values = setAnswer(values, "heshiiska", "taariikhda_heshiiska", "2026-02-10");
+    // Two rows, written exactly the way the interview writes them: the
+    // draft is seeded with `min` empty rows — fill row 0 first, THEN add.
+    values = setRepeatableAnswer(values, party.id, 0, "magaca_maraga", "Xasan");
+    values = addRepeatableItem(values, party);
+    values = setRepeatableAnswer(values, party.id, 1, "magaca_maraga", "Ali");
+
+    const out = await generateDocument({
+      config: listConfig,
+      values,
+      referenceNumber: "DPN-MR-002",
+      templateBytes: bytes,
+      spec: {
+        templateId: "USER_test2",
+        documentType: listConfig.id,
+        subtype: "",
+        name: "Cadayn Marag",
+        filePath: "local:test2",
+        version: 1,
+        status: "active",
+        createdAt: 0,
+        updatedAt: 0,
+      },
+    });
+
+    // Honest completeness: the interview would never reach Generate with a
+    // validation gap, so the test state must be CLEAN, checked directly.
+    expect(validateDocument(listConfig, values)).toEqual({});
+    const text = await docxText(out.result.blob);
+    expect(text).toContain("1. Xasan");
+    expect(text).toContain("2. Ali");
     expect(text).not.toContain("{{");
   });
 

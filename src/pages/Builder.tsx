@@ -185,6 +185,98 @@ export default function Builder() {
         : f,
     );
 
+  /* Repeat list (iibiyayaal / maragyada style) — one per section. */
+  const toggleList = (si: number, on: boolean) =>
+    setForm((f) =>
+      f
+        ? {
+            ...f,
+            sections: f.sections.map((s, i) =>
+              i === si
+                ? {
+                    ...s,
+                    list: on
+                      ? {
+                          label: "",
+                          min: 1,
+                          fields: [
+                            {
+                              id: "",
+                              label: "",
+                              type: "text",
+                              required: true,
+                              options: [],
+                            },
+                          ],
+                        }
+                      : undefined,
+                  }
+                : s,
+            ),
+          }
+        : f,
+    );
+
+  const patchList = (
+    si: number,
+    next: Partial<NonNullable<import("@/lib/notary/customDocuments").BuilderSection["list"]>>,
+  ) =>
+    setForm((f) =>
+      f
+        ? {
+            ...f,
+            sections: f.sections.map((s, i) =>
+              i === si && s.list ? { ...s, list: { ...s.list, ...next } } : s,
+            ),
+          }
+        : f,
+    );
+
+  const addListField = (si: number) =>
+    setForm((f) =>
+      f
+        ? {
+            ...f,
+            sections: f.sections.map((s, i) =>
+              i === si && s.list
+                ? {
+                    ...s,
+                    list: {
+                      ...s.list,
+                      fields: [
+                        ...s.list.fields,
+                        { id: "", label: "", type: "text", required: true, options: [] },
+                      ],
+                    },
+                  }
+                : s,
+            ),
+          }
+        : f,
+    );
+
+  const patchListField = (si: number, fi: number, next: Partial<BF>) =>
+    setForm((f) =>
+      f
+        ? {
+            ...f,
+            sections: f.sections.map((s, i) =>
+              i === si && s.list
+                ? {
+                    ...s,
+                    list: {
+                      ...s.list,
+                      fields: s.list.fields.map((field, j) =>
+                        j === fi ? { ...field, ...next } : field,
+                      ),
+                    },
+                  }
+                : s,
+            ),
+          }
+        : f,
+    );
+
   const removeField = (si: number, fi: number) =>
     setForm((f) =>
       f
@@ -558,6 +650,119 @@ export default function Builder() {
                 >
                   <Plus className="size-3.5" /> {t("bfAddField")}
                 </Button>
+              </div>
+
+              {/* Repeat list — the office's own iibiyayaal/maragyada group. */}
+              <div className="space-y-2 border-t border-dashed border-border pt-3">
+                <Label className="flex items-center gap-2 text-[12px]">
+                  <input
+                    type="checkbox"
+                    className="accent-primary"
+                    checked={Boolean(section.list)}
+                    onChange={(e) => toggleList(si, e.target.checked)}
+                  />
+                  {t("bfListOn")}
+                </Label>
+                {section.list && (
+                  <div className="neu-inset space-y-2 p-3">
+                    <div className="flex flex-wrap items-end gap-2">
+                      <div className="min-w-52 flex-1 space-y-1">
+                        <Label className="text-[11px]">{t("bfListLabel")}</Label>
+                        <Input
+                          value={section.list.label}
+                          onChange={(e) => patchList(si, { label: e.target.value })}
+                          placeholder={t("bfListPlaceholder")}
+                          className="bg-card/80"
+                        />
+                      </div>
+                      <div className="w-24 space-y-1">
+                        <Label className="text-[11px]">{t("bfListMin")}</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={section.list.min}
+                          onChange={(e) => patchList(si, { min: Number(e.target.value) || 1 })}
+                          className="bg-card/80"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {section.list.fields.map((field, fi) => (
+                        <div key={fi} className="flex flex-wrap items-end gap-2">
+                          <div className="min-w-44 flex-1 space-y-1">
+                            <Label className="text-[11px]">{t("bfFieldLabel")}</Label>
+                            <Input
+                              value={field.label}
+                              onChange={(e) => patchListField(si, fi, { label: e.target.value })}
+                              placeholder={t("bfListFieldPlaceholder")}
+                              className="bg-card/80"
+                            />
+                            {field.label.trim() && (
+                              <p className="text-[10px] text-muted-foreground">
+                                {t("bfTokenPrefix")}{" "}
+                                <code>
+                                  {`{{${(field.id || field.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")).toUpperCase()}}}`}
+                                </code>
+                              </p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px]">{t("bfFieldType")}</Label>
+                            <select
+                              value={field.type}
+                              onChange={(e) =>
+                                patchListField(si, fi, {
+                                  type: e.target.value,
+                                  options: e.target.value === "select" ? field.options : [],
+                                } as Partial<BF>)
+                              }
+                              className="h-9 rounded-md border border-input bg-card/80 px-3 text-sm"
+                            >
+                              {BUILDER_FIELD_TYPES.map((type) => (
+                                <option key={type} value={type}>
+                                  {labelForType(t, type)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <Label className="flex items-center gap-1.5 pb-2 text-[11px]">
+                            <input
+                              type="checkbox"
+                              className="accent-primary"
+                              checked={field.required}
+                              onChange={(e) => patchListField(si, fi, { required: e.target.checked })}
+                            />
+                            {t("bfFieldRequired")}
+                          </Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() =>
+                              patchList(si, {
+                                fields: section.list!.fields.filter((_, j) => j !== fi),
+                              })
+                            }
+                            aria-label={t("bfRemoveField")}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        onClick={() => addListField(si)}
+                      >
+                        <Plus className="size-3.5" /> {t("bfListAddField")}
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">{t("bfListHint")}</p>
+                  </div>
+                )}
               </div>
             </div>
           ))}

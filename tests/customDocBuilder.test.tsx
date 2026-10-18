@@ -257,6 +257,81 @@ describe("the screens render the custom type", () => {
 });
 
 /* ------------------------------------------------------------------ */
+/* Repeat lists — the office's own iibiyayaal/maragyada group            */
+/* ------------------------------------------------------------------ */
+
+const LIST_FORM: BuilderForm = normalizeBuilderForm({
+  title: "Cadayn Marag",
+  description: "",
+  referencePrefix: "DPN-MR",
+  acceptSubTypes: false,
+  subTypes: [],
+  sections: [
+    {
+      title: "Dhaxal",
+      fields: [{ id: "", label: "Magaca Aabihiis", type: "text", required: true, options: [] }],
+      list: {
+        label: "Maragyada",
+        min: 2,
+        fields: [
+          { id: "", label: "Magaca Maraga", type: "text", required: true, options: [] },
+          { id: "", label: "Telefoonka Maraga", type: "phone", required: false, options: [] },
+        ],
+      },
+    },
+  ],
+});
+
+describe("the section's repeat list is a REAL party group", () => {
+  const config = buildCustomConfig(LIST_FORM, "cadayn_marag");
+
+  test("a PartyDef with its own rows rides the section", () => {
+    const section = config.sections.find((s) => s.id === "dhaxal")!;
+    const party = section.parties?.[0];
+    expect(party).toBeDefined();
+    expect(party!.id).toBe("maragyada");
+    expect(party!.min).toBe(2);
+    expect(party!.fields.map((f) => f.id)).toEqual(["magaca_maraga", "telefoonka_maraga"]);
+  });
+
+  test("the Word template gets one repeat block with the row tokens", () => {
+    const block = config.repeatBlocks?.find((b) => b.blockId === "MARAGYADA");
+    expect(block).toBeDefined();
+    expect(block!.aliases).toEqual({
+      MAGACA_MARAGA: "magaca_maraga",
+      TELEFOONKA_MARAGA: "telefoonka_maraga",
+    });
+  });
+
+  test("the validator enforces the minimum ROWS the office required", () => {
+    const empty = validateDocument(config, deserializeDraft(config, "{}"));
+    expect(JSON.stringify(empty)).toContain("ugu yaraan");
+  });
+
+  test("the round-trip keeps the list editable", () => {
+    const form2 = builderFormFromConfig(config);
+    expect(form2.sections[0].list?.label).toBe("Maragyada");
+    expect(form2.sections[0].list?.min).toBe(2);
+    expect(form2.sections[0].list?.fields.map((f) => f.id)).toEqual([
+      "magaca_maraga",
+      "telefoonka_maraga",
+    ]);
+  });
+
+  test("a list without a label or without fields is refused before saving", () => {
+    const errs = validateBuilderForm(normalizeBuilderForm(emptyBuilderForm()), []);
+    expect(errs.length).toBeGreaterThan(0);
+    const broken = normalizeBuilderForm({
+      ...LIST_FORM,
+      sections: [{ title: "Dhaxal", fields: LIST_FORM.sections[0].fields, list: { label: "", min: 2, fields: [] } }],
+    });
+    const messages = validateBuilderForm(broken, ["cadayn_marag"], "cadayn_marag").join(" ");
+    expect(messages).toContain("Magacaynta liiska");
+    expect(messages).toContain("Ugu yaraan hal field ah liiska");
+  });
+});
+
+/* ------------------------------------------------------------------ */
 /* Slug hygiene — small, but they carry signed documents               */
 /* ------------------------------------------------------------------ */
 

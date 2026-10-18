@@ -1015,6 +1015,16 @@ const DICT: Dict = {
   bfType_email: ["Email", "Email"],
   bfType_select: ["Dhorao (xulasho)", "Choice (options)"],
   bfType_yes_no: ["Haa / Maya", "Yes / No"],
+  bfListOn: ["Liiska la abuurayo (iibiyeyaal oo la mid)", "Repeatable list (like the sellers)"],
+  bfListLabel: ["Liis-ka magaca", "List label"],
+  bfListPlaceholder: ["Maragyada, Fidinnada…", "Witnesses, signatories…"],
+  bfListMin: ["Ugu yaraan", "Minimum"],
+  bfListFieldPlaceholder: ["Magac, Telefoon…", "Name, phone…"],
+  bfListAddField: ["Ku dar field file-ka", "Add row field"],
+  bfListHint: [
+    "Template-ka Word-ka waxaa ku jira liisku: {{#MAGASCALIISKA}} … {{/MAGASCALIISKA}} — token-ka saf ku jira halkaan ka fikraa lahaayaa.",
+    "In the Word template repeat the block (see the Token list); each row's token prints that row's value.",
+  ],
 };
 
 export interface LangContextValue {
