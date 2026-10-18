@@ -19,6 +19,10 @@ import Payments from "../src/pages/Payments";
 import Reports from "../src/pages/Reports";
 import Settings from "../src/pages/Settings";
 import Templates from "../src/pages/Templates";
+import NewDocument from "../src/pages/NewDocument";
+import Catalog from "../src/pages/Catalog";
+import Schedule from "../src/pages/Schedule";
+import TeamBoard from "../src/pages/TeamBoard";
 import DocumentDetailPage from "../src/pages/DocumentDetail";
 import Admin from "../src/pages/Admin";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
@@ -161,6 +165,53 @@ describe("the five tabs render", () => {
     );
     expect(html).toContain("Dukumeentigan lama helin.");
     expect(html).toContain('data-empty="document"');
+  });
+
+  // The two picker pages read only the document registry and the local
+  // store — no Convex — so the plain SSR harness is enough.
+  test("New Document picker — two steps and the ready/planned badges", () => {
+    const html = render(React.createElement(NewDocument), "/new");
+    expect(html).toContain("Dukumenti Cusub");
+    expect(html).toContain("1 · Nooca Heshiiska");
+    expect(html).toContain("Diyaar");
+    // Cadayn Cilaaj has no sub-types, so its card carries the start button.
+    expect(html).toContain("Bilow Hadda");
+    // Upcoming types stay visible and clearly marked.
+    expect(html).toContain("La qorsheeyay");
+  });
+
+  test("Catalog — ready types first, planned below, engine note present", () => {
+    const html = render(React.createElement(Catalog), "/catalog");
+    expect(html).toContain("Catalog Dukumintiyada");
+    expect(html).toContain("Diyaar u isticmaal");
+    expect(html).toContain("Waa imanaya");
+    expect(html).toContain("Raadi catalog-ka");
+    // The configuration-driven engine note closes the page.
+    expect(html).toContain("Mashiinku waa qaab-dhismeed");
+  });
+
+  describe("Approvals + Team board over pending queries", () => {
+    test("Approvals — shell, list card and booking form", () => {
+      const html = renderWithConvex(React.createElement(Schedule), "/schedule");
+      expect(html).toContain("Ballannada");
+      expect(html).toContain("Ballantaada");
+      // Queries stay pending, so the list shows the honest loading text.
+      expect(html).toContain("La dejiyayo…");
+      expect(html).toContain("Ballan samee");
+      expect(html).toContain("Ballan ku qor");
+    });
+
+    test("Team board — shell, pin form, honest loading state", () => {
+      const html = renderWithConvex(
+        React.createElement(TeamBoard),
+        "/team",
+      );
+      expect(html).toContain("Guddiga Kooxda");
+      expect(html).toContain("Qoraal cusub dheji");
+      expect(html).toContain("Guddiga ku qor");
+      // Post list stays pending: the loading text, never the empty state.
+      expect(html).toContain("La dejiyayo…");
+    });
   });
 
   test("Admin — shell, stats and the template-validation card over SSR", () => {
