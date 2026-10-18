@@ -56,6 +56,13 @@ export const ENTITY_NAMES = [
    * with the program are not data and never enter a backup.
    */
   "templates",
+  /**
+   * Document TYPES the office built itself (the form builder's output):
+   * one row per type, its full DocumentConfig JSON inside. A backup carries
+   * them like every other table — the office's own forms are its data, and
+   * restoring them must restore the forms they generate.
+   */
+  "customDocTypes",
 ] as const;
 
 export type EntityName = (typeof ENTITY_NAMES)[number];

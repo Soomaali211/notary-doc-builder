@@ -14,8 +14,27 @@ export const documentConfigs: DocumentConfig[] = [
   cadaynCilaajConfig,
 ];
 
+/**
+ * CONFIGS built at RUNTIME by the office (the form builder's output).
+ *
+ * The built-ins above are code; the office's own types live in the local
+ * database and are registered here once the store has been read. Every
+ * reader below — getConfig, the catalog, the picker, the template manager —
+ * sees them the same way it sees the built-ins. Nothing anywhere hard-codes
+ * "which ids are allowed" beyond each document's OWN data.
+ */
+let runtimeConfigs: DocumentConfig[] = [];
+
+export function registerRuntimeConfigs(list: DocumentConfig[]): void {
+  runtimeConfigs = list;
+}
+
+export function allDocumentConfigs(): DocumentConfig[] {
+  return [...documentConfigs, ...runtimeConfigs];
+}
+
 export function getConfig(id: string): DocumentConfig | undefined {
-  return documentConfigs.find((c) => c.id === id);
+  return allDocumentConfigs().find((c) => c.id === id);
 }
 
 export function getSubTypeLabel(

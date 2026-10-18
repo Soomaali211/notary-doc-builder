@@ -61,6 +61,7 @@ import {
   toTemplateSpec,
   type UserTemplateRecord,
 } from "@/lib/notary/userTemplate";
+import { useCustomDocumentConfigs } from "@/lib/notary/customDocuments";
 import { useLocalAgreement } from "@/lib/notary/localHooks";
 import {
   allocateSerial,
@@ -521,6 +522,9 @@ export default function NewDocumentInterview() {
    */
   const { document } = useLocalAgreement(docId);
   const { documents: allLocalDocuments } = useLocalAgreements();
+  // Also one of what registers a BUILDER type into the runtime registry, so
+  // getConfig resolves the office's own types the instant the store reads.
+  useCustomDocumentConfigs();
   const { t } = useLang();
 
   const [values, setValues] = useState<FormValues | null>(null);

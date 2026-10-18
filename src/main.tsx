@@ -26,6 +26,7 @@ const DocumentDetailPage = lazy(() => import("./pages/DocumentDetail.tsx"));
 const Documents = lazy(() => import("./pages/Documents.tsx"));
 const Catalog = lazy(() => import("./pages/Catalog.tsx"));
 const Templates = lazy(() => import("./pages/Templates.tsx"));
+const Builder = lazy(() => import("./pages/Builder.tsx"));
 const Settings = lazy(() => import("./pages/Settings.tsx"));
 import Clients from "./pages/Clients.tsx";
 import Payments from "./pages/Payments.tsx";
@@ -205,6 +206,15 @@ function App() {
             element={
               <RequireAuth>
                 <Templates />
+              </RequireAuth>
+            }
+          />
+          {/* The form builder: types the office creates of its own. */}
+          <Route
+            path="/builder"
+            element={
+              <RequireAuth>
+                <Builder />
               </RequireAuth>
             }
           />

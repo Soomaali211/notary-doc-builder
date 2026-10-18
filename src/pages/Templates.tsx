@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AppShellWithLang } from "@/components/notary/AppShell";
 import { useLang } from "@/lib/lang";
 import { getConfig, documentConfigs } from "@/lib/notary/documents";
+import { useCustomDocumentConfigs } from "@/lib/notary/customDocuments";
 import { knownPlaceholderNames } from "@/lib/notary/dataContext";
 import {
   scanTemplateTokens,
@@ -43,6 +44,8 @@ import {
 } from "@/lib/notary/hantiTemplate";
 
 export default function Templates() {
+  // The office's own types are uploadable exactly like the built-ins.
+  const customTypes = useCustomDocumentConfigs().configs;
   const { t } = useLang();
   const [docType, setDocType] = useState("heshiis_kiro");
   const config = getConfig(docType);
@@ -240,11 +243,19 @@ export default function Templates() {
       <div className="space-y-6">
         {/* Document type picker */}
         <div className="neu-raised p-4">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            {t("tplDocType")}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              {t("tplDocType")}
+            </p>
+            <a
+              href="/builder"
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              + {t("bfTitle")}
+            </a>
+          </div>
           <div className="mt-2 flex flex-wrap gap-2">
-            {documentConfigs.map((c) => (
+            {[...documentConfigs, ...customTypes].map((c) => (
               <button
                 key={c.id}
                 type="button"

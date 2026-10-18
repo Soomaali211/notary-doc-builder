@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { documentConfigs, upcomingDocumentTypes } from "@/lib/notary/documents";
+import { useCustomDocumentConfigs } from "@/lib/notary/customDocuments";
 import { useLang } from "@/lib/lang";
 import { Search } from "lucide-react";
 
@@ -16,18 +17,20 @@ export default function Catalog() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const { t } = useLang();
+  // The office's own types read the machine the same way the built-ins do.
+  const custom = useCustomDocumentConfigs();
 
   const query = q.trim().toLowerCase();
 
   const live = useMemo(() => {
-    return documentConfigs.filter(
+    return [...documentConfigs, ...custom.configs].filter(
       (c) =>
         !query ||
         c.title.toLowerCase().includes(query) ||
         c.description.toLowerCase().includes(query) ||
         c.subTypes.some((s) => s.label.toLowerCase().includes(query)),
     );
-  }, [query]);
+  }, [query, custom.configs]);
 
   const upcoming = useMemo(() => {
     return upcomingDocumentTypes.filter(

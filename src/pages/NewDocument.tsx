@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { saveAgreement } from "@/lib/notary/localRepository";
@@ -7,6 +7,7 @@ import { useLang } from "@/lib/lang";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { documentConfigs, upcomingDocumentTypes } from "@/lib/notary/documents";
+import { useCustomDocumentConfigs } from "@/lib/notary/customDocuments";
 import { cn } from "@/lib/utils";
 import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
 
@@ -14,11 +15,15 @@ import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
 export default function NewDocument() {
   const navigate = useNavigate();
   const { t } = useLang();
+  // The office's OWN types sit beside the built-ins the instant they are
+  // saved in the form builder — same cards, same flow, no restart.
+  const custom = useCustomDocumentConfigs();
+  const types = useMemo(() => [...documentConfigs, ...custom.configs], [custom.configs]);
   const [typeId, setTypeId] = useState<string | null>(null);
   const [subType, setSubType] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const config = documentConfigs.find((c) => c.id === typeId) ?? null;
+  const config = types.find((c) => c.id === typeId) ?? null;
 
   /**
    * §3 — the draft is created in the LOCAL database. There is no account to
@@ -27,7 +32,7 @@ export default function NewDocument() {
    */
   const start = async (pickedId?: string) => {
     const effectiveId = pickedId ?? typeId;
-    const config = documentConfigs.find((c) => c.id === effectiveId) ?? null;
+    const config = types.find((c) => c.id === effectiveId) ?? null;
     if (!config || (!subType && config.subTypes.length > 0)) return;
     setCreating(true);
     try {
@@ -64,7 +69,7 @@ export default function NewDocument() {
           {t("ndStep1")}
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label={t("ndStep1")}>
-          {documentConfigs.map((c, i) => {
+          {types.map((c, i) => {
             const selected = typeId === c.id;
             return (
               <button
@@ -122,6 +127,18 @@ export default function NewDocument() {
               </p>
             </div>
           ))}
+          {/* The form builder — the type the office makes of its own. */}
+          <button
+            type="button"
+            onClick={() => navigate("/builder")}
+            className="neu-inset p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-semibold">{t("bfNew")}</p>
+              <Badge className="hl-blue text-[10px]">{t("bfNavTab")}</Badge>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{t("bfSub")}</p>
+          </button>
         </div>
       </section>
 
