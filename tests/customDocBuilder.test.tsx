@@ -261,6 +261,51 @@ describe("the screens render the custom type", () => {
   });
 });
 
+describe("the INTERVIEW machinery serves a custom type", () => {
+  /* renderToStaticMarkup does NOT run effects, so the page-level hydration
+     (values in useEffect) cannot be rendered server-side — instead the test
+     drives the two pieces the page is made of: the real step builder and
+     the real section renderer, against the office's own config. */
+  const { buildConditionalWorkflow } = require("../src/lib/notary/agreementSetup") as typeof import("../src/lib/notary/agreementSetup");
+  const { SectionStep } = require("../src/pages/NewDocumentInterview") as typeof import("../src/pages/NewDocumentInterview");
+  const { setAnswer, deserializeDraft } = require("../src/lib/notary/engine") as typeof import("../src/lib/notary/engine");
+  const config = buildCustomConfig(FORM, "heshiis_deyn_gaar");
+
+  test("the real step builder turns the custom config into a typed flow", () => {
+    let values = deserializeDraft(config, "{}");
+    values = setAnswer(values, "heshiiska", "reference", "DPN-DN-001");
+    const steps = buildConditionalWorkflow(config, values);
+    // Setup step first, the office's own sections in order.
+    const shorts = steps.map((s: { short: string }) => s.short);
+    expect(shorts.length).toBeGreaterThan(1);
+    expect(shorts).toContain("Xisbiga");
+    expect(shorts).toContain("Deynta Istyuu");
+    // The setup section closes the flow; the interview appends the review
+    // page itself (steps.length + 1), like every other document type.
+    expect(shorts.at(-1)).toBe("Heshiiska");
+  });
+
+  test("SectionStep renders the custom fields as real inputs", () => {
+    const section = config.sections.find((s) => s.id === "xisbiga")!;
+    const values = deserializeDraft(config, "{}");
+    const html = renderToStaticMarkup(
+      React.createElement(LanguageProvider, null,
+        React.createElement(SectionStep, {
+          step: { kind: "section", section },
+          values,
+          validation: {},
+          config,
+          setValues: () => undefined,
+        }),
+      ),
+    );
+    expect(html).toContain("Magaca Deynta");
+    expect(html).toContain("Qiimaha");
+    // Real inputs, rendered by the shared field renderer.
+    expect(html).toContain("<input");
+  });
+});
+
 /* ------------------------------------------------------------------ */
 /* Repeat lists — the office's own iibiyayaal/maragyada group            */
 /* ------------------------------------------------------------------ */
